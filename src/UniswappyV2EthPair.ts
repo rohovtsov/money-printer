@@ -1,7 +1,18 @@
 import * as _ from "lodash";
 import { BigNumber, Contract, providers } from "ethers";
-import { CallDetails, EthMarket, MultipleCallData, TokenBalances } from "./EthMarket";
-import { UNISWAP_PAIR_ABI, UNISWAP_QUERY_ABI, UNISWAP_LOOKUP_CONTRACT_ADDRESS, WETH_ADDRESS, ETHER } from "./entities";
+import { TokenBalances } from "./EthMarket";
+import {
+  UNISWAP_PAIR_ABI,
+  UNISWAP_QUERY_ABI,
+  UNISWAP_LOOKUP_CONTRACT_ADDRESS,
+  WETH_ADDRESS,
+  ETHER,
+  CallDetails, MultipleCallData,
+  EthMarket,
+  Address,
+  Protocol,
+  EthMarketFactory
+} from "./entities";
 import { MarketsByToken } from "./Arbitrage";
 
 // batch count limit helpful for testing, loading entire set of uniswap markets takes a long time to load
@@ -19,12 +30,15 @@ interface GroupedMarkets {
   allMarketPairs: Array<UniswappyV2EthPair>;
 }
 
-export class UniswappyV2EthPair extends EthMarket {
+export class UniswappyV2EthPair implements EthMarket {
   static uniswapInterface = new Contract(WETH_ADDRESS, UNISWAP_PAIR_ABI);
   private _tokenBalances: TokenBalances
 
-  constructor(marketAddress: string, tokens: Array<string>, protocol: string) {
-    super(marketAddress, tokens, protocol);
+  constructor(
+    public readonly marketAddress: Address,
+    public readonly tokens: [Address, Address],
+    public readonly protocol: Protocol
+  ) {
     this._tokenBalances = _.zipObject(tokens,[BigNumber.from(0), BigNumber.from(0)])
   }
 
@@ -159,14 +173,6 @@ export class UniswappyV2EthPair extends EthMarket {
   }
 
   async sellTokensToNextMarket(tokenIn: string, amountIn: BigNumber, ethMarket: EthMarket): Promise<MultipleCallData> {
-    if (ethMarket.receiveDirectly(tokenIn) === true) {
-      const exchangeCall = await this.sellTokens(tokenIn, amountIn, ethMarket.marketAddress)
-      return {
-        data: [exchangeCall],
-        targets: [this.marketAddress]
-      }
-    }
-
     const exchangeCall = await this.sellTokens(tokenIn, amountIn, ethMarket.marketAddress)
     return {
       data: [exchangeCall],

@@ -65,7 +65,7 @@ export function getBestCrossedMarket(crossedMarkets: Array<EthMarket>[], tokenAd
   return bestCrossedMarket;
 }
 
-export class Arbitrage {
+export class Arbitrage2 {
   private flashbotsProvider: FlashbotsBundleProvider;
   private bundleExecutorContract: Contract;
   private executorWallet: Wallet;

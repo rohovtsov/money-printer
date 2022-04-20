@@ -1,11 +1,20 @@
 import { FlashbotsBundleProvider } from "@flashbots/ethers-provider-bundle";
 import { Contract, providers, Wallet } from "ethers";
-import { BUNDLE_EXECUTOR_ABI } from "./entities";
+import {
+  BUNDLE_EXECUTOR_ABI,
+  EthMarket,
+  EthMarketFactory,
+  groupEthMarkets,
+  UNISWAP_V2_FACTORY_ADDRESSES, WETH_ADDRESS
+} from "./entities";
 import { UniswappyV2EthPair } from "./UniswappyV2EthPair";
-import { FACTORY_ADDRESSES } from "./entities";
-import { Arbitrage } from "./Arbitrage";
+import { Arbitrage2 } from "./Arbitrage2";
 import { get } from "https"
 import { getDefaultRelaySigningKey } from "./entities";
+import { UniswapV2MarketFactory } from './uniswap/uniswap-v2-market-factory';
+import { ArbitrageRunner } from './arbitrage-runner';
+import { TriangleArbitrageStrategy } from './triangle/triangle-arbitrage-strategy';
+import { WETH } from '@uniswap/sdk';
 
 // const ETHEREUM_RPC_URL = process.env.ETHEREUM_RPC_URL || "https://mainnet.infura.io/v3/08a6fc8910ca460e99dd411ec0286be6"
 // const PRIVATE_KEY = process.env.PRIVATE_KEY || ""
@@ -44,10 +53,25 @@ function healthcheck() {
 }
 
 async function main() {
+  //TODO: filter markets by reserves after retrieval
+  const factories: EthMarketFactory[] = UNISWAP_V2_FACTORY_ADDRESSES
+    .map(address => new UniswapV2MarketFactory(provider, address, 1, 5));
+  const markets: EthMarket[] = (await Promise.all(factories.map(factory => factory.getEthMarkets())))
+    .reduce((acc, markets) => [...acc, ...markets], []);
+  const groupedMarkets = groupEthMarkets(markets);
+
+  console.log(markets.length);
+
+  const runner = new ArbitrageRunner(markets, [
+    new TriangleArbitrageStrategy([WETH_ADDRESS], groupedMarkets)
+  ], provider);
+
+  runner.start();
+
   // console.log("Searcher Wallet Address: " + await arbitrageSigningWallet.getAddress())
   // console.log("Flashbots Relay Signing Wallet Address: " + await flashbotsRelaySigningWallet.getAddress())
   // const flashbotsProvider = await FlashbotsBundleProvider.create(provider, flashbotsRelaySigningWallet);
-  const arbitrage = new Arbitrage(
+  /*const arbitrage = new Arbitrage(
     // arbitrageSigningWallet
     // flashbotsProvider,
     // new Contract(BUNDLE_EXECUTOR_ADDRESS, BUNDLE_EXECUTOR_ABI, provider)
@@ -64,7 +88,7 @@ async function main() {
     bestCrossedMarkets.forEach(Arbitrage.printCrossedMarket);
     console.log(bestCrossedMarkets, blockNumber);
     // arbitrage.takeCrossedMarkets(bestCrossedMarkets, blockNumber, MINER_REWARD_PERCENTAGE).then(healthcheck).catch(console.error)
-  })
+  })*/
 }
 
 main();

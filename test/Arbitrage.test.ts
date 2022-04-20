@@ -1,6 +1,6 @@
 import { expect, use } from 'chai';
 import { solidity } from 'ethereum-waffle';
-import { Arbitrage, getBestCrossedMarket } from '../src/Arbitrage';
+import { Arbitrage2, getBestCrossedMarket } from '../src/Arbitrage';
 import { WETH_ADDRESS, ETHER } from '../src/entities';
 import { UniswappyV2EthPair } from '../src/UniswappyV2EthPair';
 import { BigNumber } from 'ethers';

@@ -1,0 +1,50 @@
+import { BigNumber } from 'ethers';
+
+export interface MultipleCallData {
+  targets: Array<string>;
+  data: Array<string>;
+}
+
+export interface CallData {
+  target: string;
+  data: string;
+}
+
+export interface CallDetails {
+  target: string;
+  data: string;
+  value?: BigNumber;
+}
+
+export type Address = string;
+export type Protocol = 'uniswapV2' | 'uniswapV3';
+export type MarketAction = 'buy' | 'sell';
+
+export type EthMarketsByToken = Record<Address, EthMarket[]>;
+export type GroupedEthMarkets = {
+  markets: EthMarket[];
+  marketsByToken: EthMarketsByToken;
+};
+
+export interface EthMarket {
+  tokens: [Address, Address];
+  marketAddress: Address;
+  protocol: Protocol;
+
+  calculateSwap(amount: BigNumber, action: MarketAction): BigNumber;
+
+  performSwap(amount: BigNumber, action: MarketAction): Promise<CallData>;
+}
+
+export function groupEthMarkets(markets: EthMarket[]): GroupedEthMarkets {
+  const marketsByToken = markets.reduce((acc, market) => {
+    (acc[market.tokens[0]] ?? (acc[market.tokens[0]] = [])).push(market);
+    (acc[market.tokens[1]] ?? (acc[market.tokens[1]] = [])).push(market);
+    return acc;
+  }, {} as EthMarketsByToken);
+
+  return {
+    markets,
+    marketsByToken,
+  };
+}
