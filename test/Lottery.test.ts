@@ -7,7 +7,7 @@ import { ethers } from 'hardhat';
 
 use(solidity);
 
-import { Lottery, Lottery__factory } from '../typechain-types';
+import { Lottery, Lottery__factory } from '../typechain-types/index';
 
 let lottery: Lottery;
 let signers: SignerWithAddress[];
