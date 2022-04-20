@@ -81,7 +81,7 @@ export class Arbitrage {
     const buyTokens = crossedMarket.buyFromMarket.tokens
     const sellTokens = crossedMarket.sellToMarket.tokens
     console.log(
-      `Profit: ${bigNumberToDecimal(crossedMarket.profit)} Volume: ${bigNumberToDecimal(crossedMarket.volume)}\n` +
+      `Profit: ${bigNumberToDecimal(crossedMarket.profit)} Volume: ${bigNumberToDecimal(crossedMarket.volume)} for token ${crossedMarket.tokenAddress}\n` +
       `${crossedMarket.buyFromMarket.protocol} (${crossedMarket.buyFromMarket.marketAddress})\n` +
       `  ${buyTokens[0]} => ${buyTokens[1]}\n` +
       `${crossedMarket.sellToMarket.protocol} (${crossedMarket.sellToMarket.marketAddress})\n` +
