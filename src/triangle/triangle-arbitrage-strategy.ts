@@ -7,83 +7,70 @@ import {
   groupEthMarkets, WETH_ADDRESS
 } from '../entities';
 
+
+
+type TrianglesByMarketAddress = Record<Address, Triangle[]>;
+
 interface Triangle {
   markets: [EthMarket, EthMarket, EthMarket];
 }
-//
-// export interface ArbitrageStrategy {
-//   findMarkets(changedMarkets: EthMarket, AllTriangles: EthMarket[];
-// }
 
 
-// только тут вставь адрес кефира
-const KEFIR_TOKEN = WETH_ADDRESS; // ADDRESS ВСТАВЬ
+export class TriangleArbitrageStrategy implements ArbitrageStrategy {
+  triangles: Triangle[];
+  trianglesByMarket: TrianglesByMarketAddress;
 
-
-function findMarkets2( allMarkets: GroupedEthMarkets): EthMarket[][]  {
-  const resultsMap = new Map();
-
-  for (let market1 of allMarkets.markets) {
-    for (let market2 of allMarkets.markets) {
-      for (let market3 of allMarkets.markets) {
-        if (market1 === market2 || market2 === market3 || market1 === market3) {
-          continue;
-        }
-        if (!market1.tokens.includes(KEFIR_TOKEN) || !market3.tokens.includes(KEFIR_TOKEN)) {
-          continue;
-        }
-        // if (market1 !== market2 && market2 !== market3 && market1 !== market3) {
-        //   if (market1.tokens.includes(KEFIR_TOKEN) && market3.tokens.includes(KEFIR_TOKEN)) {
-            const market1OtherToken = market1.tokens.find(t => t !== KEFIR_TOKEN);
-            const market3OtherToken = market3.tokens.find(t => t !== KEFIR_TOKEN);
-            // console.log('>>>>', market1OtherToken,  market3OtherToken) //
-            if (market1OtherToken && market3OtherToken && market1OtherToken !== market3OtherToken && market2.tokens.includes(market1OtherToken) && market2.tokens.includes(market3OtherToken)) {
-              const market2OtherToken = market2.tokens.find(t => t !== market1OtherToken && t != market3OtherToken);
-              if (market2OtherToken == null) {
-                // const resultKey = `${market1OtherToken}_${market3OtherToken}`;
-                const resultKey = [market1.marketAddress, market2.marketAddress, market3.marketAddress].sort().join('_');
-                // console.log(resultKey);
-/*
-                14: 2 > 63.4 > 62.1 > 54.2
-                15: 2 > 63.4 > 62.1 > 64.2
-                Они не одинаковые!!!!!
-                Цепочка токенов одинаковая
-                А цепочка рынков типо нет
-*/
-
-
-                if (!resultsMap.has(resultKey)) {
-                  resultsMap.set(resultKey, [market1, market2, market3]);
-                  // console.log('>>>', market1.tokens, market2.tokens, market3.tokens, market1OtherToken, market3OtherToken);
-                }
-              }
-            }
-          // }
-        // }
+  constructor(startingTokens: Address[], group: GroupedEthMarkets) {
+    this.triangles = createTriangles(startingTokens, group);
+    this.trianglesByMarket = this.triangles.reduce((acc, triangle) => {
+      for (const market of triangle.markets) {
+        (acc[market.marketAddress] ?? (acc[market.marketAddress] = [])).push(triangle);
       }
+      return acc;
+    }, {} as TrianglesByMarketAddress);
+  }
+
+  getArbitrageOpportunities(changedMarkets: EthMarket[], allMarkets: EthMarket[]): ArbitrageOpportunity[] {
+    const changedTriangles = filterChangedTriangles(changedMarkets, this.trianglesByMarket);
+    return changedTriangles.map(this.calculateOpportunity.bind(this)).filter(Boolean) as ArbitrageOpportunity[];
+  }
+
+  calculateOpportunity(triangle: Triangle): ArbitrageOpportunity | null {
+    //TODO: calculate opportunity
+    return null;
+  }
+}
+
+
+function filterChangedTriangles(changedMarkets: EthMarket[], trianglesByMarket: TrianglesByMarketAddress): Triangle[] {
+  const changedTriangles: Set<Triangle> = new Set<Triangle>();
+
+  for (const market of changedMarkets) {
+    const triangles = (trianglesByMarket[market.marketAddress] ?? []);
+
+    for (const triangle of triangles) {
+      changedTriangles.add(triangle);
     }
   }
 
-  return Array.from(resultsMap.values());
+  return Array.from(changedTriangles);
 }
 
-export function createTriangles(startingTokens: Address[], group: GroupedEthMarkets): EthMarket[][] {
-  const triangles: EthMarket[][] = [];
 
-/*
-  tokenA e group1 (with start)
-  tokenB e group2 (without start)
-  tokenC e group3 (group)
+/**
+ m1, m2, m3 = markets
+ group1 = group of markets with firstToken
+ group2 = group of markets without firstToken
 
-  [group1] => [group2] => [group3] => [group1]
-  tokenA => [....] => [.....] => tokenA
+ Triangle Schema:
+ tokenA => m1 => tokenB => m2 => tokenC => m3 => tokenA
 
-  m1 e group1 (with start)
-  m2 e group2 (without start)
-  m3 e group1 m1 !== m3
-
-  tokenA => m1 => tokenB => m2 => tokenC => m3 => tokenA
-*/
+ m1 e group1 (with start)
+ m2 e group2 (without start)
+ m3 e group1, but m3 !== m1
+ */
+function createTriangles(startingTokens: Address[], group: GroupedEthMarkets): Triangle[] {
+  const triangles: Triangle[] = [];
 
   for (const tokenA of startingTokens) {
     const group1 = groupEthMarkets(group.marketsByToken[tokenA]);
@@ -91,9 +78,6 @@ export function createTriangles(startingTokens: Address[], group: GroupedEthMark
       group.markets
         .filter((market => market.tokens[0] !== tokenA && market.tokens[1] !== tokenA))
     );
-
-    console.log(group1.markets.length);
-    console.log(group2.markets.length);
 
     for (const market1 of group1.markets) {
       const tokenB = market1.tokens[0] !== tokenA ? market1.tokens[0] : market1.tokens[1];
@@ -114,7 +98,7 @@ export function createTriangles(startingTokens: Address[], group: GroupedEthMark
             continue;
           }
 
-          triangles.push([market1, market2, market3]);
+          triangles.push({ markets: [market1, market2, market3] });
         }
       }
     }
@@ -123,8 +107,9 @@ export function createTriangles(startingTokens: Address[], group: GroupedEthMark
   return triangles;
 }
 
-function printTriangles(markets: EthMarket[][]) {
-  const allMarkets = markets.reduce((acc, i) => [...acc, ...i], [] as EthMarket[]);
+
+function printTriangles(markets: Triangle[]) {
+  const allMarkets = markets.reduce((acc, i) => [...acc, ...i.markets], [] as EthMarket[]);
   const allTokens = Object.keys(groupEthMarkets(allMarkets).marketsByToken);
 
   let id = 0;
@@ -145,44 +130,13 @@ function printTriangles(markets: EthMarket[][]) {
     let prevToken = WETH_ADDRESS;
     let label = dictionary[prevToken];
 
-    for (let j = 0; j < markets[i].length; j++) {
-      const market = markets[i][j];
+    for (let j = 0; j < markets[i].markets.length; j++) {
+      const market = markets[i].markets[j];
       let nextToken = market.tokens[0] !== prevToken ? market.tokens[0] : market.tokens[1];
       label += ` > ${dictionary[nextToken]} (${marketDictionary[market.marketAddress]})`;
       prevToken = nextToken;
     }
 
     console.log(`${i + 1}: ${label}`);
-  }
-}
-
-
-export class TriangleArbitrageStrategy implements ArbitrageStrategy {
-  triangles: Triangle[];
-
-  // все давай а не 300
-  // мы погибнем
-  // вот тебе 2173
-  // давай потестим 10 лучше
-  constructor(startingTokens: Address[], group: GroupedEthMarkets) {
-    console.time();
-    const triangles1 = createTriangles([WETH_ADDRESS], group);
-    console.log(triangles1.length);
-    printTriangles(triangles1);
-    console.timeEnd();
-
-    console.time();
-    const triangles2 = findMarkets2(group);
-    printTriangles(triangles2);
-    // где эта строка?
-
-    console.log('>>> triangles', triangles2.length, 'all counts', group.markets.length);
-    console.timeEnd();
-
-    this.triangles = [];
-  }
-
-  getArbitrageOpportunities(changedMarkets: EthMarket[], allMarkets: EthMarket[]): ArbitrageOpportunity[] {
-    return [];
   }
 }

@@ -7,8 +7,8 @@ import {
   groupEthMarkets,
   UNISWAP_V2_FACTORY_ADDRESSES, WETH_ADDRESS
 } from "./entities";
-import { UniswappyV2EthPair } from "./UniswappyV2EthPair";
-import { Arbitrage2 } from "./Arbitrage2";
+import { UniswappyV2EthPair } from "./old/UniswappyV2EthPair";
+import { Arbitrage2 } from "./old/Arbitrage2";
 import { get } from "https"
 import { getDefaultRelaySigningKey } from "./entities";
 import { UniswapV2MarketFactory } from './uniswap/uniswap-v2-market-factory';
@@ -54,8 +54,9 @@ function healthcheck() {
 
 async function main() {
   //TODO: filter markets by reserves after retrieval
+  //TODO: ensure all token addresses from different markets are checksumed
   const factories: EthMarketFactory[] = UNISWAP_V2_FACTORY_ADDRESSES
-    .map(address => new UniswapV2MarketFactory(provider, address, 1, 5));
+    .map(address => new UniswapV2MarketFactory(provider, address, 1, 1000));
   const markets: EthMarket[] = (await Promise.all(factories.map(factory => factory.getEthMarkets())))
     .reduce((acc, markets) => [...acc, ...markets], []);
   const groupedMarkets = groupEthMarkets(markets);

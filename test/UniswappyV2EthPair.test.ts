@@ -1,6 +1,6 @@
 import { expect, use } from 'chai';
 import { solidity } from 'ethereum-waffle';
-import { UniswappyV2EthPair } from '../src/UniswappyV2EthPair';
+import { UniswappyV2EthPair } from '../src/old/UniswappyV2EthPair';
 import { BigNumber } from 'ethers';
 import { WETH_ADDRESS, ETHER } from '../src/entities';
 

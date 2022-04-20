@@ -12,8 +12,8 @@ import {
   Address,
   Protocol,
   EthMarketFactory
-} from "./entities";
-import { MarketsByToken } from "./Arbitrage";
+} from "./../entities";
+import { MarketsByToken } from "./Arbitrage2";
 
 // batch count limit helpful for testing, loading entire set of uniswap markets takes a long time to load
 const BATCH_COUNT_LIMIT = 100;
