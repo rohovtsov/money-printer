@@ -1,9 +1,8 @@
 import * as _ from "lodash";
 import { BigNumber, Contract, Wallet } from "ethers";
 import { FlashbotsBundleProvider } from "@flashbots/ethers-provider-bundle";
-import { WETH_ADDRESS } from "./addresses";
+import { WETH_ADDRESS, ETHER, bigNumberToDecimal } from "./entities";
 import { EthMarket } from "./EthMarket";
-import { ETHER, bigNumberToDecimal } from "./utils";
 
 export interface CrossedMarketDetails {
   profit: BigNumber,

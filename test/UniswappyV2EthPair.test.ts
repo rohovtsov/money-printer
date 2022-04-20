@@ -1,9 +1,8 @@
 import { expect, use } from 'chai';
 import { solidity } from 'ethereum-waffle';
 import { UniswappyV2EthPair } from '../src/UniswappyV2EthPair';
-import { WETH_ADDRESS } from '../src/addresses';
 import { BigNumber } from 'ethers';
-import { ETHER } from '../src/utils';
+import { WETH_ADDRESS, ETHER } from '../src/entities';
 
 use(solidity);
 

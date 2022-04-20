@@ -1,9 +1,7 @@
 import * as _ from "lodash";
 import { BigNumber, Contract, providers } from "ethers";
-import { UNISWAP_PAIR_ABI, UNISWAP_QUERY_ABI } from "./abi";
-import { UNISWAP_LOOKUP_CONTRACT_ADDRESS, WETH_ADDRESS } from "./addresses";
 import { CallDetails, EthMarket, MultipleCallData, TokenBalances } from "./EthMarket";
-import { ETHER } from "./utils";
+import { UNISWAP_PAIR_ABI, UNISWAP_QUERY_ABI, UNISWAP_LOOKUP_CONTRACT_ADDRESS, WETH_ADDRESS, ETHER } from "./entities";
 import { MarketsByToken } from "./Arbitrage";
 
 // batch count limit helpful for testing, loading entire set of uniswap markets takes a long time to load

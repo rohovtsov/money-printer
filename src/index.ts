@@ -1,11 +1,11 @@
 import { FlashbotsBundleProvider } from "@flashbots/ethers-provider-bundle";
 import { Contract, providers, Wallet } from "ethers";
-import { BUNDLE_EXECUTOR_ABI } from "./abi";
+import { BUNDLE_EXECUTOR_ABI } from "./entities";
 import { UniswappyV2EthPair } from "./UniswappyV2EthPair";
-import { FACTORY_ADDRESSES } from "./addresses";
+import { FACTORY_ADDRESSES } from "./entities";
 import { Arbitrage } from "./Arbitrage";
 import { get } from "https"
-import { getDefaultRelaySigningKey } from "./utils";
+import { getDefaultRelaySigningKey } from "./entities";
 
 // const ETHEREUM_RPC_URL = process.env.ETHEREUM_RPC_URL || "https://mainnet.infura.io/v3/08a6fc8910ca460e99dd411ec0286be6"
 // const PRIVATE_KEY = process.env.PRIVATE_KEY || ""
