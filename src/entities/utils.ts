@@ -28,3 +28,16 @@ export function fromProviderEvent<T = unknown>(provider: providers.JsonRpcProvid
     }
   });
 }
+
+const TIMERS: Record<string, number> = {};
+
+export function startTime(slug: string = 'default'): void {
+  TIMERS[slug] = Date.now();
+}
+
+export function endTime(slug: string = 'default'): number {
+  const now = Date.now();
+  const res = now - (TIMERS[slug] ?? now);
+  TIMERS[slug] = Date.now();
+  return res;
+}

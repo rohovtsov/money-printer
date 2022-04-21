@@ -2,9 +2,9 @@ import { providers } from 'ethers';
 import {
   Address,
   ArbitrageOpportunity,
-  ArbitrageStrategy,
+  ArbitrageStrategy, endTime,
   EthMarket,
-  fromProviderEvent, printOpportunity,
+  fromProviderEvent, printOpportunity, startTime,
   UNISWAP_SYNC_EVENT_TOPIC
 } from './entities';
 import { UniswapV2ReservesSyncer } from './uniswap/uniswap-v2-reserves-syncer';
@@ -15,14 +15,13 @@ import { concatMap, from, map, Observable, startWith, tap } from 'rxjs';
 
 export class ArbitrageRunner {
   readonly marketsByAddress: Record<Address, EthMarket>;
-  readonly uniswapV2ReservesSyncer: UniswapV2ReservesSyncer;
 
   constructor(
     readonly markets: EthMarket[],
     readonly strategies: ArbitrageStrategy[],
+    readonly uniswapV2ReservesSyncer: UniswapV2ReservesSyncer,
     readonly provider: providers.JsonRpcProvider,
   ) {
-    this.uniswapV2ReservesSyncer = new UniswapV2ReservesSyncer(this.provider);
     this.marketsByAddress = this.markets.reduce((acc, market) => {
       acc[market.marketAddress] = market;
       return acc;
@@ -32,6 +31,9 @@ export class ArbitrageRunner {
   start(): Observable<ArbitrageOpportunity[]> {
     return fromProviderEvent<number>(this.provider, 'block').pipe(
       startWith(null),
+      tap((blockNumber) => {
+        console.log(`Block received: ${blockNumber ?? 'initial'}`);
+      }),
       concatMap((blockNumber: number | null) => from((async () => {
         const changedMarkets = blockNumber ? await loadChangedEthMarkets(this.provider, blockNumber, this.marketsByAddress) : this.markets;
         const uniswapV2Markets = changedMarkets.filter(market => market.protocol === 'uniswapV2') as UniswapV2Market[];
@@ -39,11 +41,12 @@ export class ArbitrageRunner {
         return changedMarkets;
       })())),
       map((changedMarkets: EthMarket[]) => {
+        startTime('render');
         return this.runStrategies(changedMarkets);
       }),
       tap((opportunities) => {
-        console.log(`Found opportunities: ${opportunities.length}`)
-        opportunities.forEach(printOpportunity);
+        console.log(`Found opportunities: ${opportunities.length} in ${endTime('render')}ms`)
+        opportunities.slice(0, 1).forEach(printOpportunity);
       }),
     );
   }

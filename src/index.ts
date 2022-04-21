@@ -15,6 +15,7 @@ import { UniswapV2MarketFactory } from './uniswap/uniswap-v2-market-factory';
 import { ArbitrageRunner } from './arbitrage-runner';
 import { TriangleArbitrageStrategy } from './triangle/triangle-arbitrage-strategy';
 import { WETH } from '@uniswap/sdk';
+import { UniswapV2ReservesSyncer } from './uniswap/uniswap-v2-reserves-syncer';
 
 // const ETHEREUM_RPC_URL = process.env.ETHEREUM_RPC_URL || "https://mainnet.infura.io/v3/08a6fc8910ca460e99dd411ec0286be6"
 // const PRIVATE_KEY = process.env.PRIVATE_KEY || ""
@@ -56,18 +57,23 @@ async function main() {
   //TODO: filter markets by reserves after retrieval
   //TODO: ensure all token addresses from different markets are checksumed
   const factories: EthMarketFactory[] = UNISWAP_V2_FACTORY_ADDRESSES
-    .map(address => new UniswapV2MarketFactory(provider, address, 1, 1000));
+    .map(address => new UniswapV2MarketFactory(provider, address, 1, 2000));
   const markets: EthMarket[] = (await Promise.all(factories.map(factory => factory.getEthMarkets())))
     .reduce((acc, markets) => [...acc, ...markets], []);
   const groupedMarkets = groupEthMarkets(markets);
 
   console.log(`Loaded markets: ${markets.length}`);
 
-  const runner = new ArbitrageRunner(markets, [
-    new TriangleArbitrageStrategy({
-      [WETH_ADDRESS]: [ETHER.div(100), ETHER.div(10), ETHER]
-    }, groupedMarkets)
-  ], provider);
+  const runner = new ArbitrageRunner(
+    markets,
+    [
+      new TriangleArbitrageStrategy({
+        [WETH_ADDRESS]: [ETHER.div(100), ETHER.div(10), ETHER]
+      }, groupedMarkets),
+    ],
+    new UniswapV2ReservesSyncer(provider, 5, 5000),
+    provider
+  );
 
   runner.start().subscribe();
 
