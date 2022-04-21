@@ -31,7 +31,9 @@ export interface EthMarket {
   marketAddress: Address;
   protocol: Protocol;
 
-  calculateSwap(amount: BigNumber, action: MarketAction): BigNumber;
+  calcTokensOut(action: MarketAction, amountIn: BigNumber): BigNumber | null;
+
+  calcTokensIn(action: MarketAction, amountOut: BigNumber): BigNumber | null;
 
   performSwap(amount: BigNumber, action: MarketAction): Promise<CallData>;
 }

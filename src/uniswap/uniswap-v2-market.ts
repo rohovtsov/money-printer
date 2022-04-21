@@ -14,16 +14,26 @@ export class UniswapV2Market implements EthMarket {
     this.calculator = SimpleUniswapV2Calculator;
   }
 
-  calculateSwap(amount: BigNumber, action: MarketAction): BigNumber {
+  calcTokensOut(action: MarketAction, amountIn: BigNumber): BigNumber | null {
     if (!this.reserves) {
       throw new Error('Reserves not supplied');
     }
 
-    if (action === 'sell') {
-      return this.calculator.getTokensOut(this.reserves[0], this.reserves[1], amount);
-    } else {
-      return this.calculator.getTokensIn(this.reserves[1], this.reserves[0], amount);
+    const reservesIn = action === 'sell' ? this.reserves[0] : this.reserves[1];
+    const reservesOut = action === 'sell' ? this.reserves[1] : this.reserves[0];
+
+    return this.calculator.getTokensOut(reservesIn, reservesOut, amountIn);
+  }
+
+  calcTokensIn(action: MarketAction, amountOut: BigNumber): BigNumber | null {
+    if (!this.reserves) {
+      throw new Error('Reserves not supplied');
     }
+
+    const reservesIn = action === 'sell' ? this.reserves[0] : this.reserves[1];
+    const reservesOut = action === 'sell' ? this.reserves[1] : this.reserves[0];
+
+    return this.calculator.getTokensIn(reservesIn, reservesOut, amountOut);
   }
 
   performSwap(amount: BigNumber, action: MarketAction): Promise<CallData> {

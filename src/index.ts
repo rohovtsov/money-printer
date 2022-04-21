@@ -1,7 +1,7 @@
 import { FlashbotsBundleProvider } from "@flashbots/ethers-provider-bundle";
 import { Contract, providers, Wallet } from "ethers";
 import {
-  BUNDLE_EXECUTOR_ABI,
+  BUNDLE_EXECUTOR_ABI, ETHER,
   EthMarket,
   EthMarketFactory,
   groupEthMarkets,
@@ -61,13 +61,15 @@ async function main() {
     .reduce((acc, markets) => [...acc, ...markets], []);
   const groupedMarkets = groupEthMarkets(markets);
 
-  console.log(markets.length);
+  console.log(`Loaded markets: ${markets.length}`);
 
   const runner = new ArbitrageRunner(markets, [
-    new TriangleArbitrageStrategy([WETH_ADDRESS], groupedMarkets)
+    new TriangleArbitrageStrategy({
+      [WETH_ADDRESS]: [ETHER.div(100), ETHER.div(10), ETHER]
+    }, groupedMarkets)
   ], provider);
 
-  runner.start();
+  runner.start().subscribe();
 
   // console.log("Searcher Wallet Address: " + await arbitrageSigningWallet.getAddress())
   // console.log("Flashbots Relay Signing Wallet Address: " + await flashbotsRelaySigningWallet.getAddress())

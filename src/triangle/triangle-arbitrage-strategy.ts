@@ -4,24 +4,29 @@ import {
   ArbitrageStrategy,
   EthMarket,
   GroupedEthMarkets,
-  groupEthMarkets, WETH_ADDRESS
+  groupEthMarkets, MarketAction, WETH_ADDRESS
 } from '../entities';
+import { BigNumber } from 'ethers';
 
 
+export type TriangleStartOptions = Record<Address, BigNumber[]>;
 
 type TrianglesByMarketAddress = Record<Address, Triangle[]>;
 
 interface Triangle {
   markets: [EthMarket, EthMarket, EthMarket];
+  actions: [MarketAction, MarketAction, MarketAction];
+  startToken: Address;
 }
 
-
 export class TriangleArbitrageStrategy implements ArbitrageStrategy {
+  options: TriangleStartOptions;
   triangles: Triangle[];
   trianglesByMarket: TrianglesByMarketAddress;
 
-  constructor(startingTokens: Address[], group: GroupedEthMarkets) {
-    this.triangles = createTriangles(startingTokens, group);
+  constructor(options: TriangleStartOptions, group: GroupedEthMarkets) {
+    this.options = options;
+    this.triangles = createTriangles(Object.keys(options), group);
     this.trianglesByMarket = this.triangles.reduce((acc, triangle) => {
       for (const market of triangle.markets) {
         (acc[market.marketAddress] ?? (acc[market.marketAddress] = [])).push(triangle);
@@ -32,12 +37,51 @@ export class TriangleArbitrageStrategy implements ArbitrageStrategy {
 
   getArbitrageOpportunities(changedMarkets: EthMarket[], allMarkets: EthMarket[]): ArbitrageOpportunity[] {
     const changedTriangles = filterChangedTriangles(changedMarkets, this.trianglesByMarket);
+    console.log(`Changed markets: ${changedMarkets.length}, changed triangles ${changedTriangles.length}`);
     return changedTriangles.map(this.calculateOpportunity.bind(this)).filter(Boolean) as ArbitrageOpportunity[];
   }
 
   calculateOpportunity(triangle: Triangle): ArbitrageOpportunity | null {
-    //TODO: calculate opportunity
-    return null;
+    return this.options[triangle.startToken].reduce((acc, startAmount) => {
+      const opportunity = this.calculateOpportunityForAmount(triangle, startAmount);
+
+      if (opportunity && (!acc || opportunity.profit.gt(acc.profit))) {
+        acc = opportunity;
+      }
+
+      return acc;
+    }, null as (ArbitrageOpportunity | null));
+  }
+
+  calculateOpportunityForAmount(triangle: Triangle, startAmount: BigNumber): ArbitrageOpportunity | null {
+    const amounts: BigNumber[] = [startAmount];
+    let amount: BigNumber = startAmount;
+
+    for (let i = 0; i < triangle.markets.length; i++) {
+      const market = triangle.markets[i];
+      const action = triangle.actions[i];
+      const nextAmount = market.calcTokensOut(action, amount);
+
+      if (nextAmount !== null) {
+        amount = nextAmount;
+        amounts.push(nextAmount);
+      } else {
+        return null;
+      }
+    }
+
+    if (!amount.gt(startAmount)) {
+      return null;
+    }
+
+    return {
+      strategyName: 'triangle',
+      operations: triangle.markets.map((market, id) => {
+        return { market, amountIn: amounts[id], amountOut: amounts[id + 1], action: triangle.actions[id] };
+      }),
+      profit: amount.sub(startAmount),
+      startToken: triangle.startToken,
+    };
   }
 }
 
@@ -98,7 +142,15 @@ function createTriangles(startingTokens: Address[], group: GroupedEthMarkets): T
             continue;
           }
 
-          triangles.push({ markets: [market1, market2, market3] });
+          triangles.push({
+            startToken: tokenA,
+            markets: [market1, market2, market3],
+            actions: [
+              market1.tokens[0] === tokenA ? 'sell' : 'buy',
+              market2.tokens[0] === tokenB ? 'sell' : 'buy',
+              market3.tokens[0] === tokenC ? 'sell' : 'buy',
+            ],
+          });
         }
       }
     }
@@ -124,7 +176,6 @@ function printTriangles(markets: Triangle[]) {
     acc[address] = `M${++id}`;
     return acc;
   }, {} as Record<Address, string>);
-
 
   for (let i = 0; i < markets.length; i++) {
     let prevToken = WETH_ADDRESS;

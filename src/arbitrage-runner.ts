@@ -1,13 +1,20 @@
 import { providers } from 'ethers';
-import { Address, ArbitrageStrategy, EthMarket, UNISWAP_SYNC_EVENT_TOPIC } from './entities';
+import {
+  Address,
+  ArbitrageOpportunity,
+  ArbitrageStrategy,
+  EthMarket,
+  fromProviderEvent, printOpportunity,
+  UNISWAP_SYNC_EVENT_TOPIC
+} from './entities';
 import { UniswapV2ReservesSyncer } from './uniswap/uniswap-v2-reserves-syncer';
 import { UniswapV2Market } from './uniswap/uniswap-v2-market';
+import { concatMap, from, map, Observable, startWith, tap } from 'rxjs';
 
 
 
 export class ArbitrageRunner {
   readonly marketsByAddress: Record<Address, EthMarket>;
-  readonly uniswapV2Markets: UniswapV2Market[];
   readonly uniswapV2ReservesSyncer: UniswapV2ReservesSyncer;
 
   constructor(
@@ -16,24 +23,39 @@ export class ArbitrageRunner {
     readonly provider: providers.JsonRpcProvider,
   ) {
     this.uniswapV2ReservesSyncer = new UniswapV2ReservesSyncer(this.provider);
-    this.uniswapV2Markets = this.markets.filter(market => market.protocol === 'uniswapV2') as UniswapV2Market[];
     this.marketsByAddress = this.markets.reduce((acc, market) => {
       acc[market.marketAddress] = market;
       return acc;
     }, {} as Record<Address, EthMarket>)
   }
 
-  start() {
-    //TODO: May be executed in an incorrect order. Use switchMap here.
-    this.provider.on('block', async (blockNumber) => {
-      const changedMarkets = await loadChangedEthMarkets(this.provider, blockNumber, this.marketsByAddress);
-      await this.uniswapV2ReservesSyncer.syncReserves(this.uniswapV2Markets);
+  start(): Observable<ArbitrageOpportunity[]> {
+    return fromProviderEvent<number>(this.provider, 'block').pipe(
+      startWith(null),
+      concatMap((blockNumber: number | null) => from((async () => {
+        const changedMarkets = blockNumber ? await loadChangedEthMarkets(this.provider, blockNumber, this.marketsByAddress) : this.markets;
+        const uniswapV2Markets = changedMarkets.filter(market => market.protocol === 'uniswapV2') as UniswapV2Market[];
+        await this.uniswapV2ReservesSyncer.syncReserves(uniswapV2Markets);
+        return changedMarkets;
+      })())),
+      map((changedMarkets: EthMarket[]) => {
+        return this.runStrategies(changedMarkets);
+      }),
+      tap((opportunities) => {
+        console.log(`Found opportunities: ${opportunities.length}`)
+        opportunities.forEach(printOpportunity);
+      }),
+    );
+  }
 
-      this.strategies.map(strategy => {
+  runStrategies(changedMarkets: EthMarket[]): ArbitrageOpportunity[] {
+    return this.strategies
+      .reduce((acc, strategy) => {
         const opportunities = strategy.getArbitrageOpportunities(changedMarkets, this.markets);
-        console.log(opportunities);
-      });
-    });
+        acc.push(...opportunities);
+        return acc;
+      }, [] as ArbitrageOpportunity[])
+      .sort((a, b) => a.profit.lt(b.profit) ? 1 : a.profit.gt(b.profit) ? -1 : 0);
   }
 }
 

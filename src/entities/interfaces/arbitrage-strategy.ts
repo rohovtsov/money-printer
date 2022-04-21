@@ -1,10 +1,10 @@
-import { EthMarket, MarketAction } from './eth-market';
+import { Address, EthMarket, MarketAction } from './eth-market';
 import { BigNumber } from 'ethers';
 
 export type ArbitrageStrategyName = 'triangle';
 
-export interface ArbitrageAction {
-  market: EthMarket[];
+export interface ArbitrageOperation {
+  market: EthMarket;
   amountIn: BigNumber;
   amountOut: BigNumber;
   action: MarketAction;
@@ -12,8 +12,9 @@ export interface ArbitrageAction {
 
 export interface ArbitrageOpportunity {
   strategyName: ArbitrageStrategyName;
-  actions: ArbitrageAction[];
-  profitEth: BigNumber;
+  operations: ArbitrageOperation[];
+  startToken: Address;
+  profit: BigNumber;
 }
 
 export interface ArbitrageStrategy {

@@ -1,6 +1,7 @@
 export * from './abi';
 export * from './addresses';
 export * from './utils';
+export * from './print-utils';
 export * from './topics';
 export * from './interfaces/eth-market';
 export * from './interfaces/eth-market-factory';
