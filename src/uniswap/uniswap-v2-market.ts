@@ -1,6 +1,6 @@
 import { BigNumber } from 'ethers';
 import { Address, CallData, EthMarket, MarketAction, PriceCalculator } from '../entities';
-import { SimpleUniswapV2Calculator } from './uniswap-v2-price-calculator';
+import { SdkUniswapV2Calculator } from './uniswap-v2-price-calculator';
 
 export class UniswapV2Market implements EthMarket {
   readonly protocol = 'uniswapV2';
@@ -11,7 +11,7 @@ export class UniswapV2Market implements EthMarket {
     readonly marketAddress: Address,
     readonly tokens: [Address, Address],
   ) {
-    this.calculator = SimpleUniswapV2Calculator;
+    this.calculator = SdkUniswapV2Calculator;
   }
 
   calcTokensOut(action: MarketAction, amountIn: BigNumber): BigNumber | null {

@@ -57,7 +57,7 @@ async function main() {
   //TODO: filter markets by reserves after retrieval
   //TODO: ensure all token addresses from different markets are checksumed
   const factories: EthMarketFactory[] = UNISWAP_V2_FACTORY_ADDRESSES
-    .map(address => new UniswapV2MarketFactory(provider, address, 1, 2000));
+    .map(address => new UniswapV2MarketFactory(provider, address, 5, 1000));
   const markets: EthMarket[] = (await Promise.all(factories.map(factory => factory.getEthMarkets())))
     .reduce((acc, markets) => [...acc, ...markets], []);
   const groupedMarkets = groupEthMarkets(markets);
@@ -68,7 +68,7 @@ async function main() {
     markets,
     [
       new TriangleArbitrageStrategy({
-        [WETH_ADDRESS]: [ETHER.div(100), ETHER.div(10), ETHER]
+        [WETH_ADDRESS]: [ETHER.mul(100), ETHER.mul(10), ETHER]
       }, groupedMarkets),
     ],
     new UniswapV2ReservesSyncer(provider, 5, 5000),
