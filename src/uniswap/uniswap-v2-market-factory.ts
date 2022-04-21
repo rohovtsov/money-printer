@@ -1,39 +1,32 @@
 import {
   Address,
-  EthMarketFactory,
-  UNISWAP_LOOKUP_CONTRACT_ADDRESS,
-  UNISWAP_QUERY_ABI,
+  EthMarketFactory, getLogsRegressive, mergeLogPacks, PairCreatedEvent, parsePairCreatedLog,
+  UNISWAP_PAIR_CREATED_EVENT_TOPIC,
 } from '../entities';
 import { UniswapV2Market } from './uniswap-v2-market';
-import { Contract, providers } from 'ethers';
+import { providers } from 'ethers';
+import { lastValueFrom } from 'rxjs';
 
 export class UniswapV2MarketFactory implements EthMarketFactory {
   constructor(
     readonly provider: providers.JsonRpcProvider,
     readonly factoryAddress: Address,
-    readonly batchCountLimit: number,
-    readonly batchSize: number,
+    readonly toBlock: number,
   ) { }
 
   async getEthMarkets(): Promise<UniswapV2Market[]> {
-    const uniswapQuery = new Contract(UNISWAP_LOOKUP_CONTRACT_ADDRESS, UNISWAP_QUERY_ABI, this.provider);
+    const pack = await lastValueFrom(getLogsRegressive(this.provider, {
+      fromBlock: 0,
+      toBlock: this.toBlock,
+      topics: [
+        UNISWAP_PAIR_CREATED_EVENT_TOPIC
+      ],
+      address: this.factoryAddress
+    }).pipe(mergeLogPacks()));
 
-    const marketPairs = new Array<UniswapV2Market>();
-    for (let i = 0; i < this.batchCountLimit * this.batchSize; i += this.batchSize) {
-      const pairs: Array<Array<string>> = (await uniswapQuery.functions.getPairsByIndexRange(this.factoryAddress, i, i + this.batchSize))[0];
-
-      for (let i = 0; i < pairs.length; i++) {
-        const pair = pairs[i];
-        const marketAddress = pair[2];
-        const market = new UniswapV2Market(marketAddress, [pair[0], pair[1]]);
-        marketPairs.push(market);
-      }
-
-      if (pairs.length < this.batchSize) {
-        break;
-      }
-    }
-
-    return marketPairs;
+    return pack.logs.map(log => {
+      const event = parsePairCreatedLog(log) as PairCreatedEvent;
+      return new UniswapV2Market(event.pair, [event.token0, event.token1]);
+    });
   }
 }

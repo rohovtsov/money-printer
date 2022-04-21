@@ -5,7 +5,7 @@ import {
   EthMarket,
   EthMarketFactory,
   groupEthMarkets,
-  UNISWAP_V2_FACTORY_ADDRESSES, WETH_ADDRESS
+  UNISWAP_V2_FACTORY_ADDRESSES, UNISWAP_V3_FACTORY_ADDRESS, WETH_ADDRESS
 } from "./entities";
 import { UniswappyV2EthPair } from "./old/UniswappyV2EthPair";
 import { Arbitrage2 } from "./old/Arbitrage2";
@@ -16,6 +16,7 @@ import { ArbitrageRunner } from './arbitrage-runner';
 import { TriangleArbitrageStrategy } from './triangle/triangle-arbitrage-strategy';
 import { WETH } from '@uniswap/sdk';
 import { UniswapV2ReservesSyncer } from './uniswap/uniswap-v2-reserves-syncer';
+import { UniswapV3MarketFactory } from './uniswap/uniswap-v3-market-factory';
 
 // const ETHEREUM_RPC_URL = process.env.ETHEREUM_RPC_URL || "https://mainnet.infura.io/v3/08a6fc8910ca460e99dd411ec0286be6"
 // const PRIVATE_KEY = process.env.PRIVATE_KEY || ""
@@ -56,8 +57,12 @@ function healthcheck() {
 async function main() {
   //TODO: filter markets by reserves after retrieval
   //TODO: ensure all token addresses from different markets are checksumed
-  const factories: EthMarketFactory[] = UNISWAP_V2_FACTORY_ADDRESSES
-    .map(address => new UniswapV2MarketFactory(provider, address, 5, 1000));
+  const LAST_BLOCK = 20000000;
+  const factories: EthMarketFactory[] = [
+    ...UNISWAP_V2_FACTORY_ADDRESSES.map(address => new UniswapV2MarketFactory(provider, address, LAST_BLOCK)),
+    new UniswapV3MarketFactory(provider, UNISWAP_V3_FACTORY_ADDRESS, LAST_BLOCK)
+  ];
+
   const markets: EthMarket[] = (await Promise.all(factories.map(factory => factory.getEthMarkets())))
     .reduce((acc, markets) => [...acc, ...markets], []);
   const groupedMarkets = groupEthMarkets(markets);

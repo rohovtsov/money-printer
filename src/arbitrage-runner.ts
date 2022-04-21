@@ -4,7 +4,7 @@ import {
   ArbitrageOpportunity,
   ArbitrageStrategy, endTime,
   EthMarket,
-  fromProviderEvent, printOpportunity, startTime,
+  fromProviderEvent, printOpportunity, startTime, UNISWAP_POOL_EVENT_TOPICS,
   UNISWAP_SYNC_EVENT_TOPIC
 } from './entities';
 import { UniswapV2ReservesSyncer } from './uniswap/uniswap-v2-reserves-syncer';
@@ -29,6 +29,8 @@ export class ArbitrageRunner {
   }
 
   start(): Observable<ArbitrageOpportunity[]> {
+    //TODO: sync reserves isn't synchronized with blockNumber.
+
     return fromProviderEvent<number>(this.provider, 'block').pipe(
       startWith(null),
       tap((blockNumber) => {
@@ -45,8 +47,8 @@ export class ArbitrageRunner {
         return this.runStrategies(changedMarkets);
       }),
       tap((opportunities) => {
-        console.log(`Found opportunities: ${opportunities.length} in ${endTime('render')}ms`)
-        opportunities.forEach(printOpportunity);
+        console.log(`Found opportunities: ${opportunities.length} in ${endTime('render')}ms\n`)
+        opportunities.slice(0, 5).forEach(printOpportunity);
       }),
     );
   }
@@ -66,12 +68,15 @@ export class ArbitrageRunner {
 function loadChangedEthMarkets(
   provider: providers.JsonRpcProvider, blockNumber: number, marketsByAddress: Record<Address, EthMarket>
 ): Promise<EthMarket[]> {
+  const indicatorTopics = new Set<string>([...UNISWAP_POOL_EVENT_TOPICS, UNISWAP_SYNC_EVENT_TOPIC]);
+
   return provider.getLogs({
     fromBlock: blockNumber,
     toBlock: blockNumber,
   }).then(logs => {
-    const uniswapV2SyncLogs = logs.filter(log => log.topics.includes(UNISWAP_SYNC_EVENT_TOPIC));
-    const changedAddresses = uniswapV2SyncLogs.map(log => log.address);
+    const changedAddresses = logs
+      .filter(log => log.topics.some(topic => indicatorTopics.has(topic)))
+      .map(log => log.address);
 
     return changedAddresses.reduce((acc, address) => {
       if (marketsByAddress[address]) {
