@@ -11,7 +11,7 @@ const TOKEN_ADDRESS = '0x000000000000000000000000000000000000000a';
 const PROTOCOL_NAME = 'TEST';
 
 describe('UniswappyV2EthPair', function () {
-  let wethPair: UniswappyV2EthPair;
+/*  let wethPair: UniswappyV2EthPair;
   beforeEach(() => {
     wethPair = new UniswappyV2EthPair(MARKET_ADDRESS, [TOKEN_ADDRESS, WETH_ADDRESS], PROTOCOL_NAME);
     wethPair.setReservesViaOrderedBalances([ETHER, ETHER.mul(2)]);
@@ -35,5 +35,5 @@ describe('UniswappyV2EthPair', function () {
     expect(
       wethPair.getTokensOut(WETH_ADDRESS, TOKEN_ADDRESS, BigNumber.from('222890894906943052')),
     ).to.equal(ETHER.div(10));
-  });
+  });*/
 });
