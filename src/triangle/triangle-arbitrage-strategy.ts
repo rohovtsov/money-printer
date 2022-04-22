@@ -4,7 +4,7 @@ import {
   ArbitrageStrategy,
   EthMarket,
   GroupedEthMarkets,
-  groupEthMarkets, MarketAction, WETH_ADDRESS
+  groupEthMarkets, MarketAction, printOpportunity, WETH_ADDRESS
 } from '../entities';
 import { BigNumber } from 'ethers';
 
@@ -57,6 +57,8 @@ export class TriangleArbitrageStrategy implements ArbitrageStrategy {
     const amounts: BigNumber[] = [startAmount];
     let amount: BigNumber = startAmount;
 
+    //console.log(triangle.actions, startAmount?.toString());
+
     for (let i = 0; i < triangle.markets.length; i++) {
       const market = triangle.markets[i];
       const action = triangle.actions[i];
@@ -69,6 +71,16 @@ export class TriangleArbitrageStrategy implements ArbitrageStrategy {
         return null;
       }
     }
+
+    /*console.log(Number(amount?.toString()) / (10**18), Number(startAmount?.toString()) / (10**18))
+    printOpportunity({
+      strategyName: 'triangle',
+      operations: triangle.markets.map((market, id) => {
+        return { market, amountIn: amounts[id], amountOut: amounts[id + 1], action: triangle.actions[id] };
+      }),
+      profit: amount.sub(startAmount),
+      startToken: triangle.startToken,
+    });*/
 
     if (!amount.gt(startAmount)) {
       return null;

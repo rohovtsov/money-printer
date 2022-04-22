@@ -14,11 +14,11 @@ export class UniswapV2ReservesSyncer {
 
   async syncReserves(markets: UniswapV2Market[]): Promise<void> {
     if (markets.length === 0) {
-      console.log(`Sync skipped`);
+      console.log(`Sync V2 skipped`);
       return Promise.resolve();
     }
 
-    startTime('sync');
+    startTime('syncV2');
 
     const request$ = from(this.splitMarketsIntoBatches(markets)).pipe(
       mergeMap(marketsBatch => {
@@ -26,7 +26,7 @@ export class UniswapV2ReservesSyncer {
       }, this.parallelCount),
       last(),
       tap(() => {
-        console.log(`Synced total: ${markets.length} markets in ${endTime('sync')}ms`);
+        console.log(`Sync V2 complete: ${markets.length} markets in ${endTime('syncV2')}ms`);
       })
     );
 

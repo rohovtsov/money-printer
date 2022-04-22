@@ -43,10 +43,17 @@
   },
   "dependencies": {
     "@flashbots/ethers-provider-bundle": "^0.3.1",
+    "@thanpolas/univ3prices": "^3.0.2",
     "@uniswap/sdk": "^3.0.3",
+    "@uniswap/sdk-core": "^3.0.1",
+    "@uniswap/v3-periphery": "^1.4.0",
+    "@uniswap/v3-sdk": "^3.8.2",
+    "apollo-boost": "^0.4.9",
     "eth-log-parser": "^0.1.0",
     "ethereum-checksum-address": "^0.0.8",
+    "graphql-tag": "^2.12.6",
     "lodash": "^4.17.21",
+    "node-fetch": "^1.7.3",
     "rxjs": "^7.5.5",
     "ts-node": "^9.1.0",
     "typescript": "4.6.3"

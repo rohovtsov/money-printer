@@ -17,6 +17,7 @@ import { TriangleArbitrageStrategy } from './triangle/triangle-arbitrage-strateg
 import { WETH } from '@uniswap/sdk';
 import { UniswapV2ReservesSyncer } from './uniswap/uniswap-v2-reserves-syncer';
 import { UniswapV3MarketFactory } from './uniswap/uniswap-v3-market-factory';
+import { UniswapV3PoolStateSyncer } from './uniswap/uniswap-v3-pool-state-syncer';
 
 // const ETHEREUM_RPC_URL = process.env.ETHEREUM_RPC_URL || "https://mainnet.infura.io/v3/08a6fc8910ca460e99dd411ec0286be6"
 // const PRIVATE_KEY = process.env.PRIVATE_KEY || ""
@@ -59,7 +60,7 @@ async function main() {
   //TODO: ensure all token addresses from different markets are checksumed
   const LAST_BLOCK = 20000000;
   const factories: EthMarketFactory[] = [
-    ...UNISWAP_V2_FACTORY_ADDRESSES.map(address => new UniswapV2MarketFactory(provider, address, LAST_BLOCK)),
+    //...UNISWAP_V2_FACTORY_ADDRESSES.map(address => new UniswapV2MarketFactory(provider, address, LAST_BLOCK)),
     new UniswapV3MarketFactory(provider, UNISWAP_V3_FACTORY_ADDRESS, LAST_BLOCK)
   ];
 
@@ -73,10 +74,11 @@ async function main() {
     markets,
     [
       new TriangleArbitrageStrategy({
-        [WETH_ADDRESS]: [ETHER.mul(100), ETHER.mul(10), ETHER]
+        [WETH_ADDRESS]: [ETHER.mul(100)],//, ETHER.mul(10), ETHER]
       }, groupedMarkets),
     ],
     new UniswapV2ReservesSyncer(provider, 5, 5000),
+    new UniswapV3PoolStateSyncer(provider, 1000),
     provider
   );
 

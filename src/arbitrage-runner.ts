@@ -10,6 +10,8 @@ import {
 import { UniswapV2ReservesSyncer } from './uniswap/uniswap-v2-reserves-syncer';
 import { UniswapV2Market } from './uniswap/uniswap-v2-market';
 import { concatMap, from, map, Observable, startWith, tap } from 'rxjs';
+import { UniswapV3PoolStateSyncer } from './uniswap/uniswap-v3-pool-state-syncer';
+import { UniswapV3Market } from './uniswap/uniswap-v3-market';
 
 
 
@@ -19,7 +21,8 @@ export class ArbitrageRunner {
   constructor(
     readonly markets: EthMarket[],
     readonly strategies: ArbitrageStrategy[],
-    readonly uniswapV2ReservesSyncer: UniswapV2ReservesSyncer,
+    readonly uniswapV2Syncer: UniswapV2ReservesSyncer,
+    readonly uniswapV3Syncer: UniswapV3PoolStateSyncer,
     readonly provider: providers.JsonRpcProvider,
   ) {
     this.marketsByAddress = this.markets.reduce((acc, market) => {
@@ -39,7 +42,9 @@ export class ArbitrageRunner {
       concatMap((blockNumber: number | null) => from((async () => {
         const changedMarkets = blockNumber ? await loadChangedEthMarkets(this.provider, blockNumber, this.marketsByAddress) : this.markets;
         const uniswapV2Markets = changedMarkets.filter(market => market.protocol === 'uniswapV2') as UniswapV2Market[];
-        await this.uniswapV2ReservesSyncer.syncReserves(uniswapV2Markets);
+        const uniswapV3Markets = changedMarkets.filter(market => market.protocol === 'uniswapV3') as UniswapV3Market[];
+        await this.uniswapV2Syncer.syncReserves(uniswapV2Markets);
+        await this.uniswapV3Syncer.syncPoolStates(uniswapV3Markets);
         return changedMarkets;
       })())),
       map((changedMarkets: EthMarket[]) => {

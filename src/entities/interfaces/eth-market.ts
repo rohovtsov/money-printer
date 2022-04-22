@@ -20,10 +20,10 @@ export type Address = string;
 export type Protocol = 'uniswapV2' | 'uniswapV3';
 export type MarketAction = 'buy' | 'sell';
 
-export type EthMarketsByToken = Record<Address, EthMarket[]>;
-export type GroupedEthMarkets = {
-  markets: EthMarket[];
-  marketsByToken: EthMarketsByToken;
+export type EthMarketsByToken<T extends EthMarket = EthMarket> = Record<Address, T[]>;
+export type GroupedEthMarkets<T extends EthMarket = EthMarket> = {
+  markets: T[];
+  marketsByToken: EthMarketsByToken<T>;
 };
 
 export interface EthMarket {
