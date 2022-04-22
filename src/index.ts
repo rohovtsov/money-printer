@@ -43,7 +43,7 @@ import { UniswapV3PoolStateSyncer } from './uniswap/uniswap-v3-pool-state-syncer
 
 const HEALTHCHECK_URL = process.env.HEALTHCHECK_URL || ""
 
-const provider = new providers.InfuraProvider('homestead', '08a6fc8910ca460e99dd411ec0286be6');
+const provider = new providers.InfuraProvider('ropsten', '8ac04e84ff9e4fd19db5bfa857b90a92');
 
 // const arbitrageSigningWallet = new Wallet(PRIVATE_KEY);
 // const flashbotsRelaySigningWallet = new Wallet(FLASHBOTS_RELAY_SIGNING_KEY);
