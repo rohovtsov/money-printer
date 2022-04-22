@@ -668,3 +668,41 @@ export const UNISWAP_V3_QUOTER_ABI = [
     "type": "function"
   }
 ];
+
+export const PRINTER_QUERY_ABI = [
+  {
+    "inputs": [
+      {
+        "internalType": "contract IQuoter",
+        "name": "_quoter",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "contract IUniswapV3Pool[]",
+        "name": "pools",
+        "type": "address[]"
+      },
+      {
+        "internalType": "uint256[]",
+        "name": "amounts",
+        "type": "uint256[]"
+      }
+    ],
+    "name": "getPricesForPools",
+    "outputs": [
+      {
+        "internalType": "uint256[2][][]",
+        "name": "",
+        "type": "uint256[2][][]"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+];

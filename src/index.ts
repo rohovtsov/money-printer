@@ -1,11 +1,20 @@
 import { FlashbotsBundleProvider } from "@flashbots/ethers-provider-bundle";
 import { Contract, providers, Wallet } from "ethers";
 import {
-  BUNDLE_EXECUTOR_ABI, ETHER,
+  BUNDLE_EXECUTOR_ABI,
+  endTime,
+  ETHER,
   EthMarket,
   EthMarketFactory,
-  groupEthMarkets,
-  UNISWAP_V2_FACTORY_ADDRESSES, UNISWAP_V3_FACTORY_ADDRESS, WETH_ADDRESS
+  groupEthMarkets, GWEI,
+  PRINTER_QUERY_ABI,
+  PRINTER_QUERY_ADDRESS,
+  startTime,
+  UNISWAP_V2_FACTORY_ADDRESSES,
+  UNISWAP_V3_FACTORY_ADDRESS,
+  UNISWAP_V3_QUOTER_ABI,
+  UNISWAP_V3_QUOTER_ADDRESS,
+  WETH_ADDRESS
 } from "./entities";
 import { UniswappyV2EthPair } from "./old/UniswappyV2EthPair";
 import { Arbitrage2 } from "./old/Arbitrage2";
@@ -48,12 +57,7 @@ const provider = new providers.InfuraProvider('ropsten', '8ac04e84ff9e4fd19db5bf
 // const arbitrageSigningWallet = new Wallet(PRIVATE_KEY);
 // const flashbotsRelaySigningWallet = new Wallet(FLASHBOTS_RELAY_SIGNING_KEY);
 
-function healthcheck() {
-  if (HEALTHCHECK_URL === "") {
-    return
-  }
-  get(HEALTHCHECK_URL).on('error', console.error);
-}
+
 
 async function main() {
   //TODO: filter markets by reserves after retrieval
@@ -69,6 +73,27 @@ async function main() {
   const groupedMarkets = groupEthMarkets(markets);
 
   console.log(`Loaded markets: ${markets.length}`);
+
+  const quoterContract = new Contract(UNISWAP_V3_QUOTER_ADDRESS, UNISWAP_V3_QUOTER_ABI, provider);
+  console.log(await quoterContract.callStatic.quoteExactInputSingle(markets[0].tokens[0], markets[0].tokens[1], '500', GWEI.toString(), 0));
+
+  startTime('time');
+  const marketsToQuery = markets.slice(0, 100);
+  const addressesToQuery = marketsToQuery.map(m => m.marketAddress);//['0xCc2158F95786CAE412e2b1ea352DF8eF47A1f15c'];
+  const amounts = [ETHER?.toString(), ETHER.mul(10)?.toString(), ETHER.mul(100)?.toString()];
+  const moneyPrinter = new Contract(PRINTER_QUERY_ADDRESS, PRINTER_QUERY_ABI, provider);
+  console.log(addressesToQuery);
+  console.log(amounts);
+  const prices = await moneyPrinter.callStatic.getPricesForPools(addressesToQuery, amounts);
+  console.log(prices);
+  for (let i = 0; i < prices.length; i++) {
+    console.log(`Market: ${marketsToQuery[i].marketAddress}`);
+    for (let j = 0; j < prices[i].length; j++) {
+      console.log(prices[i][j][0]?.toString(), prices[i][j][1]?.toString());
+    }
+  }
+  console.log(`Prices for ${marketsToQuery.length} markets loaded in ${endTime('time')}ms`);
+
 
   const runner = new ArbitrageRunner(
     markets,

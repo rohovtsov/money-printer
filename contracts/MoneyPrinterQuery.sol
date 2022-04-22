@@ -21,22 +21,17 @@ contract MoneyPrinterQuery {
             result[i] = new uint256[2][](amounts.length);
 
             for (uint j = 0; j < amounts.length; j++) {
-                (uint160 sqrtPriceX96,,,,,,) = pools[0].slot0();
+                try quoter.quoteExactInputSingle(pools[i].token0(), pools[i].token1(), pools[i].fee(), amounts[j], 0) returns (uint256 amountOut) {
+                    result[i][j][0] = amountOut;
+                } catch {
+                    result[i][j][0] = 0;
+                }
 
-                result[i][j][0] = quoter.quoteExactInputSingle(
-                    pools[i].token0(),
-                    pools[i].token1(),
-                    pools[i].fee(),
-                    amounts[j],
-                    sqrtPriceX96
-                );
-                result[i][j][1] = quoter.quoteExactInputSingle(
-                    pools[i].token1(),
-                    pools[i].token0(),
-                    pools[i].fee(),
-                    amounts[j],
-                    sqrtPriceX96
-                );
+                try quoter.quoteExactInputSingle(pools[i].token1(), pools[i].token0(), pools[i].fee(), amounts[j], 0) returns (uint256 amountOut) {
+                    result[i][j][1] = amountOut;
+                } catch {
+                    result[i][j][1] = 0;
+                }
             }
         }
 

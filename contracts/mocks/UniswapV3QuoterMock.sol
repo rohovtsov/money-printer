@@ -8,6 +8,7 @@ contract UniswapV3QuoterMock {
         uint256 amountIn,
         uint160 sqrtPriceLimitX96
     ) external returns (uint256 amountOut) {
+        require(666 == 0, "Unexpected error");
         return 666 * amountIn;
     }
 
