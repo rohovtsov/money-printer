@@ -1,5 +1,5 @@
 import { FlashbotsBundleProvider } from "@flashbots/ethers-provider-bundle";
-import { Contract, providers, Wallet } from "ethers";
+import { BigNumber, Contract, providers, Wallet } from "ethers";
 import {
   BUNDLE_EXECUTOR_ABI,
   endTime,
@@ -9,7 +9,7 @@ import {
   groupEthMarkets, GWEI,
   PRINTER_QUERY_ABI,
   PRINTER_QUERY_ADDRESS,
-  startTime,
+  startTime, UNISWAP_POOL_ABI,
   UNISWAP_V2_FACTORY_ADDRESSES,
   UNISWAP_V3_FACTORY_ADDRESS,
   UNISWAP_V3_QUOTER_ABI,
@@ -27,6 +27,8 @@ import { WETH } from '@uniswap/sdk';
 import { UniswapV2ReservesSyncer } from './uniswap/uniswap-v2-reserves-syncer';
 import { UniswapV3MarketFactory } from './uniswap/uniswap-v3-market-factory';
 import { UniswapV3PoolStateSyncer } from './uniswap/uniswap-v3-pool-state-syncer';
+import { swapLocal, swapTest } from './old/UniswapV3Pool';
+import { UniswapV3Market } from './uniswap/uniswap-v3-market';
 
 // const ETHEREUM_RPC_URL = process.env.ETHEREUM_RPC_URL || "https://mainnet.infura.io/v3/08a6fc8910ca460e99dd411ec0286be6"
 // const PRIVATE_KEY = process.env.PRIVATE_KEY || ""
@@ -52,16 +54,19 @@ import { UniswapV3PoolStateSyncer } from './uniswap/uniswap-v3-pool-state-syncer
 
 const HEALTHCHECK_URL = process.env.HEALTHCHECK_URL || ""
 
-const provider = new providers.InfuraProvider('ropsten', '8ac04e84ff9e4fd19db5bfa857b90a92');
+const provider = new providers.InfuraProvider('mainnet', '8ac04e84ff9e4fd19db5bfa857b90a92');
 
 // const arbitrageSigningWallet = new Wallet(PRIVATE_KEY);
 // const flashbotsRelaySigningWallet = new Wallet(FLASHBOTS_RELAY_SIGNING_KEY);
 
 
-
+//tickSpacing:
+//{ '1': 116, '10': 712, '60': 3038, '200': 2673 };
 async function main() {
   //TODO: filter markets by reserves after retrieval
   //TODO: ensure all token addresses from different markets are checksumed
+  //12370000 = 9 marketsV3
+  //12369800 = 2 marketsV3
   const LAST_BLOCK = 20000000;
   const factories: EthMarketFactory[] = [
     //...UNISWAP_V2_FACTORY_ADDRESSES.map(address => new UniswapV2MarketFactory(provider, address, LAST_BLOCK)),
@@ -74,15 +79,44 @@ async function main() {
 
   console.log(`Loaded markets: ${markets.length}`);
 
-  const quoterContract = new Contract(UNISWAP_V3_QUOTER_ADDRESS, UNISWAP_V3_QUOTER_ABI, provider);
-  console.log(await quoterContract.callStatic.quoteExactInputSingle(markets[0].tokens[0], markets[0].tokens[1], '500', GWEI.toString(), 0));
+  /*const testMarket = markets.find(m => m.marketAddress.toLowerCase() === '0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8') as UniswapV3Market;
+  await swapTest(testMarket, provider);
 
   startTime('time');
-  const marketsToQuery = markets.slice(0, 100);
-  const addressesToQuery = marketsToQuery.map(m => m.marketAddress);//['0xCc2158F95786CAE412e2b1ea352DF8eF47A1f15c'];
-  const amounts = [ETHER?.toString(), ETHER.mul(10)?.toString(), ETHER.mul(100)?.toString()];
+  const marketsToQuery = markets.slice(0, 46);
+  const addressesToQuery = marketsToQuery.map(m => m.marketAddress);
+  const amounts = Array.from({ length: 14 }).map((_, i) => GWEI.mul(10**i).toString());
   const moneyPrinter = new Contract(PRINTER_QUERY_ADDRESS, PRINTER_QUERY_ABI, provider);
-  console.log(addressesToQuery);
+*/
+  /*for (let j = 0; j < 1000; j++) {
+    console.log(j);
+
+    const res = (await moneyPrinter.functions.getTickPricesForPool(markets[j].marketAddress, -16000, 16000))[0];
+    let prevId = 0;
+    for (let i = 0; i < res.length; i++) {
+      if (!res[i].eq(0)) {
+        console.log(`${i} ${i - prevId}: ${res[i].toString()}`);
+        prevId = i;
+      }
+    }
+    console.log(res.length);
+  }*/
+
+  /*for (let j = 0; j < 100; j++) {
+    const address = addressesToQuery[j];
+    console.log(`${j} ${address}`);
+    const pool = new Contract(address, UNISWAP_POOL_ABI, provider);
+    for (let i = -100; i < 100; i++) {
+      const val = (await pool.functions.tickBitmap(i))[0];
+      if (!val.eq(BigNumber.from(0))) {
+        const tickIndex = BigNumber.from(i).mul(60);
+        const val = (await pool.functions.ticks(tickIndex))[0];
+        console.log(`${i} at ${tickIndex}: ${val}`);
+      }
+    }
+  }*/
+
+ /* console.log(addressesToQuery);
   console.log(amounts);
   const prices = await moneyPrinter.callStatic.getPricesForPools(addressesToQuery, amounts);
   console.log(prices);
@@ -93,7 +127,7 @@ async function main() {
     }
   }
   console.log(`Prices for ${marketsToQuery.length} markets loaded in ${endTime('time')}ms`);
-
+*/
 
   const runner = new ArbitrageRunner(
     markets,
@@ -103,7 +137,7 @@ async function main() {
       }, groupedMarkets),
     ],
     new UniswapV2ReservesSyncer(provider, 5, 5000),
-    new UniswapV3PoolStateSyncer(provider, 1000),
+    new UniswapV3PoolStateSyncer(provider, 3),
     provider
   );
 

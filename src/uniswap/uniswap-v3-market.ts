@@ -1,19 +1,18 @@
 import { BigNumber } from 'ethers';
-import { Address, CallData, ETHER, EthMarket, GWEI, MarketAction, PriceCalculator } from '../entities';
-import { SimpleUniswapV2Calculator } from './uniswap-v2-price-calculator';
-const UniswapV3prices = require('@thanpolas/univ3prices');
-
+import { Address, CallData, EthMarket, MarketAction } from '../entities';
+import { CurrencyAmount, Token } from '@uniswap/sdk-core';
+import { ChainId, JSBI } from '@uniswap/sdk';
+import { FeeAmount, Pool, Tick } from '@uniswap/v3-sdk';
+import { AdvancedPool } from './uniswap-v3-sdk-advanced-pool';
 
 
 export class UniswapV3Market implements EthMarket {
   readonly protocol = 'uniswapV3';
-  readonly calculator: PriceCalculator;
   public sqrtPrice?: BigNumber;
   public tick?: number;
-  private sellAmountOut?: BigNumber | null;
-  private buyAmountOut?: BigNumber | null;
-  private token0Price?: string | null;
-  private token1Price?: string | null;
+  public pool?: AdvancedPool;
+  private readonly poolToken0: Token;
+  private readonly poolToken1: Token;
 
   constructor(
     readonly marketAddress: Address,
@@ -21,72 +20,58 @@ export class UniswapV3Market implements EthMarket {
     readonly fee: number,
     readonly tickSpacing: number,
   ) {
-    this.calculator = SimpleUniswapV2Calculator;
+    this.poolToken0 = new Token(ChainId.MAINNET, this.tokens[0], 0);
+    this.poolToken1 = new Token(ChainId.MAINNET, this.tokens[1], 0);
   }
-/*
 
   calcTokensOut(action: MarketAction, amountIn: BigNumber): BigNumber | null {
-    if (!this.sellAmountOut || !this.buyAmountOut) {
+    if (!this.pool) {
       return null;
     }
 
-    console.log(action);
-    console.log(amountIn?.toString(),
-      (action === 'sell' ? this.sellAmountOut.mul(amountIn).div(GWEI) : this.buyAmountOut.mul(amountIn).div(GWEI)).toString()
+    try {
+      const token = action === 'sell' ? this.poolToken0 : this.poolToken1;
+      return BigNumber.from(
+        this.pool.getOutputAmountSync(CurrencyAmount.fromRawAmount(token, JSBI.BigInt(amountIn.toString())))[0].toSignificant(100)
       );
-    console.log(this.buyAmountOut?.toString());
-    console.log(this.sellAmountOut?.toString());
-    return action === 'sell' ? this.sellAmountOut.mul(amountIn).div(GWEI) : this.buyAmountOut.mul(amountIn).div(GWEI);
-  }
-*/
-
-  calcTokensOut(action: MarketAction, amountIn: BigNumber): BigNumber | null {
-    if (!this.token0Price || !this.token1Price) {
+    } catch (e) {
       return null;
-    }
-
-    if (action === 'sell') {
-      return BigNumber.from(Math.round((Number(amountIn?.toString()) * Number(this.token0Price))).toString());
-    } else {
-      return BigNumber.from(Math.round((Number(amountIn?.toString()) * Number(this.token1Price))).toString());
     }
   }
 
   calcTokensIn(action: MarketAction, amountOut: BigNumber): BigNumber | null {
-    return null;
+    if (!this.pool) {
+      return null;
+    }
+
+    try {
+      const token = action === 'sell' ? this.poolToken0 : this.poolToken1;
+      return BigNumber.from(
+        this.pool.getInputAmountSync(CurrencyAmount.fromRawAmount(token, JSBI.BigInt(amountOut.toString())))[0].toSignificant(100)
+      );
+    } catch (e) {
+      return null;
+    }
   }
 
   performSwap(amount: BigNumber, action: MarketAction): Promise<CallData> {
     throw new Error('Method not implemented.');
   }
 
-/*  setPrices(sellAmountOut: BigNumber | null, buyAmountOut: BigNumber | null): void {
-    this.sellAmountOut = sellAmountOut;
-    this.buyAmountOut = buyAmountOut;
-  }*/
-
-  setState(tick: number, sqrtPrice: BigNumber, token0Price: string, token1Price: string) {
-    this.tick = tick;
-    this.sqrtPrice = sqrtPrice;
-    this.token0Price = token0Price;
-    this.token1Price = token1Price;
-    //console.log(this.token1Price);
-    //console.log(this.token0Price);
-    /*const [token0Reserves, token1Reserves] = univ3prices.getAmountsForCurrentLiquidity(
-      18, // decimals of DAI
-      18, // decimals of WETH
-      '2830981547246997099758055', // Current liquidity value of the pool
-      '1550724133884968571999296281', // Current sqrt price value of the pool
-      '60', // the tickSpacing value from the pool
-    );*/
-    //.tickRange(tick, this.tickSpacing));
-
-    /*
-    const univV3Prices = UniswapV3prices([0, 0], this.sqrtPrice);
+  setPoolState(tick: number, sqrtPriceX96: BigNumber, liquidity: BigNumber, ticks: Tick[]) {
     try {
-      const token0PriceCalc = BigNumber.from(univV3Prices.toSignificant(100));
+      this.pool = new AdvancedPool(
+        this.poolToken0,
+        this.poolToken1,
+        this.fee as FeeAmount,
+        JSBI.BigInt(sqrtPriceX96.toString()),
+        JSBI.BigInt(liquidity.toString()),
+        tick,
+        ticks
+      );
     } catch (e) {
-      this.token0DivToken1 = undefined;
-    }*/
+      console.error(e);
+      this.pool = undefined;
+    }
   }
 }

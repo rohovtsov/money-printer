@@ -8,6 +8,11 @@ contract Greeter {
 
     constructor(string memory _greeting) {
         console.log("Deploying a Greeter with greeting:", _greeting);
+        int24 tick = -27;
+        int24 tickSpacing = 7;
+        int24 compressed = tick / tickSpacing;
+        console.logInt(0x100000000000000000000000000000000);
+
         greeting = _greeting;
     }
 

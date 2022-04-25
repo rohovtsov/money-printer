@@ -24,6 +24,51 @@ contract UniswapV3PoolMock {
         slot0.sqrtPriceX96 = 42;
     }
 
+    function tickSpacing() external view returns (int24) {
+        return 60;
+    }
+
+    function tickBitmap(int16 wordPosition) external view returns (uint256) {
+        return wordPosition > 0 ? 1 : 0;
+    }
+
+    function ticks(int24 tick) external view returns (
+        uint128 liquidityGross,
+        int128 liquidityNet,
+        uint256 feeGrowthOutside0X128,
+        uint256 feeGrowthOutside1X128,
+        int56 tickCumulativeOutside,
+        uint160 secondsPerLiquidityOutsideX128,
+        uint32 secondsOutside,
+        bool initialized
+    ) {
+        liquidityGross = 0;
+        liquidityNet = 0;
+        feeGrowthOutside0X128 = 0;
+        feeGrowthOutside1X128 = 0;
+        tickCumulativeOutside = 0;
+        secondsPerLiquidityOutsideX128 = 0;
+        secondsOutside = 0;
+        initialized = false;
+    }
+
+    function feeGrowthGlobal0X128() external view returns (uint256) {
+        return 0;
+    }
+
+    function feeGrowthGlobal1X128() external view returns (uint256) {
+        return 0;
+    }
+
+    function protocolFees() external view returns (uint128 token0, uint128 token1) {
+        token0 = 0;
+        token1 = 0;
+    }
+
+    function liquidity() external view returns (uint128) {
+        return 0;
+    }
+
     function fee() external returns (int24) {
         return 1488;
     }

@@ -33,6 +33,9 @@ describe('MoneyPrinterQuery', function () {
     const amounts = [10, 11, 100, 999, '1000', '5000003434230', '1199999999999999999999'];
 
     const prices = await query.callStatic.getPricesForPools(pools, amounts);
+    console.log(await query.functions.getTickBitmapForPool(pools[0], -2, 2));
+    console.log(await query.functions.getTicksForPool(pools[0], 5));
+    console.log(await query.functions.getStateForPool(pools[0]));
 
     expect(prices.length).equal(poolsCount);
     for (let i = 0; i < prices.length; i++) {
