@@ -1,9 +1,8 @@
-import { BigNumber, Contract, providers } from 'ethers';
+import { BigNumber, providers } from 'ethers';
 import {
   Address,
-  PoolState,
   endTime, splitIntoBatches,
-  startTime, UNISWAP_POOL_ABI, UNISWAP_V3_QUOTER_ABI, UNISWAP_V3_QUOTER_ADDRESS,
+  startTime
 } from '../entities';
 import { UniswapV3Market } from './uniswap-v3-market';
 const fetch = require("node-fetch");
@@ -44,14 +43,12 @@ interface RequestedPools {
 export class UniswapV3PoolStateSyncer {
   private oversizePoolAddresses = new Set<Address>([]);
   private client: ApolloClient<any>;
-  private quoterContract: any;
   private query: any;
 
   constructor(
     readonly provider: providers.JsonRpcProvider,
     readonly parallelCount: number,
   ) {
-    this.quoterContract = new Contract(UNISWAP_V3_QUOTER_ADDRESS, UNISWAP_V3_QUOTER_ABI, provider);
     this.client = new ApolloClient({
       uri: 'https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3',
       fetch,
