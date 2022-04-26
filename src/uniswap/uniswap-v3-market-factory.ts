@@ -16,11 +16,12 @@ export class UniswapV3MarketFactory implements EthMarketFactory {
     readonly provider: providers.JsonRpcProvider,
     readonly factoryAddress: Address,
     readonly toBlock: number,
+    readonly fromBlock = 0,
   ) { }
 
   async getEthMarkets(): Promise<UniswapV3Market[]> {
     const pack = await lastValueFrom(getLogsRegressive(this.provider, {
-      fromBlock: 0,
+      fromBlock: this.fromBlock,
       toBlock: this.toBlock,
       topics: [
         UNISWAP_POOL_CREATED_EVENT_TOPIC

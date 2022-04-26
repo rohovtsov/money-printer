@@ -45,15 +45,16 @@ async function calcPricesWithSdkPool(market: UniswapV3Market, amount: BigNumber)
 
 describe('UniswapV3PriceCalculator', function () {
   const provider = new providers.InfuraProvider('mainnet', '8ac04e84ff9e4fd19db5bfa857b90a92');
+  this.timeout(15000);
 
   it('equal prices for contract, sdk, and sync sdk', async function () {
     const factory = new UniswapV3MarketFactory(provider, UNISWAP_V3_FACTORY_ADDRESS, 12380000);
     const syncer = new UniswapV3PoolStateSyncer(provider, 10);
     const markets = await factory.getEthMarkets();
 
-    const market = markets.find(m => m.marketAddress === '0xE845469aAe04f8823202b011A848cf199420B4C1') as UniswapV3Market;
+    const market = markets.find(m => m.marketAddress.toLowerCase() === '0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8') as UniswapV3Market;
     const quoter = new Contract(UNISWAP_V3_QUOTER_ADDRESS, UNISWAP_V3_QUOTER_ABI, provider);
-    const amount = BigNumber.from('33563660622520811881271');
+    const amount = BigNumber.from('335636606225208118');
 
     const contractPrices = await Promise.all([
       quoter.callStatic.quoteExactInputSingle(market.tokens[0], market.tokens[1], market.fee, amount.toString(), 0).catch(() => null),
@@ -73,7 +74,6 @@ describe('UniswapV3PriceCalculator', function () {
       expect(contractPrices[i].toString()).equal(sdkPrices[i]?.toString());
       expect(contractPrices[i].toString()).equal(syncPrices[i]?.toString());
     }
-
   });
 });
 

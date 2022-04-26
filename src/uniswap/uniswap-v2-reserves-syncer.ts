@@ -1,6 +1,6 @@
 import { BigNumber, Contract, providers } from 'ethers';
 import { UniswapV2Market } from './uniswap-v2-market';
-import { endTime, startTime, UNISWAP_LOOKUP_CONTRACT_ADDRESS, UNISWAP_QUERY_ABI } from '../entities';
+import { endTime, splitIntoBatches, startTime, UNISWAP_LOOKUP_CONTRACT_ADDRESS, UNISWAP_QUERY_ABI } from '../entities';
 import { EMPTY, from, last, lastValueFrom, mergeMap, tap } from 'rxjs';
 
 
@@ -34,11 +34,7 @@ export class UniswapV2ReservesSyncer {
   }
 
   splitMarketsIntoBatches(markets: UniswapV2Market[]): UniswapV2Market[][] {
-    const batchSize = this.batchSize;
-    const batchCount = Math.ceil(markets.length / batchSize);
-
-    return Array.from({ length: batchCount })
-      .map((_, i) => markets.slice(i * batchSize, Math.min(((i + 1) * batchSize), markets.length)));
+    return splitIntoBatches<UniswapV2Market>(markets, this.batchSize);
   }
 
   async syncReservesBatch(markets: UniswapV2Market[]): Promise<void> {
@@ -46,6 +42,7 @@ export class UniswapV2ReservesSyncer {
     const pairAddresses = markets.map(marketPair => marketPair.marketAddress);
 
     const reserves: Array<Array<BigNumber>> = (await uniswapQuery.functions.getReservesByPairs(pairAddresses))[0];
+    console.log('Request v2:', markets.length);
 
     for (let i = 0; i < markets.length; i++) {
       const marketPair = markets[i];

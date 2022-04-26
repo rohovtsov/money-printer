@@ -69,8 +69,10 @@ export class UniswapV3Market implements EthMarket {
         tick,
         ticks
       );
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      if (!e?.message?.includes('PRICE_BOUNDS')) {
+        console.error(e);
+      }
       this.pool = undefined;
     }
   }

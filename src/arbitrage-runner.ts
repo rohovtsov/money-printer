@@ -43,8 +43,10 @@ export class ArbitrageRunner {
         const changedMarkets = blockNumber ? await loadChangedEthMarkets(this.provider, blockNumber, this.marketsByAddress) : this.markets;
         const uniswapV2Markets = changedMarkets.filter(market => market.protocol === 'uniswapV2') as UniswapV2Market[];
         const uniswapV3Markets = changedMarkets.filter(market => market.protocol === 'uniswapV3') as UniswapV3Market[];
-        await this.uniswapV2Syncer.syncReserves(uniswapV2Markets);
-        await this.uniswapV3Syncer.syncPoolStates(uniswapV3Markets);
+        await Promise.all([
+          this.uniswapV2Syncer.syncReserves(uniswapV2Markets),
+          this.uniswapV3Syncer.syncPoolStates(uniswapV3Markets, blockNumber ?? 0),
+        ])
         return changedMarkets;
       })())),
       map((changedMarkets: EthMarket[]) => {

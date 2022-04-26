@@ -8,5 +8,6 @@ export * from './interfaces/eth-market';
 export * from './interfaces/eth-market-factory';
 export * from './interfaces/price-calculator';
 export * from './interfaces/arbitrage-strategy';
+export * from './interfaces/pool-state';
 export * from './parsers/uniswap-pair-created-log-parser';
 export * from './parsers/uniswap-pool-created-log-parser';

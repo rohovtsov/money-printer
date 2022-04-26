@@ -30,6 +30,13 @@ export function fromProviderEvent<T = unknown>(provider: providers.JsonRpcProvid
   });
 }
 
+export function splitIntoBatches<T = any>(array: T[], batchSize: number): T[][] {
+  const batchCount = Math.ceil(array.length / batchSize);
+
+  return Array.from({ length: batchCount })
+    .map((_, i) => array.slice(i * batchSize, Math.min(((i + 1) * batchSize), array.length)));
+}
+
 const TIMERS: Record<string, number> = {};
 
 export function startTime(slug: string = 'default'): void {
