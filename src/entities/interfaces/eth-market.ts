@@ -35,7 +35,11 @@ export interface EthMarket {
 
   calcTokensIn(action: MarketAction, amountOut: BigNumber): BigNumber | null;
 
-  performSwap(amount: BigNumber, action: MarketAction): Promise<CallData>;
+  performSwap(
+    amountIn: BigNumber,
+    action: MarketAction,
+    recipient: string | EthMarket,
+  ): Promise<CallData>;
 }
 
 export function groupEthMarkets(markets: EthMarket[]): GroupedEthMarkets {

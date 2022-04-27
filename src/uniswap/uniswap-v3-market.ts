@@ -5,7 +5,6 @@ import { ChainId, JSBI } from '@uniswap/sdk';
 import { FeeAmount, Pool, Tick } from '@uniswap/v3-sdk';
 import { AdvancedPool } from './uniswap-v3-sdk-advanced-pool';
 
-
 export class UniswapV3Market implements EthMarket {
   readonly protocol = 'uniswapV3';
   public sqrtPrice?: BigNumber;
@@ -32,7 +31,11 @@ export class UniswapV3Market implements EthMarket {
     try {
       const token = action === 'sell' ? this.poolToken0 : this.poolToken1;
       return BigNumber.from(
-        this.pool.getOutputAmountSync(CurrencyAmount.fromRawAmount(token, JSBI.BigInt(amountIn.toString())))[0].toSignificant(100)
+        this.pool
+          .getOutputAmountSync(
+            CurrencyAmount.fromRawAmount(token, JSBI.BigInt(amountIn.toString())),
+          )[0]
+          .toSignificant(100),
       );
     } catch (e) {
       return null;
@@ -47,14 +50,22 @@ export class UniswapV3Market implements EthMarket {
     try {
       const token = action === 'sell' ? this.poolToken0 : this.poolToken1;
       return BigNumber.from(
-        this.pool.getInputAmountSync(CurrencyAmount.fromRawAmount(token, JSBI.BigInt(amountOut.toString())))[0].toSignificant(100)
+        this.pool
+          .getInputAmountSync(
+            CurrencyAmount.fromRawAmount(token, JSBI.BigInt(amountOut.toString())),
+          )[0]
+          .toSignificant(100),
       );
     } catch (e) {
       return null;
     }
   }
 
-  performSwap(amount: BigNumber, action: MarketAction): Promise<CallData> {
+  performSwap(
+    amount: BigNumber,
+    action: MarketAction,
+    recipient: string | EthMarket,
+  ): Promise<CallData> {
     throw new Error('Method not implemented.');
   }
 
@@ -67,7 +78,7 @@ export class UniswapV3Market implements EthMarket {
         JSBI.BigInt(sqrtPriceX96.toString()),
         JSBI.BigInt(liquidity.toString()),
         tick,
-        ticks
+        ticks,
       );
     } catch (e: any) {
       if (!e?.message?.includes('PRICE_BOUNDS')) {
