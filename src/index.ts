@@ -1,5 +1,5 @@
-import { FlashbotsBundleProvider } from "@flashbots/ethers-provider-bundle";
-import { BigNumber, Contract, providers, Wallet } from "ethers";
+import { FlashbotsBundleProvider } from '@flashbots/ethers-provider-bundle';
+import { BigNumber, Contract, providers, Wallet } from 'ethers';
 import {
   BLACKLIST,
   BUNDLE_EXECUTOR_ABI,
@@ -7,20 +7,24 @@ import {
   ETHER,
   EthMarket,
   EthMarketFactory,
-  groupEthMarkets, GWEI,
+  groupEthMarkets,
+  GWEI,
+  MultipleCallData,
   PRINTER_QUERY_ABI,
   PRINTER_QUERY_ADDRESS,
-  startTime, UNISWAP_POOL_ABI,
+  printOpportunity,
+  startTime,
+  UNISWAP_POOL_ABI,
   UNISWAP_V2_FACTORY_ADDRESSES,
   UNISWAP_V3_FACTORY_ADDRESS,
   UNISWAP_V3_QUOTER_ABI,
   UNISWAP_V3_QUOTER_ADDRESS,
-  WETH_ADDRESS
-} from "./entities";
-import { UniswappyV2EthPair } from "./old/UniswappyV2EthPair";
-import { Arbitrage2 } from "./old/Arbitrage2";
-import { get } from "https"
-import { getDefaultRelaySigningKey } from "./entities";
+  WETH_ADDRESS,
+} from './entities';
+import { UniswappyV2EthPair } from './old/UniswappyV2EthPair';
+import { Arbitrage2 } from './old/Arbitrage2';
+import { get } from 'https';
+import { getDefaultRelaySigningKey } from './entities';
 import { UniswapV2MarketFactory } from './uniswap/uniswap-v2-market-factory';
 import { ArbitrageRunner } from './arbitrage-runner';
 import { TriangleArbitrageStrategy } from './triangle/triangle-arbitrage-strategy';
@@ -54,13 +58,12 @@ import { ArbitrageBlacklist } from './arbitrage-blacklist';
 //   process.exit(1)
 // }
 
-const HEALTHCHECK_URL = process.env.HEALTHCHECK_URL || ""
+const HEALTHCHECK_URL = process.env.HEALTHCHECK_URL || '';
 
 const provider = new providers.InfuraProvider('mainnet', '8ac04e84ff9e4fd19db5bfa857b90a92');
 
 // const arbitrageSigningWallet = new Wallet(PRIVATE_KEY);
 // const flashbotsRelaySigningWallet = new Wallet(FLASHBOTS_RELAY_SIGNING_KEY);
-
 
 //tickSpacing:
 //{ '1': 116, '10': 712, '60': 3038, '200': 2673 };
@@ -71,12 +74,15 @@ async function main() {
   //12369800 = 2 marketsV3
   const LAST_BLOCK = 20000000;
   const factories: EthMarketFactory[] = [
-    ...UNISWAP_V2_FACTORY_ADDRESSES.map(address => new UniswapV2MarketFactory(provider, address, LAST_BLOCK)),
-    new UniswapV3MarketFactory(provider, UNISWAP_V3_FACTORY_ADDRESS, LAST_BLOCK)
+    ...UNISWAP_V2_FACTORY_ADDRESSES.map(
+      (address) => new UniswapV2MarketFactory(provider, address, LAST_BLOCK),
+    ),
+    new UniswapV3MarketFactory(provider, UNISWAP_V3_FACTORY_ADDRESS, LAST_BLOCK),
   ];
 
-  const markets: EthMarket[] = (await Promise.all(factories.map(factory => factory.getEthMarkets())))
-    .reduce((acc, markets) => [...acc, ...markets], []);
+  const markets: EthMarket[] = (
+    await Promise.all(factories.map((factory) => factory.getEthMarkets()))
+  ).reduce((acc, markets) => [...acc, ...markets], []);
 
   console.log(`Loaded markets: ${markets.length}`);
 
@@ -86,16 +92,45 @@ async function main() {
   const runner = new ArbitrageRunner(
     allowedMarkets,
     [
-      new TriangleArbitrageStrategy({
-        [WETH_ADDRESS]: [ETHER.mul(1)],//, ETHER.mul(10), ETHER]
-      }, allowedMarkets),
+      new TriangleArbitrageStrategy(
+        {
+          [WETH_ADDRESS]: [ETHER.mul(1)], //, ETHER.mul(10), ETHER]
+        },
+        allowedMarkets,
+      ),
     ],
     new UniswapV2ReservesSyncer(provider, 5, 5000),
     new UniswapV3PoolStateSyncer(provider, 3),
-    provider
+    provider,
   );
 
-  runner.start().subscribe();
+  const bundleExecutorContract = new Contract(
+    BUNDLE_EXECUTOR_ADDRESS,
+    BUNDLE_EXECUTOR_ABI,
+    provider,
+  );
+
+  runner.start().subscribe((opportunities) => {
+    console.log(`Found opportunities: ${opportunities.length} in ${endTime('render')}ms\n`);
+    opportunities.forEach(printOpportunity);
+    opportunities.forEach(async (opportunity) => {
+      const callData: MultipleCallData = { data: [], targets: [] };
+      for (let i = 0; i < opportunity.operations.length; i++) {
+        const currentOperation = opportunity.operations[i];
+        const nextOperation = opportunity.operations[i + 1];
+        const data = await currentOperation.market.performSwap(
+          currentOperation.amountIn,
+          currentOperation.action,
+          nextOperation ? nextOperation.market : bundleExecutorContract.address,
+        );
+        callData.data.push(data.data);
+        callData.targets.push(data.target);
+      }
+
+      console.log('callData is collected', callData);
+      // TODO дальше надо дублировать логику из src/old/Arbitrage2.ts:179-231 по отправке этой транзакции в чейн
+    });
+  });
 
   // console.log("Searcher Wallet Address: " + await arbitrageSigningWallet.getAddress())
   // console.log("Flashbots Relay Signing Wallet Address: " + await flashbotsRelaySigningWallet.getAddress())

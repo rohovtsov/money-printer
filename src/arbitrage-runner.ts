@@ -2,17 +2,25 @@ import { providers } from 'ethers';
 import {
   Address,
   ArbitrageOpportunity,
-  ArbitrageStrategy, endTime,
+  ArbitrageStrategy,
+  endTime,
   EthMarket,
-  fromProviderEvent, printOpportunity, startTime, UNISWAP_POOL_EVENT_TOPICS,
-  UNISWAP_SYNC_EVENT_TOPIC
+  fromProviderEvent,
+  printOpportunity,
+  startTime,
+  UNISWAP_POOL_EVENT_TOPICS,
+  UNISWAP_SYNC_EVENT_TOPIC,
 } from './entities';
 import { UniswapV2ReservesSyncer } from './uniswap/uniswap-v2-reserves-syncer';
 import { UniswapV2Market } from './uniswap/uniswap-v2-market';
 import {
-  BehaviorSubject, combineLatest,
-  concatMap, delay,
-  distinctUntilChanged, EMPTY, filter,
+  BehaviorSubject,
+  combineLatest,
+  concatMap,
+  delay,
+  distinctUntilChanged,
+  EMPTY,
+  filter,
   from,
   map,
   merge,
@@ -21,19 +29,16 @@ import {
   shareReplay,
   startWith,
   switchMap,
-  tap
+  tap,
 } from 'rxjs';
 import { UniswapV3PoolStateSyncer } from './uniswap/uniswap-v3-pool-state-syncer';
 import { UniswapV3Market } from './uniswap/uniswap-v3-market';
-
-
 
 interface SyncEvent {
   changedMarkets: EthMarket[];
   blockNumber: number;
   initial?: boolean;
 }
-
 
 export class ArbitrageRunner {
   readonly marketsByAddress: Record<Address, EthMarket>;
@@ -48,9 +53,8 @@ export class ArbitrageRunner {
     this.marketsByAddress = this.markets.reduce((acc, market) => {
       acc[market.marketAddress] = market;
       return acc;
-    }, {} as Record<Address, EthMarket>)
+    }, {} as Record<Address, EthMarket>);
   }
-
 
   startSync(): Observable<SyncEvent> {
     const currentBlock$ = merge(
@@ -58,11 +62,11 @@ export class ArbitrageRunner {
       from(this.provider.getBlockNumber()),
     ).pipe(
       distinctUntilChanged(),
-      tap(blockNumber => {
+      tap((blockNumber) => {
         console.log(`New block: ${blockNumber}`);
       }),
       shareReplay(),
-    )
+    );
 
     const currentChangedMarkets$: Observable<SyncEvent> = currentBlock$.pipe(
       concatMap((blockNumber: number, index) => {
@@ -78,17 +82,18 @@ export class ArbitrageRunner {
           map((markets) => ({
             changedMarkets: markets,
             blockNumber,
-          }))
+          })),
         );
-      })
+      }),
     );
 
     //TODO: buffer changed markets while sync is in progress.
     const syncedChangedMarkets$ = currentChangedMarkets$.pipe(
-      concatMap(event => {
-        return from(this.syncMarkets(event.changedMarkets, event.blockNumber))
-          .pipe(map(() => event))
-      })
+      concatMap((event) => {
+        return from(this.syncMarkets(event.changedMarkets, event.blockNumber)).pipe(
+          map(() => event),
+        );
+      }),
     );
 
     const changedMarkets = new Set<EthMarket>();
@@ -99,15 +104,17 @@ export class ArbitrageRunner {
         }
 
         if (event.blockNumber < currentBlock) {
-          console.log(`Buffered ${event.changedMarkets.length} changed markets, buffer size: ${changedMarkets.size}`);
+          console.log(
+            `Buffered ${event.changedMarkets.length} changed markets, buffer size: ${changedMarkets.size}`,
+          );
         }
 
-        return (event.blockNumber >= currentBlock);
+        return event.blockNumber >= currentBlock;
       }),
       map(([, event]) => {
         const result = {
           ...event,
-          changedMarkets: Array.from(changedMarkets)
+          changedMarkets: Array.from(changedMarkets),
         };
         changedMarkets.clear();
         return result;
@@ -115,31 +122,28 @@ export class ArbitrageRunner {
     );
   }
 
-
   start(): Observable<ArbitrageOpportunity[]> {
     return this.startSync().pipe(
       map((event: SyncEvent) => {
         startTime('render');
-        console.log(`Changed markets: ${event.changedMarkets.length} in ${event.blockNumber}`)
+        console.log(`Changed markets: ${event.changedMarkets.length} in ${event.blockNumber}`);
         return this.runStrategies(event.changedMarkets);
-      }),
-      tap((opportunities) => {
-        console.log(`Found opportunities: ${opportunities.length} in ${endTime('render')}ms\n`)
-        opportunities.forEach(printOpportunity);
       }),
     );
   }
 
-
   async syncMarkets(markets: EthMarket[], minBlockNumber: number): Promise<void> {
-    const uniswapV2Markets = markets.filter(market => market.protocol === 'uniswapV2') as UniswapV2Market[];
-    const uniswapV3Markets = markets.filter(market => market.protocol === 'uniswapV3') as UniswapV3Market[];
+    const uniswapV2Markets = markets.filter(
+      (market) => market.protocol === 'uniswapV2',
+    ) as UniswapV2Market[];
+    const uniswapV3Markets = markets.filter(
+      (market) => market.protocol === 'uniswapV3',
+    ) as UniswapV3Market[];
     await Promise.all([
       this.uniswapV2Syncer.syncReserves(uniswapV2Markets),
       this.uniswapV3Syncer.syncPoolStates(uniswapV3Markets, minBlockNumber),
-    ])
+    ]);
   }
-
 
   runStrategies(changedMarkets: EthMarket[]): ArbitrageOpportunity[] {
     return this.strategies
@@ -148,29 +152,32 @@ export class ArbitrageRunner {
         acc.push(...opportunities);
         return acc;
       }, [] as ArbitrageOpportunity[])
-      .sort((a, b) => a.profit.lt(b.profit) ? 1 : a.profit.gt(b.profit) ? -1 : 0);
+      .sort((a, b) => (a.profit.lt(b.profit) ? 1 : a.profit.gt(b.profit) ? -1 : 0));
   }
 }
 
-
 function loadChangedEthMarkets(
-  provider: providers.JsonRpcProvider, blockNumber: number, marketsByAddress: Record<Address, EthMarket>
+  provider: providers.JsonRpcProvider,
+  blockNumber: number,
+  marketsByAddress: Record<Address, EthMarket>,
 ): Promise<EthMarket[]> {
   const indicatorTopics = new Set<string>([...UNISWAP_POOL_EVENT_TOPICS, UNISWAP_SYNC_EVENT_TOPIC]);
 
-  return provider.getLogs({
-    fromBlock: blockNumber,
-    toBlock: blockNumber,
-  }).then(logs => {
-    const changedAddresses = logs
-      .filter(log => log.topics.some(topic => indicatorTopics.has(topic)))
-      .map(log => log.address);
+  return provider
+    .getLogs({
+      fromBlock: blockNumber,
+      toBlock: blockNumber,
+    })
+    .then((logs) => {
+      const changedAddresses = logs
+        .filter((log) => log.topics.some((topic) => indicatorTopics.has(topic)))
+        .map((log) => log.address);
 
-    return changedAddresses.reduce((acc, address) => {
-      if (marketsByAddress[address]) {
-        acc.push(marketsByAddress[address]);
-      }
-      return acc;
-    }, [] as EthMarket[]);
-  });
+      return changedAddresses.reduce((acc, address) => {
+        if (marketsByAddress[address]) {
+          acc.push(marketsByAddress[address]);
+        }
+        return acc;
+      }, [] as EthMarket[]);
+    });
 }
