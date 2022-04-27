@@ -4,6 +4,7 @@ export * from './utils';
 export * from './print-utils';
 export * from './topics';
 export * from './logs-requester';
+export * from './blacklist';
 export * from './interfaces/eth-market';
 export * from './interfaces/eth-market-factory';
 export * from './interfaces/price-calculator';

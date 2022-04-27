@@ -16,6 +16,7 @@ export class UniswapV2Market implements EthMarket {
 
   calcTokensOut(action: MarketAction, amountIn: BigNumber): BigNumber | null {
     if (!this.reserves) {
+      console.log(this.marketAddress);
       throw new Error('Reserves not supplied');
     }
 

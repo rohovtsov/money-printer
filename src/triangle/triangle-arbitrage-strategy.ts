@@ -24,7 +24,8 @@ export class TriangleArbitrageStrategy implements ArbitrageStrategy {
   triangles: Triangle[];
   trianglesByMarket: TrianglesByMarketAddress;
 
-  constructor(options: TriangleStartOptions, group: GroupedEthMarkets) {
+  constructor(options: TriangleStartOptions, markets: EthMarket[]) {
+    const group = groupEthMarkets(markets);
     this.options = options;
     this.triangles = createTriangles(Object.keys(options), group);
     this.trianglesByMarket = this.triangles.reduce((acc, triangle) => {

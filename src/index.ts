@@ -1,6 +1,7 @@
 import { FlashbotsBundleProvider } from "@flashbots/ethers-provider-bundle";
 import { BigNumber, Contract, providers, Wallet } from "ethers";
 import {
+  BLACKLIST,
   BUNDLE_EXECUTOR_ABI,
   endTime,
   ETHER,
@@ -29,6 +30,7 @@ import { UniswapV3MarketFactory } from './uniswap/uniswap-v3-market-factory';
 import { UniswapV3PoolStateSyncer } from './uniswap/uniswap-v3-pool-state-syncer';
 import { swapLocal, swapTest } from './old/UniswapV3Pool';
 import { UniswapV3Market } from './uniswap/uniswap-v3-market';
+import { ArbitrageBlacklist } from './arbitrage-blacklist';
 
 // const ETHEREUM_RPC_URL = process.env.ETHEREUM_RPC_URL || "https://mainnet.infura.io/v3/08a6fc8910ca460e99dd411ec0286be6"
 // const PRIVATE_KEY = process.env.PRIVATE_KEY || ""
@@ -67,74 +69,26 @@ async function main() {
   //TODO: ensure all token addresses from different markets are checksumed
   //12370000 = 9 marketsV3
   //12369800 = 2 marketsV3
-  const LAST_BLOCK = 12390000;
+  const LAST_BLOCK = 20000000;
   const factories: EthMarketFactory[] = [
     ...UNISWAP_V2_FACTORY_ADDRESSES.map(address => new UniswapV2MarketFactory(provider, address, LAST_BLOCK)),
-    new UniswapV3MarketFactory(provider, UNISWAP_V3_FACTORY_ADDRESS, LAST_BLOCK)
+    //new UniswapV3MarketFactory(provider, UNISWAP_V3_FACTORY_ADDRESS, LAST_BLOCK)
   ];
 
   const markets: EthMarket[] = (await Promise.all(factories.map(factory => factory.getEthMarkets())))
     .reduce((acc, markets) => [...acc, ...markets], []);
-  const groupedMarkets = groupEthMarkets(markets);
 
   console.log(`Loaded markets: ${markets.length}`);
 
-  /*const testMarket = markets.find(m => m.marketAddress.toLowerCase() === '0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8') as UniswapV3Market;
-  await swapTest(testMarket, provider);
-
-  startTime('time');
-  const marketsToQuery = markets.slice(0, 46);
-  const addressesToQuery = marketsToQuery.map(m => m.marketAddress);
-  const amounts = Array.from({ length: 14 }).map((_, i) => GWEI.mul(10**i).toString());
-  const moneyPrinter = new Contract(PRINTER_QUERY_ADDRESS, PRINTER_QUERY_ABI, provider);
-*/
-  /*for (let j = 0; j < 1000; j++) {
-    console.log(j);
-
-    const res = (await moneyPrinter.functions.getTickPricesForPool(markets[j].marketAddress, -16000, 16000))[0];
-    let prevId = 0;
-    for (let i = 0; i < res.length; i++) {
-      if (!res[i].eq(0)) {
-        console.log(`${i} ${i - prevId}: ${res[i].toString()}`);
-        prevId = i;
-      }
-    }
-    console.log(res.length);
-  }*/
-
-  /*for (let j = 0; j < 100; j++) {
-    const address = addressesToQuery[j];
-    console.log(`${j} ${address}`);
-    const pool = new Contract(address, UNISWAP_POOL_ABI, provider);
-    for (let i = -100; i < 100; i++) {
-      const val = (await pool.functions.tickBitmap(i))[0];
-      if (!val.eq(BigNumber.from(0))) {
-        const tickIndex = BigNumber.from(i).mul(60);
-        const val = (await pool.functions.ticks(tickIndex))[0];
-        console.log(`${i} at ${tickIndex}: ${val}`);
-      }
-    }
-  }*/
-
- /* console.log(addressesToQuery);
-  console.log(amounts);
-  const prices = await moneyPrinter.callStatic.getPricesForPools(addressesToQuery, amounts);
-  console.log(prices);
-  for (let i = 0; i < prices.length; i++) {
-    console.log(`Market: ${marketsToQuery[i].marketAddress}`);
-    for (let j = 0; j < prices[i].length; j++) {
-      console.log(prices[i][j][0]?.toString(), prices[i][j][1]?.toString());
-    }
-  }
-  console.log(`Prices for ${marketsToQuery.length} markets loaded in ${endTime('time')}ms`);
-*/
+  const blacklist = new ArbitrageBlacklist(BLACKLIST);
+  const allowedMarkets = blacklist.filterMarkets(markets);
 
   const runner = new ArbitrageRunner(
-    markets,
+    allowedMarkets,
     [
       new TriangleArbitrageStrategy({
         [WETH_ADDRESS]: [ETHER.mul(100)],//, ETHER.mul(10), ETHER]
-      }, groupedMarkets),
+      }, allowedMarkets),
     ],
     new UniswapV2ReservesSyncer(provider, 5, 5000),
     new UniswapV3PoolStateSyncer(provider, 3),
