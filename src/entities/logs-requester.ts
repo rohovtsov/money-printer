@@ -65,7 +65,7 @@ const getLogs = (
   address: string | undefined = undefined
 ): Observable<Log[]> => {
   return new Observable<Log[]>((subscriber) => {
-    console.log('Request: ' + fromBlock + ' - ' + toBlock);
+    console.log('Logs request: ' + fromBlock + ' - ' + toBlock);
 
     provider.getLogs({
       fromBlock: parseBlockPointer(fromBlock),

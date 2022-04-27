@@ -37,7 +37,7 @@ export class TriangleArbitrageStrategy implements ArbitrageStrategy {
 
   getArbitrageOpportunities(changedMarkets: EthMarket[], allMarkets: EthMarket[]): ArbitrageOpportunity[] {
     const changedTriangles = filterChangedTriangles(changedMarkets, this.trianglesByMarket);
-    console.log(`Changed markets: ${changedMarkets.length}, changed triangles ${changedTriangles.length}`);
+    console.log(`Changed triangles ${changedTriangles.length}`);
     return changedTriangles.map(this.calculateOpportunity.bind(this)).filter(Boolean) as ArbitrageOpportunity[];
   }
 
