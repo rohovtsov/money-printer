@@ -44,6 +44,7 @@ interface RequestedPools {
 export class UniswapV3PoolStateSyncer {
   private oversizePoolAddresses = new Set<Address>([]);
   private client: ApolloClient<any>;
+  private bulkQuery: any;
   private query: any;
 
   constructor(
@@ -68,6 +69,27 @@ export class UniswapV3PoolStateSyncer {
           tick
           liquidity
           ticks (first: 1000, skip: $offset, orderBy: tickIdx) {
+            tickIdx
+            liquidityGross 
+            liquidityNet
+          }
+        }
+      }
+    `;
+
+    this.bulkQuery = gql`
+      query PoolsBulk($poolsOffset: Int!) {
+        _meta {
+          block {
+            number
+          }
+        }
+        pools(first: 1000, orderBy: id, skip: $poolsOffset) {
+          id
+          sqrtPrice
+          tick
+          liquidity
+          ticks (first: 1000, orderBy: tickIdx) {
             tickIdx
             liquidityGross 
             liquidityNet
@@ -107,16 +129,47 @@ export class UniswapV3PoolStateSyncer {
 
     startTime('syncV3');
 
-    await this.syncMarkets(markets, minBlockNumber);
+    if (markets.length > 1000) {
+      await this.syncMarketsBulk(markets, minBlockNumber);
+    } else {
+      await this.syncMarkets(markets, minBlockNumber);
+    }
 
     console.log(`Sync V3 complete: ${markets.length} markets in ${endTime('syncV3')}ms`);
   }
 
+  private async syncMarketsBulk(markets: UniswapV3Market[], minBlockNumber: number): Promise<void> {
+    const bulkRecursive = async (poolsOffset = 0): Promise<PoolData[]> => {
+      const bulk = await this.requestPoolsBulk(poolsOffset, minBlockNumber);
+
+      if (poolsOffset < 5) {
+        return [...bulk.pools, ...(await bulkRecursive(poolsOffset + 1))];
+      }
+
+      return bulk.pools;
+    }
+
+    const marketsByAddress = this.marketsByAddress(markets);
+    const marketAddressesToSync = new Set<Address>(Object.keys(marketsByAddress));
+    const pools = await bulkRecursive();
+
+    for (const pool of pools) {
+      if (pool.ticks.length >= 1000) {
+        continue;
+      }
+
+      this.setPoolState(marketsByAddress[pool.id], pool);
+      marketAddressesToSync.delete(pool.id);
+    }
+
+    const marketsToSync = Array.from(marketAddressesToSync).map(address => marketsByAddress[address]);
+    console.log(`Request v3 markets left to sync:`, marketsToSync.length);
+
+    await this.syncMarkets(marketsToSync, minBlockNumber);
+  }
+
   private async syncMarkets(markets: UniswapV3Market[], minBlockNumber: number): Promise<void> {
-    const marketsByAddress = markets.reduce((acc, market) => {
-      acc[market.marketAddress.toLowerCase()] = market;
-      return acc;
-    }, {} as Record<Address, UniswapV3Market>);
+    const marketsByAddress = this.marketsByAddress(markets);
     const addresses = Object.keys(marketsByAddress);
 
     const oversizeAddresses = addresses.filter(address => this.oversizePoolAddresses.has(address));
@@ -141,16 +194,7 @@ export class UniswapV3PoolStateSyncer {
     pools.push(...this.mergePoolsExtraData(oversizePools, oversizeData));
 
     for (const pool of pools) {
-      marketsByAddress[pool.id].setPoolState(
-        Number(pool.tick),
-        BigNumber.from(pool.sqrtPrice),
-        BigNumber.from(pool.liquidity),
-        pool.ticks.map(tick => new Tick({
-          index: Number(tick.tickIdx),
-          liquidityGross: JSBI.BigInt(tick.liquidityGross.toString()),
-          liquidityNet: JSBI.BigInt(tick.liquidityNet.toString())
-        }))
-      );
+      this.setPoolState(marketsByAddress[pool.id], pool);
     }
   }
 
@@ -223,6 +267,24 @@ export class UniswapV3PoolStateSyncer {
     return data;
   }
 
+  private async requestPoolsBulk(poolsOffset: number, minBlockNumber: number = 0): Promise<PoolsBatch> {
+    const { data } : { data: PoolsBatch } = await this.client.query({
+      query: this.bulkQuery,
+      variables: {
+        poolsOffset: poolsOffset * 1000,
+      },
+      fetchPolicy: 'no-cache'
+    });
+
+    console.log('Request v3 bulk:', data.pools.length, poolsOffset, data.pools.reduce((acc, pool) => acc + pool.ticks.length, 0));
+
+    if (data._meta.block.number < minBlockNumber) {
+      return await this.requestPoolsBulk(poolsOffset, minBlockNumber);
+    }
+
+    return data;
+  }
+
   private mergePoolsExtraData(oversizePools: PoolData[], extraDataPools: PoolData[]): PoolData[] {
     const oversizePoolsMap = oversizePools.reduce((acc, m) => {
       acc[m.id] = m;
@@ -243,5 +305,25 @@ export class UniswapV3PoolStateSyncer {
     }
 
     return Object.values(oversizePoolsMap);
+  }
+
+  private marketsByAddress(markets: UniswapV3Market[]): Record<Address, UniswapV3Market> {
+    return markets.reduce((acc, market) => {
+      acc[market.marketAddress.toLowerCase()] = market;
+      return acc;
+    }, {} as Record<Address, UniswapV3Market>)
+  }
+
+  private setPoolState(market: UniswapV3Market, pool: PoolData): void {
+    market.setPoolState(
+      Number(pool.tick),
+      BigNumber.from(pool.sqrtPrice),
+      BigNumber.from(pool.liquidity),
+      pool.ticks.map(tick => new Tick({
+        index: Number(tick.tickIdx),
+        liquidityGross: JSBI.BigInt(tick.liquidityGross.toString()),
+        liquidityNet: JSBI.BigInt(tick.liquidityNet.toString())
+      }))
+    );
   }
 }

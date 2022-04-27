@@ -72,7 +72,7 @@ async function main() {
   const LAST_BLOCK = 20000000;
   const factories: EthMarketFactory[] = [
     ...UNISWAP_V2_FACTORY_ADDRESSES.map(address => new UniswapV2MarketFactory(provider, address, LAST_BLOCK)),
-    //new UniswapV3MarketFactory(provider, UNISWAP_V3_FACTORY_ADDRESS, LAST_BLOCK)
+    new UniswapV3MarketFactory(provider, UNISWAP_V3_FACTORY_ADDRESS, LAST_BLOCK)
   ];
 
   const markets: EthMarket[] = (await Promise.all(factories.map(factory => factory.getEthMarkets())))
