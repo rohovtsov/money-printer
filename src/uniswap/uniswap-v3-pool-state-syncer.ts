@@ -10,7 +10,8 @@ import gql from "graphql-tag";
 import ApolloClient from 'apollo-boost';
 import { Tick } from '@uniswap/v3-sdk';
 import { JSBI } from '@uniswap/sdk';
-import { from, lastValueFrom, map, mergeMap, reduce } from 'rxjs';
+import { defer, from, lastValueFrom, map, mergeMap, reduce } from 'rxjs';
+import { retry } from 'rxjs/operators';
 
 
 
@@ -192,7 +193,7 @@ export class UniswapV3PoolStateSyncer {
       splitIntoBatches<Address>(addresses, 100)
     ).pipe(
       mergeMap((addressBatch) => {
-        return from(this.requestPoolsBatch(addressBatch, minBlockNumber, offset));
+        return defer(() => this.requestPoolsBatch(addressBatch, minBlockNumber, offset)).pipe(retry(5));
       }, this.parallelCount),
       reduce((acc, batch) => {
         acc.push(...batch.pools);
