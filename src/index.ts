@@ -87,7 +87,7 @@ async function main() {
     allowedMarkets,
     [
       new TriangleArbitrageStrategy({
-        [WETH_ADDRESS]: [ETHER.mul(100)],//, ETHER.mul(10), ETHER]
+        [WETH_ADDRESS]: [ETHER.mul(1)],//, ETHER.mul(10), ETHER]
       }, allowedMarkets),
     ],
     new UniswapV2ReservesSyncer(provider, 5, 5000),

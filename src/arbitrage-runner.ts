@@ -125,7 +125,7 @@ export class ArbitrageRunner {
       }),
       tap((opportunities) => {
         console.log(`Found opportunities: ${opportunities.length} in ${endTime('render')}ms\n`)
-        opportunities.slice(0, 5).forEach(printOpportunity);
+        opportunities.forEach(printOpportunity);
       }),
     );
   }

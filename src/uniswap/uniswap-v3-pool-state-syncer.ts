@@ -140,7 +140,9 @@ export class UniswapV3PoolStateSyncer {
 
   private async syncMarketsBulk(markets: UniswapV3Market[], minBlockNumber: number): Promise<void> {
     const bulkRecursive = async (poolsOffset = 0): Promise<PoolData[]> => {
-      const bulk = await this.requestPoolsBulk(poolsOffset, minBlockNumber);
+      const bulk = await lastValueFrom(
+        defer(() => this.requestPoolsBulk(poolsOffset, minBlockNumber)).pipe(retry(5))
+      );
 
       if (poolsOffset < 5) {
         return [...bulk.pools, ...(await bulkRecursive(poolsOffset + 1))];
