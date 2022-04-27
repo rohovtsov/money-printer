@@ -8,7 +8,6 @@ import {
   UNISWAP_PAIR_ABI,
   WETH_ADDRESS,
 } from '../entities';
-import { UniswappyV2EthPair } from '../old/UniswappyV2EthPair';
 import { SimpleUniswapV2Calculator } from './uniswap-v2-price-calculator';
 
 export class UniswapV2Market implements EthMarket {
