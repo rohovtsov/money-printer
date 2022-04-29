@@ -37,7 +37,8 @@ import { UniswapV3Market } from './uniswap/uniswap-v3-market';
 import { ArbitrageBlacklist } from './arbitrage-blacklist';
 
 // const ETHEREUM_RPC_URL = process.env.ETHEREUM_RPC_URL || "https://mainnet.infura.io/v3/08a6fc8910ca460e99dd411ec0286be6"
-// const PRIVATE_KEY = process.env.PRIVATE_KEY || ""
+const PRIVATE_KEY =
+  process.env.PRIVATE_KEY || '0xe287672c1f7b7a8a38449626b3303a2ad4430672977b8a6f741a9ca35b6ca10c';
 // const BUNDLE_EXECUTOR_ADDRESS = process.env.BUNDLE_EXECUTOR_ADDRESS || ""
 
 // const FLASHBOTS_RELAY_SIGNING_KEY = process.env.FLASHBOTS_RELAY_SIGNING_KEY || getDefaultRelaySigningKey();
@@ -60,12 +61,77 @@ import { ArbitrageBlacklist } from './arbitrage-blacklist';
 
 const HEALTHCHECK_URL = process.env.HEALTHCHECK_URL || '';
 
-const provider = new providers.InfuraProvider('mainnet', '8ac04e84ff9e4fd19db5bfa857b90a92');
+const provider = new providers.InfuraProvider('ropsten', '8ac04e84ff9e4fd19db5bfa857b90a92');
 
-// const arbitrageSigningWallet = new Wallet(PRIVATE_KEY);
+const arbitrageSigningWallet = new Wallet(PRIVATE_KEY);
 // const flashbotsRelaySigningWallet = new Wallet(FLASHBOTS_RELAY_SIGNING_KEY);
 
 //tickSpacing:
+async function executeCallData(
+  amountToFirstMarket: BigNumber,
+  callData: MultipleCallData,
+  bundleExecutorContract: Contract,
+  executorWallet: Wallet,
+) {
+  const transaction = await bundleExecutorContract.populateTransaction.uniswapWeth(
+    amountToFirstMarket,
+    BigNumber.from(0),
+    callData.targets,
+    callData.data,
+    {
+      gasPrice: BigNumber.from(0),
+      gasLimit: BigNumber.from(1000000),
+    },
+  );
+
+  try {
+    const estimateGas = await bundleExecutorContract.provider.estimateGas({
+      ...transaction,
+      from: executorWallet.address,
+    });
+    if (estimateGas.gt(1400000)) {
+      console.log('EstimateGas succeeded, but suspiciously large: ' + estimateGas.toString());
+      return;
+    }
+    transaction.gasLimit = estimateGas.mul(2);
+  } catch (e) {
+    console.warn(`Estimate gas failure for `);
+    throw e;
+    // return;
+  }
+  const bundledTransactions = [
+    {
+      signer: executorWallet,
+      transaction: transaction,
+    },
+  ];
+
+  const signedTransaction = await executorWallet.signTransaction(transaction);
+  const result = await provider.sendTransaction(signedTransaction);
+
+  console.log(result);
+  // const signedBundle = await this.flashbotsProvider.signBundle(bundledTransactions);
+  //
+  // const simulation = await this.flashbotsProvider.simulate(signedBundle, blockNumber + 1);
+  // if ('error' in simulation || simulation.firstRevert !== undefined) {
+  //   console.log(`Simulation Error on token ${bestCrossedMarket.tokenAddress}, skipping`);
+  //   continue;
+  // }
+  // console.log(
+  //   `Submitting bundle, profit sent to miner: ${bigNumberToDecimal(
+  //     simulation.coinbaseDiff,
+  //   )}, effective gas price: ${bigNumberToDecimal(
+  //     simulation.coinbaseDiff.div(simulation.totalGasUsed),
+  //     9,
+  //   )} GWEI`,
+  // );
+  // const bundlePromises = _.map([blockNumber + 1, blockNumber + 2], (targetBlockNumber) =>
+  //   this.flashbotsProvider.sendRawBundle(signedBundle, targetBlockNumber),
+  // );
+  // await Promise.all(bundlePromises);
+  // return;
+}
+
 //{ '1': 116, '10': 712, '60': 3038, '200': 2673 };
 async function main() {
   //TODO: filter markets by reserves after retrieval
@@ -77,7 +143,7 @@ async function main() {
     ...UNISWAP_V2_FACTORY_ADDRESSES.map(
       (address) => new UniswapV2MarketFactory(provider, address, LAST_BLOCK),
     ),
-    new UniswapV3MarketFactory(provider, UNISWAP_V3_FACTORY_ADDRESS, LAST_BLOCK),
+    // new UniswapV3MarketFactory(provider, UNISWAP_V3_FACTORY_ADDRESS, LAST_BLOCK),
   ];
 
   const markets: EthMarket[] = (
@@ -94,7 +160,7 @@ async function main() {
     [
       new TriangleArbitrageStrategy(
         {
-          [WETH_ADDRESS]: [ETHER.mul(1)], //, ETHER.mul(10), ETHER]
+          [WETH_ADDRESS]: [ETHER.div(10)], //, ETHER.mul(10), ETHER]
         },
         allowedMarkets,
       ),
@@ -104,16 +170,23 @@ async function main() {
     provider,
   );
 
+  const BUNDLE_EXECUTOR_ADDRESS = '0x75EBaE4EF4003f1be1F86ad69160Ce95Ad2cDE2f';
+
   const bundleExecutorContract = new Contract(
     BUNDLE_EXECUTOR_ADDRESS,
     BUNDLE_EXECUTOR_ABI,
     provider,
   );
 
-  runner.start().subscribe((opportunities) => {
+  runner.start().subscribe(async (opportunities) => {
     console.log(`Found opportunities: ${opportunities.length} in ${endTime('render')}ms\n`);
-    opportunities.forEach(printOpportunity);
-    opportunities.forEach(async (opportunity) => {
+    const sortedOpportunities = opportunities.sort((op1, op2) =>
+      op2.profit.sub(op1.profit).div(BigNumber.from(10).pow(18)).toNumber(),
+    );
+
+    // sortedOpportunities.forEach(printOpportunity);
+    for (let opportunity of sortedOpportunities) {
+      printOpportunity(opportunity);
       const callData: MultipleCallData = { data: [], targets: [] };
       for (let i = 0; i < opportunity.operations.length; i++) {
         const currentOperation = opportunity.operations[i];
@@ -128,8 +201,19 @@ async function main() {
       }
 
       console.log('callData is collected', callData);
-      // TODO дальше надо дублировать логику из src/old/Arbitrage2.ts:179-231 по отправке этой транзакции в чейн
-    });
+      try {
+        const result = await executeCallData(
+          opportunity.operations[0].amountIn,
+          callData,
+          bundleExecutorContract,
+          arbitrageSigningWallet,
+        );
+        console.log('result is', result);
+        break;
+      } catch (e) {
+        console.log('error is', e);
+      }
+    }
   });
 
   // console.log("Searcher Wallet Address: " + await arbitrageSigningWallet.getAddress())

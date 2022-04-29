@@ -3,12 +3,15 @@ import { CurrencyAmount, Token } from '@uniswap/sdk-core';
 import { ChainId, JSBI } from '@uniswap/sdk';
 import { Contract, providers } from 'ethers';
 import {
-  Address, endTime,
+  Address,
+  endTime,
   ERC20_ABI,
   PRINTER_QUERY_ABI,
-  PRINTER_QUERY_ADDRESS, startTime,
-  UNISWAP_POOL_ABI, UNISWAP_V3_QUOTER_ABI,
-  UNISWAP_V3_QUOTER_ADDRESS
+  PRINTER_QUERY_ADDRESS,
+  startTime,
+  UNISWAP_POOL_ABI,
+  UNISWAP_V3_QUOTER_ABI,
+  UNISWAP_V3_QUOTER_ADDRESS,
 } from './entities';
 import { UniswapV3Market } from './uniswap/uniswap-v3-market';
 import ApolloClient from 'apollo-boost';
@@ -24,8 +27,8 @@ function assert(expression: boolean, message: string) {
 }
 
 const FixedPoint128 = {
-  Q128: JSBI.BigInt('340282366920938463463374607431768211456')
-}
+  Q128: JSBI.BigInt('340282366920938463463374607431768211456'),
+};
 
 abstract class FullMath {
   public static mulDiv(a: JSBI, b: JSBI, denominator: JSBI): JSBI {
@@ -33,10 +36,10 @@ abstract class FullMath {
   }
 
   public static mulDivRoundingUp(a: JSBI, b: JSBI, denominator: JSBI): JSBI {
-    const product = JSBI.multiply(a, b)
-    let result = JSBI.divide(product, denominator)
-    if (JSBI.notEqual(JSBI.remainder(product, denominator), ZERO)) result = JSBI.add(result, ONE)
-    return result
+    const product = JSBI.multiply(a, b);
+    let result = JSBI.divide(product, denominator);
+    if (JSBI.notEqual(JSBI.remainder(product, denominator), ZERO)) result = JSBI.add(result, ONE);
+    return result;
   }
 }
 
@@ -85,10 +88,7 @@ interface StepComputations {
 }
 
 class TicksProvider {
-  constructor(
-    private map: Record<string, JSBI>
-  ) {
-  }
+  constructor(private map: Record<string, JSBI>) {}
 }
 
 /*
@@ -274,17 +274,18 @@ class UniswapV3Pool {
 }
 */
 
-
-
-export async function swapTest(uniswapV3Market: UniswapV3Market, provider: providers.JsonRpcProvider) {
+export async function swapTest(
+  uniswapV3Market: UniswapV3Market,
+  provider: providers.JsonRpcProvider,
+) {
   await swapLocal(uniswapV3Market, provider);
 }
 
-
-const fetch = require("node-fetch");
+const fetch = require('node-fetch');
 async function requestTicksForPool(pool: Address): Promise<Tick[]> {
   const client = new ApolloClient({
-    uri: 'https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3',
+    // uri: 'https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3',
+    uri: 'https://api.thegraph.com/subgraphs/name/kmkoushik/uniswap-v3-ropsten',
     fetch,
   });
 
@@ -300,19 +301,24 @@ async function requestTicksForPool(pool: Address): Promise<Tick[]> {
       }
   `;
 
-  const result = await client.query({ query, variables: {
-    random: Math.round(Math.random() * 10000000),
-  } });
+  const result = await client.query({
+    query,
+    variables: {
+      random: Math.round(Math.random() * 10000000),
+    },
+  });
 
   console.log(`Loaded ticks: ${result.data.ticks.length}`);
 
-  return result.data.ticks.map((data: any) => new Tick({
-    index: Number(data.tickIdx),
-    liquidityGross: JSBI.BigInt(data.liquidityGross),
-    liquidityNet: JSBI.BigInt(data.liquidityNet)
-  }));
+  return result.data.ticks.map(
+    (data: any) =>
+      new Tick({
+        index: Number(data.tickIdx),
+        liquidityGross: JSBI.BigInt(data.liquidityGross),
+        liquidityNet: JSBI.BigInt(data.liquidityNet),
+      }),
+  );
 }
-
 
 export async function swapLocal(pool: UniswapV3Market, provider: providers.JsonRpcProvider) {
   console.log(pool.marketAddress);
@@ -330,7 +336,7 @@ export async function swapLocal(pool: UniswapV3Market, provider: providers.JsonR
 
   const poolContract = new Contract(pool.marketAddress, UNISWAP_POOL_ABI, provider);
 
-  const slot0 = (await poolContract.functions.slot0());
+  const slot0 = await poolContract.functions.slot0();
   const liquidity = (await poolContract.functions.liquidity())[0];
 
   const poolToken0 = new Token(ChainId.MAINNET, pool.tokens[0], 0);
@@ -342,16 +348,22 @@ export async function swapLocal(pool: UniswapV3Market, provider: providers.JsonR
     JSBI.BigInt(slot0.sqrtPriceX96.toString()),
     JSBI.BigInt(liquidity.toString()),
     slot0.tick,
-    ticks
-  )
+    ticks,
+  );
 
   const oracleContract = new Contract(UNISWAP_V3_QUOTER_ADDRESS, UNISWAP_V3_QUOTER_ABI, provider);
   const inputAmount = 1000000000000;
-  const outputContract = await oracleContract.callStatic.quoteExactInputSingle(pool.tokens[0], pool.tokens[1], Number(pool.fee), inputAmount.toString(), 0);
+  const outputContract = await oracleContract.callStatic.quoteExactInputSingle(
+    pool.tokens[0],
+    pool.tokens[1],
+    Number(pool.fee),
+    inputAmount.toString(),
+    0,
+  );
 
   startTime('time');
   const [output] = await sdkPool.getOutputAmount(
-    CurrencyAmount.fromRawAmount(poolToken0, JSBI.BigInt(inputAmount))
+    CurrencyAmount.fromRawAmount(poolToken0, JSBI.BigInt(inputAmount)),
   );
   console.log(output);
   console.log(endTime('time'));

@@ -4,10 +4,12 @@ import {
   ArbitrageStrategy,
   EthMarket,
   GroupedEthMarkets,
-  groupEthMarkets, MarketAction, printOpportunity, WETH_ADDRESS
+  groupEthMarkets,
+  MarketAction,
+  printOpportunity,
+  WETH_ADDRESS,
 } from '../entities';
 import { BigNumber } from 'ethers';
-
 
 export type TriangleStartOptions = Record<Address, BigNumber[]>;
 
@@ -36,10 +38,15 @@ export class TriangleArbitrageStrategy implements ArbitrageStrategy {
     }, {} as TrianglesByMarketAddress);
   }
 
-  getArbitrageOpportunities(changedMarkets: EthMarket[], allMarkets: EthMarket[]): ArbitrageOpportunity[] {
+  getArbitrageOpportunities(
+    changedMarkets: EthMarket[],
+    allMarkets: EthMarket[],
+  ): ArbitrageOpportunity[] {
     const changedTriangles = filterChangedTriangles(changedMarkets, this.trianglesByMarket);
     console.log(`Changed triangles ${changedTriangles.length}`);
-    return changedTriangles.map(this.calculateOpportunity.bind(this)).filter(Boolean) as ArbitrageOpportunity[];
+    return changedTriangles
+      .map(this.calculateOpportunity.bind(this))
+      .filter(Boolean) as ArbitrageOpportunity[];
   }
 
   calculateOpportunity(triangle: Triangle): ArbitrageOpportunity | null {
@@ -51,10 +58,13 @@ export class TriangleArbitrageStrategy implements ArbitrageStrategy {
       }
 
       return acc;
-    }, null as (ArbitrageOpportunity | null));
+    }, null as ArbitrageOpportunity | null);
   }
 
-  calculateOpportunityForAmount(triangle: Triangle, startAmount: BigNumber): ArbitrageOpportunity | null {
+  calculateOpportunityForAmount(
+    triangle: Triangle,
+    startAmount: BigNumber,
+  ): ArbitrageOpportunity | null {
     const amounts: BigNumber[] = [startAmount];
     let amount: BigNumber = startAmount;
 
@@ -90,7 +100,12 @@ export class TriangleArbitrageStrategy implements ArbitrageStrategy {
     return {
       strategyName: 'triangle',
       operations: triangle.markets.map((market, id) => {
-        return { market, amountIn: amounts[id], amountOut: amounts[id + 1], action: triangle.actions[id] };
+        return {
+          market,
+          amountIn: amounts[id],
+          amountOut: amounts[id + 1],
+          action: triangle.actions[id],
+        };
       }),
       profit: amount.sub(startAmount),
       startToken: triangle.startToken,
@@ -98,12 +113,14 @@ export class TriangleArbitrageStrategy implements ArbitrageStrategy {
   }
 }
 
-
-function filterChangedTriangles(changedMarkets: EthMarket[], trianglesByMarket: TrianglesByMarketAddress): Triangle[] {
+function filterChangedTriangles(
+  changedMarkets: EthMarket[],
+  trianglesByMarket: TrianglesByMarketAddress,
+): Triangle[] {
   const changedTriangles: Set<Triangle> = new Set<Triangle>();
 
   for (const market of changedMarkets) {
-    const triangles = (trianglesByMarket[market.marketAddress] ?? []);
+    const triangles = trianglesByMarket[market.marketAddress] ?? [];
 
     for (const triangle of triangles) {
       changedTriangles.add(triangle);
@@ -112,7 +129,6 @@ function filterChangedTriangles(changedMarkets: EthMarket[], trianglesByMarket: 
 
   return Array.from(changedTriangles);
 }
-
 
 /**
  m1, m2, m3 = markets
@@ -132,8 +148,7 @@ function createTriangles(startingTokens: Address[], group: GroupedEthMarkets): T
   for (const tokenA of startingTokens) {
     const group1 = groupEthMarkets(group.marketsByToken[tokenA]);
     const group2 = groupEthMarkets(
-      group.markets
-        .filter((market => market.tokens[0] !== tokenA && market.tokens[1] !== tokenA))
+      group.markets.filter((market) => market.tokens[0] !== tokenA && market.tokens[1] !== tokenA),
     );
 
     for (const market1 of group1.markets) {
@@ -172,7 +187,6 @@ function createTriangles(startingTokens: Address[], group: GroupedEthMarkets): T
   return triangles;
 }
 
-
 function printTriangles(markets: Triangle[]) {
   const allMarkets = markets.reduce((acc, i) => [...acc, ...i.markets], [] as EthMarket[]);
   const allTokens = Object.keys(groupEthMarkets(allMarkets).marketsByToken);
@@ -184,7 +198,7 @@ function printTriangles(markets: Triangle[]) {
   }, {} as Record<Address, string>);
 
   id = 0;
-  const marketAddresses = Array.from(new Set(allMarkets.map(market => market.marketAddress)));
+  const marketAddresses = Array.from(new Set(allMarkets.map((market) => market.marketAddress)));
   const marketDictionary = marketAddresses.reduce((acc, address) => {
     acc[address] = `M${++id}`;
     return acc;
