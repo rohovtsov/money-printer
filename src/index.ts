@@ -66,6 +66,7 @@ const provider = new providers.InfuraProvider('ropsten', '8ac04e84ff9e4fd19db5bf
 const arbitrageSigningWallet = new Wallet(PRIVATE_KEY);
 // const flashbotsRelaySigningWallet = new Wallet(FLASHBOTS_RELAY_SIGNING_KEY);
 
+let nonce = 3;
 //tickSpacing:
 async function executeCallData(
   amountToFirstMarket: BigNumber,
@@ -79,12 +80,13 @@ async function executeCallData(
     callData.targets,
     callData.data,
     {
-      gasPrice: BigNumber.from(0),
+      nonce: ++nonce,
+      gasPrice: await provider.getGasPrice(),
       gasLimit: BigNumber.from(1000000),
     },
   );
 
-  try {
+ /* try {
     const estimateGas = await bundleExecutorContract.provider.estimateGas({
       ...transaction,
       from: executorWallet.address,
@@ -98,7 +100,7 @@ async function executeCallData(
     console.warn(`Estimate gas failure for `);
     throw e;
     // return;
-  }
+  }*/
   const bundledTransactions = [
     {
       signer: executorWallet,
@@ -110,6 +112,8 @@ async function executeCallData(
   const result = await provider.sendTransaction(signedTransaction);
 
   console.log(result);
+  console.log(await result.wait(2));
+
   // const signedBundle = await this.flashbotsProvider.signBundle(bundledTransactions);
   //
   // const simulation = await this.flashbotsProvider.simulate(signedBundle, blockNumber + 1);
