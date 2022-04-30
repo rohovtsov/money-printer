@@ -65,7 +65,7 @@ export class UniswapV2Market implements EthMarket {
     }
     return {
       data: populatedTransaction.data,
-      target: toAddress,
+      target: this.marketAddress,
     };
   }
 
