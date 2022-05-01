@@ -87,7 +87,7 @@ export class UniswapV3Market implements EthMarket {
 
     const populatedTransaction = await UniswapV3Market.uniswapInterface.populateTransaction.swap(
       toAddress,
-      action === 'buy',
+      action === 'sell',
       amountIn.abs(),
       sqrtPriceLimitX96,
       [],
@@ -97,7 +97,7 @@ export class UniswapV3Market implements EthMarket {
     }
     return {
       data: populatedTransaction.data,
-      target: toAddress,
+      target: this.marketAddress,
     };
   }
 

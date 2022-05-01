@@ -51,8 +51,8 @@ export class UniswapV2Market implements EthMarket {
   ): Promise<CallData> {
     // function swap(uint amount0Out, uint amount1Out, address to, bytes calldata data) external lock {
     const toAddress = typeof recipient === 'string' ? recipient : recipient.marketAddress;
-    let amount0Out = action === 'buy' ? BigNumber.from(0) : this.calcTokensOut(action, amountIn);
-    let amount1Out = action === 'buy' ? this.calcTokensOut(action, amountIn) : BigNumber.from(0);
+    let amount0Out = action === 'sell' ? BigNumber.from(0) : this.calcTokensOut(action, amountIn);
+    let amount1Out = action === 'sell' ? this.calcTokensOut(action, amountIn) : BigNumber.from(0);
 
     const populatedTransaction = await UniswapV2Market.uniswapInterface.populateTransaction.swap(
       amount0Out,

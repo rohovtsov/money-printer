@@ -41,6 +41,7 @@ import { ArbitrageBlacklist } from './arbitrage-blacklist';
 const PRIVATE_KEY =
   process.env.PRIVATE_KEY || '0xe287672c1f7b7a8a38449626b3303a2ad4430672977b8a6f741a9ca35b6ca10c';
 // const BUNDLE_EXECUTOR_ADDRESS = process.env.BUNDLE_EXECUTOR_ADDRESS || ""
+const BUNDLE_EXECUTOR_ADDRESS = '0x51fbc7797B6fD53aFA8Ce0CAbF5a35c60B198837';
 
 // const FLASHBOTS_RELAY_SIGNING_KEY = process.env.FLASHBOTS_RELAY_SIGNING_KEY || getDefaultRelaySigningKey();
 
@@ -63,25 +64,48 @@ const PRIVATE_KEY =
 const HEALTHCHECK_URL = process.env.HEALTHCHECK_URL || '';
 
 const provider = new providers.InfuraProvider('ropsten', '8ac04e84ff9e4fd19db5bfa857b90a92');
+const bundleExecutorContract = new Contract(BUNDLE_EXECUTOR_ADDRESS, BUNDLE_EXECUTOR_ABI, provider);
 
 const arbitrageSigningWallet = new Wallet(PRIVATE_KEY);
 // const flashbotsRelaySigningWallet = new Wallet(FLASHBOTS_RELAY_SIGNING_KEY);
 
-let nonce = 19;
-//tickSpacing:
+async function withdrawWeth(
+  amount: BigNumber,
+  bundleExecutorContract: Contract,
+  executorWallet: Wallet,
+) {
+  const nonce = await provider.getTransactionCount(arbitrageSigningWallet.address);
+  const transaction = await bundleExecutorContract.populateTransaction.withdrawWeth(
+    amount,
+    executorWallet.address,
+    {
+      nonce: nonce,
+      gasPrice: await provider.getGasPrice(),
+      gasLimit: BigNumber.from(1000000),
+    },
+  );
+
+  const signedTransaction = await executorWallet.signTransaction(transaction);
+  const result = await provider.sendTransaction(signedTransaction);
+
+  console.log(result);
+  console.log(await result.wait(1));
+}
+
 async function executeCallData(
   amountToFirstMarket: BigNumber,
   callData: MultipleCallData,
   bundleExecutorContract: Contract,
   executorWallet: Wallet,
 ) {
+  const nonce = await provider.getTransactionCount(arbitrageSigningWallet.address);
   const transaction = await bundleExecutorContract.populateTransaction.uniswapWeth(
     amountToFirstMarket,
     BigNumber.from(0),
     callData.targets,
     callData.data,
     {
-      nonce: ++nonce,
+      nonce: nonce,
       gasPrice: await provider.getGasPrice(),
       gasLimit: BigNumber.from(1000000),
     },
@@ -175,14 +199,6 @@ async function main() {
     provider,
   );
 
-  const BUNDLE_EXECUTOR_ADDRESS = '0x51fbc7797B6fD53aFA8Ce0CAbF5a35c60B198837';
-
-  const bundleExecutorContract = new Contract(
-    BUNDLE_EXECUTOR_ADDRESS,
-    BUNDLE_EXECUTOR_ABI,
-    provider,
-  );
-
   runner
     .start()
     .pipe(take(1))
@@ -248,3 +264,4 @@ async function main() {
 }
 
 main();
+// withdrawWeth(ETHER.mul(2), bundleExecutorContract, arbitrageSigningWallet); // если хочется вывести 2 кефира например
