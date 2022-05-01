@@ -1,5 +1,6 @@
 import { FlashbotsBundleProvider } from '@flashbots/ethers-provider-bundle';
 import { BigNumber, Contract, providers, Wallet } from 'ethers';
+import { take } from 'rxjs';
 import {
   BLACKLIST,
   BUNDLE_EXECUTOR_ABI,
@@ -66,7 +67,7 @@ const provider = new providers.InfuraProvider('ropsten', '8ac04e84ff9e4fd19db5bf
 const arbitrageSigningWallet = new Wallet(PRIVATE_KEY);
 // const flashbotsRelaySigningWallet = new Wallet(FLASHBOTS_RELAY_SIGNING_KEY);
 
-let nonce = 3;
+let nonce = 19;
 //tickSpacing:
 async function executeCallData(
   amountToFirstMarket: BigNumber,
@@ -86,7 +87,7 @@ async function executeCallData(
     },
   );
 
- /* try {
+  /* try {
     const estimateGas = await bundleExecutorContract.provider.estimateGas({
       ...transaction,
       from: executorWallet.address,
@@ -174,7 +175,7 @@ async function main() {
     provider,
   );
 
-  const BUNDLE_EXECUTOR_ADDRESS = '0x75EBaE4EF4003f1be1F86ad69160Ce95Ad2cDE2f';
+  const BUNDLE_EXECUTOR_ADDRESS = '0x51fbc7797B6fD53aFA8Ce0CAbF5a35c60B198837';
 
   const bundleExecutorContract = new Contract(
     BUNDLE_EXECUTOR_ADDRESS,
@@ -182,43 +183,46 @@ async function main() {
     provider,
   );
 
-  runner.start().subscribe(async (opportunities) => {
-    console.log(`Found opportunities: ${opportunities.length} in ${endTime('render')}ms\n`);
-    const sortedOpportunities = opportunities.sort((op1, op2) =>
-      op2.profit.sub(op1.profit).div(BigNumber.from(10).pow(18)).toNumber(),
-    );
+  runner
+    .start()
+    .pipe(take(1))
+    .subscribe(async (opportunities) => {
+      console.log(`Found opportunities: ${opportunities.length} in ${endTime('render')}ms\n`);
+      const sortedOpportunities = opportunities.sort((op1, op2) =>
+        op2.profit.sub(op1.profit).div(BigNumber.from(10).pow(18)).toNumber(),
+      );
 
-    // sortedOpportunities.forEach(printOpportunity);
-    for (let opportunity of sortedOpportunities) {
-      printOpportunity(opportunity);
-      const callData: MultipleCallData = { data: [], targets: [] };
-      for (let i = 0; i < opportunity.operations.length; i++) {
-        const currentOperation = opportunity.operations[i];
-        const nextOperation = opportunity.operations[i + 1];
-        const data = await currentOperation.market.performSwap(
-          currentOperation.amountIn,
-          currentOperation.action,
-          nextOperation ? nextOperation.market : bundleExecutorContract.address,
-        );
-        callData.data.push(data.data);
-        callData.targets.push(data.target);
-      }
+      // sortedOpportunities.forEach(printOpportunity);
+      for (let opportunity of sortedOpportunities) {
+        printOpportunity(opportunity);
+        const callData: MultipleCallData = { data: [], targets: [] };
+        for (let i = 0; i < opportunity.operations.length; i++) {
+          const currentOperation = opportunity.operations[i];
+          const nextOperation = opportunity.operations[i + 1];
+          const data = await currentOperation.market.performSwap(
+            currentOperation.amountIn,
+            currentOperation.action,
+            nextOperation ? nextOperation.market : bundleExecutorContract.address,
+          );
+          callData.data.push(data.data);
+          callData.targets.push(data.target);
+        }
 
-      console.log('callData is collected', callData);
-      try {
-        const result = await executeCallData(
-          opportunity.operations[0].amountIn,
-          callData,
-          bundleExecutorContract,
-          arbitrageSigningWallet,
-        );
-        console.log('result is', result);
-        break;
-      } catch (e) {
-        console.log('error is', e);
+        console.log('callData is collected', callData);
+        try {
+          const result = await executeCallData(
+            opportunity.operations[0].amountIn,
+            callData,
+            bundleExecutorContract,
+            arbitrageSigningWallet,
+          );
+          console.log('result is', result);
+          break;
+        } catch (e) {
+          console.log('error is', e);
+        }
       }
-    }
-  });
+    });
 
   // console.log("Searcher Wallet Address: " + await arbitrageSigningWallet.getAddress())
   // console.log("Flashbots Relay Signing Wallet Address: " + await flashbotsRelaySigningWallet.getAddress())

@@ -32,7 +32,9 @@ async function deployBundleExecutor() {
   // We get the contract to deploy
   const EXECUTOR_ADDRESS = '0x5e9a214bf9864143e44778F9729B230083388cDB';
   const BundleExecutor = await ethers.getContractFactory('FlashBotsMultiCall');
-  const query = await BundleExecutor.deploy(EXECUTOR_ADDRESS);
+  const query = await BundleExecutor.deploy(EXECUTOR_ADDRESS, {
+    value: ethers.utils.parseEther('0.1'),
+  });
   await query.deployed();
   console.log('BundleExecutor deployed to:', query.address);
 }
@@ -54,7 +56,7 @@ async function deployFlashBotsUniswapQuery() {
 
 // We recommend this pattern to be able to use async/await everywhere
 // and properly handle errors.
-deployFlashBotsUniswapQuery().catch((error) => {
+deployBundleExecutor().catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });
