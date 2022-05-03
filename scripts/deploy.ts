@@ -5,7 +5,7 @@
 // Runtime Environment's members available in the global scope.
 import { ethers } from 'hardhat';
 
-async function deployMoneyPrinter() {
+async function deployMoneyPrinterQuery() {
   // Hardhat always runs the compile task when running scripts with its command
   // line interface.
   //
@@ -21,7 +21,7 @@ async function deployMoneyPrinter() {
   console.log('MoneyPrinterQuery deployed to:', query.address);
 }
 
-async function deployBundleExecutor() {
+async function deployMoneyPrinter() {
   // Hardhat always runs the compile task when running scripts with its command
   // line interface.
   //
@@ -31,12 +31,12 @@ async function deployBundleExecutor() {
 
   // We get the contract to deploy
   const EXECUTOR_ADDRESS = '0x5e9a214bf9864143e44778F9729B230083388cDB';
-  const BundleExecutor = await ethers.getContractFactory('FlashBotsMultiCall');
+  const BundleExecutor = await ethers.getContractFactory('MoneyPrinter');
   const query = await BundleExecutor.deploy(EXECUTOR_ADDRESS, {
-    value: ethers.utils.parseEther('0.1'),
+    // value: ethers.utils.parseEther('0.1'),
   });
   await query.deployed();
-  console.log('BundleExecutor deployed to:', query.address);
+  console.log('MoneyPrinter deployed to:', query.address);
 }
 
 async function deployFlashBotsUniswapQuery() {
@@ -56,7 +56,7 @@ async function deployFlashBotsUniswapQuery() {
 
 // We recommend this pattern to be able to use async/await everywhere
 // and properly handle errors.
-deployBundleExecutor().catch((error) => {
+deployMoneyPrinter().catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });

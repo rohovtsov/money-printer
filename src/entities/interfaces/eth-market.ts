@@ -31,6 +31,8 @@ export interface EthMarket {
   marketAddress: Address;
   protocol: Protocol;
 
+  hasEnoughReserves(tokenAddress: string, minReserve: BigNumber): boolean;
+
   calcTokensOut(action: MarketAction, amountIn: BigNumber): BigNumber | null;
 
   calcTokensIn(action: MarketAction, amountOut: BigNumber): BigNumber | null;

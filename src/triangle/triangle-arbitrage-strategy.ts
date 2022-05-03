@@ -75,6 +75,8 @@ export class TriangleArbitrageStrategy implements ArbitrageStrategy {
       const action = triangle.actions[i];
       const nextAmount = market.calcTokensOut(action, amount);
 
+      // if (nextAmount.gt(triangle.markets[i].))
+
       if (nextAmount !== null) {
         amount = nextAmount;
         amounts.push(nextAmount);

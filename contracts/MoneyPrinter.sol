@@ -3,6 +3,10 @@ pragma solidity ^0.8.0;
 
 pragma experimental ABIEncoderV2;
 
+import '@uniswap/v2-core/contracts/interfaces/IUniswapV2Callee.sol';
+import '@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol';
+import '@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol';
+
 interface IERC20 {
     event Approval(address indexed owner, address indexed spender, uint value);
     event Transfer(address indexed from, address indexed to, uint value);
@@ -26,9 +30,10 @@ interface IWETH is IERC20 {
 
 // This contract simply calls multiple targets sequentially, ensuring WETH balance before and after
 
-contract FlashBotsMultiCall {
+contract MoneyPrinter is IUniswapV2Callee {
     address private immutable owner;
     address private immutable executor;
+    IUniswapV2Factory private constant factoryV2 = IUniswapV2Factory(0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f);
 //    IWETH private constant WETH = IWETH(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2); // mainnet
     IWETH private constant WETH = IWETH(0xc778417E063141139Fce010982780140Aa0cD5Ab); // ropsten
 
@@ -53,7 +58,24 @@ contract FlashBotsMultiCall {
     receive() external payable {
     }
 
+    function uniswapV2Call(address sender, uint amount0, uint amount1, bytes calldata data) external override {
+        address token0 = IUniswapV2Pair(msg.sender).token0(); // fetch the address of token0
+        address token1 = IUniswapV2Pair(msg.sender).token1(); // fetch the address of token1
+        assert(msg.sender == factoryV2.getPair(token0, token1)); // ensure that msg.sender is a V2 pair
+        // мне дали денег в займ
+        (uint256 _wethAmountToFirstMarket, uint256 _ethAmountToCoinbase, address[] memory _targets,  bytes[] memory _payloads, uint256 amountRequired) = abi.decode(data, (uint256, uint256, address[], bytes[], uint256));
+        performTriangle(_wethAmountToFirstMarket, _ethAmountToCoinbase, _targets, _payloads); // надо выполнить все тоже самое что в uniswapWeth
+        assert(WETH.transfer(msg.sender, amountRequired), 'failed to return enough money'); // потом вернуть деньги с комиссией
+    }
+
     function uniswapWeth(uint256 _wethAmountToFirstMarket, uint256 _ethAmountToCoinbase, address[] memory _targets, bytes[] memory _payloads) external onlyExecutor payable {
+//        if (WETH.balanceOf(address(this)) + address(this).balance < _wethAmountToFirstMarket) {
+//            data = abi.encode(_wethAmountToFirstMarket, _ethAmountToCoinbase, _targets, _payloads)
+//        }
+        performTriangle(_wethAmountToFirstMarket, _ethAmountToCoinbase, _targets, _payloads);
+    }
+
+    function performTriangle(uint256 _wethAmountToFirstMarket, uint256 _ethAmountToCoinbase, address[] memory _targets, bytes[] memory _payloads) private {
         require (_targets.length == _payloads.length, "targets and payloads must be the same length");
         uint256 _wethBalanceBefore = WETH.balanceOf(address(this));
         WETH.transfer(_targets[0], _wethAmountToFirstMarket);
@@ -64,7 +86,9 @@ contract FlashBotsMultiCall {
 
         uint256 _wethBalanceAfter = WETH.balanceOf(address(this));
         require(_wethBalanceAfter > _wethBalanceBefore + _ethAmountToCoinbase, "swap is not profitable");
-        if (_ethAmountToCoinbase == 0) return;
+        if (_ethAmountToCoinbase == 0) {
+            return;
+        }
 
         uint256 _ethBalance = address(this).balance;
         if (_ethBalance < _ethAmountToCoinbase) {
@@ -84,7 +108,7 @@ contract FlashBotsMultiCall {
         return _result;
     }
 
-    function appendUintToString(string memory inStr, uint v) private returns (string memory) {
+    function appendUintToString(string memory inStr, uint v) private pure returns (string memory) {
         uint maxlength = 100;
         bytes memory reversed = new bytes(maxlength);
         uint i = 0;

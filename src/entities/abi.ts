@@ -120,7 +120,7 @@ export const BUNDLE_EXECUTOR_ABI = [
   },
 ];
 
-export const UNISWAP_PAIR_ABI = [
+export const UNISWAP_V2_PAIR_ABI = [
   {
     inputs: [],
     payable: false,

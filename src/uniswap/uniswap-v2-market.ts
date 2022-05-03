@@ -5,17 +5,24 @@ import {
   EthMarket,
   MarketAction,
   PriceCalculator,
-  UNISWAP_PAIR_ABI,
+  UNISWAP_V2_PAIR_ABI,
   WETH_ADDRESS,
 } from '../entities';
 import { SimpleUniswapV2Calculator } from './uniswap-v2-price-calculator';
 
 export class UniswapV2Market implements EthMarket {
-  static uniswapInterface = new Contract(WETH_ADDRESS, UNISWAP_PAIR_ABI);
+  static uniswapInterface = new Contract(WETH_ADDRESS, UNISWAP_V2_PAIR_ABI);
 
   readonly protocol = 'uniswapV2';
   readonly calculator: PriceCalculator;
   private reserves?: [BigNumber, BigNumber];
+
+  public hasEnoughReserves(tokenAddress: string, minReserve: BigNumber): boolean {
+    if (!this.reserves) {
+      return false;
+    }
+    return this.reserves[this.tokens.indexOf(tokenAddress)].gt(minReserve);
+  }
 
   constructor(readonly marketAddress: Address, readonly tokens: [Address, Address]) {
     this.calculator = SimpleUniswapV2Calculator;
@@ -30,7 +37,9 @@ export class UniswapV2Market implements EthMarket {
     const reservesIn = action === 'sell' ? this.reserves[0] : this.reserves[1];
     const reservesOut = action === 'sell' ? this.reserves[1] : this.reserves[0];
 
-    return this.calculator.getTokensOut(reservesIn, reservesOut, amountIn);
+    return reservesIn < amountIn
+      ? null
+      : this.calculator.getTokensOut(reservesIn, reservesOut, amountIn);
   }
 
   calcTokensIn(action: MarketAction, amountOut: BigNumber): BigNumber | null {
@@ -41,7 +50,9 @@ export class UniswapV2Market implements EthMarket {
     const reservesIn = action === 'sell' ? this.reserves[0] : this.reserves[1];
     const reservesOut = action === 'sell' ? this.reserves[1] : this.reserves[0];
 
-    return this.calculator.getTokensIn(reservesIn, reservesOut, amountOut);
+    return reservesOut > amountOut
+      ? null
+      : this.calculator.getTokensIn(reservesIn, reservesOut, amountOut);
   }
 
   async performSwap(
