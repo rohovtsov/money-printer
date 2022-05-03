@@ -56,7 +56,7 @@ async function deployFlashBotsUniswapQuery() {
 
 // We recommend this pattern to be able to use async/await everywhere
 // and properly handle errors.
-deployBundleExecutor().catch((error) => {
+deployFlashBotsUniswapQuery().catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });

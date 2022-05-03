@@ -44,7 +44,7 @@ export class UniswapV3PoolStateSyncer {
   constructor(readonly provider: providers.JsonRpcProvider, readonly parallelCount: number) {
     this.client = new ApolloClient({
       // uri: 'https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3',
-      uri: 'https://api.thegraph.com/subgraphs/name/kmkoushik/uniswap-v3-ropsten',
+      uri: 'https://api.thegraph.com/subgraphs/name/liqwiz/uniswap-v3-goerli',
       fetch,
     });
 
@@ -81,8 +81,8 @@ export class UniswapV3PoolStateSyncer {
           sqrtPrice
           tick
           liquidity
-          ticks(first: 1000, orderBy: id) {
-            id
+          ticks(first: 1000, orderBy: tickIdx) {
+            tickIdx
             liquidityGross
             liquidityNet
           }
@@ -152,6 +152,11 @@ export class UniswapV3PoolStateSyncer {
         continue;
       }
 
+      if (!marketsByAddress[pool.id]) {
+        console.log(pool);
+        console.log(markets.length);
+        console.log(marketAddressesToSync);
+      }
       this.setPoolState(marketsByAddress[pool.id], pool);
       marketAddressesToSync.delete(pool.id);
     }
@@ -192,6 +197,10 @@ export class UniswapV3PoolStateSyncer {
     pools.push(...this.mergePoolsExtraData(oversizePools, oversizeData));
 
     for (const pool of pools) {
+      if (!marketsByAddress[pool.id]) {
+        console.log(pool);
+        console.log(marketsByAddress);
+      }
       this.setPoolState(marketsByAddress[pool.id], pool);
     }
   }
@@ -307,7 +316,6 @@ export class UniswapV3PoolStateSyncer {
       data.pools.length,
       poolsOffset,
       data.pools.reduce((acc, pool) => acc + pool.ticks.length, 0),
-      minBlockNumber,
     );
 
     if (data._meta.block.number < minBlockNumber) {

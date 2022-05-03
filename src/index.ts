@@ -63,7 +63,7 @@ const BUNDLE_EXECUTOR_ADDRESS = '0x51fbc7797B6fD53aFA8Ce0CAbF5a35c60B198837';
 
 const HEALTHCHECK_URL = process.env.HEALTHCHECK_URL || '';
 
-const provider = new providers.InfuraProvider('ropsten', '8ac04e84ff9e4fd19db5bfa857b90a92');
+const provider = new providers.InfuraProvider('goerli', '8ac04e84ff9e4fd19db5bfa857b90a92');
 const bundleExecutorContract = new Contract(BUNDLE_EXECUTOR_ADDRESS, BUNDLE_EXECUTOR_ABI, provider);
 
 const arbitrageSigningWallet = new Wallet(PRIVATE_KEY);
@@ -172,7 +172,7 @@ async function main() {
     ...UNISWAP_V2_FACTORY_ADDRESSES.map(
       (address) => new UniswapV2MarketFactory(provider, address, LAST_BLOCK),
     ),
-    // new UniswapV3MarketFactory(provider, UNISWAP_V3_FACTORY_ADDRESS, LAST_BLOCK),
+    new UniswapV3MarketFactory(provider, UNISWAP_V3_FACTORY_ADDRESS, LAST_BLOCK),
   ];
 
   const markets: EthMarket[] = (
@@ -183,6 +183,7 @@ async function main() {
 
   const blacklist = new ArbitrageBlacklist(BLACKLIST);
   const allowedMarkets = blacklist.filterMarkets(markets);
+  console.log(allowedMarkets.length);
 
   const runner = new ArbitrageRunner(
     allowedMarkets,
@@ -194,7 +195,7 @@ async function main() {
         allowedMarkets,
       ),
     ],
-    new UniswapV2ReservesSyncer(provider, 5, 5000),
+    new UniswapV2ReservesSyncer(provider, 5, 1000),
     new UniswapV3PoolStateSyncer(provider, 3),
     provider,
   );
