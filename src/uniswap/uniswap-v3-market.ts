@@ -32,6 +32,10 @@ export class UniswapV3Market implements EthMarket {
     this.poolToken1 = new Token(ChainId.MAINNET, this.tokens[1], 0);
   }
 
+  public hasEnoughReserves(tokenAddress: string, minReserve: BigNumber): boolean {
+    throw new Error('Method not implemented.');
+  }
+
   calcTokensOut(action: MarketAction, amountIn: BigNumber): BigNumber | null {
     if (!this.pool) {
       return null;

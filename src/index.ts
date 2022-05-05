@@ -1,5 +1,6 @@
 import { FlashbotsBundleProvider } from '@flashbots/ethers-provider-bundle';
-import { BigNumber, Contract, providers, Wallet } from 'ethers';
+// import Web3 from 'web3';
+import { BigNumber, Contract, providers, Wallet, utils } from 'ethers';
 import { take } from 'rxjs';
 import {
   BLACKLIST,
@@ -15,6 +16,7 @@ import {
   PRINTER_QUERY_ADDRESS,
   printOpportunity,
   startTime,
+  UNISWAP_V2_PAIR_ABI,
   UNISWAP_POOL_ABI,
   UNISWAP_V2_FACTORY_ADDRESSES,
   UNISWAP_V3_FACTORY_ADDRESS,
@@ -26,6 +28,7 @@ import { UniswappyV2EthPair } from './old/UniswappyV2EthPair';
 import { Arbitrage2 } from './old/Arbitrage2';
 import { get } from 'https';
 import { getDefaultRelaySigningKey } from './entities';
+import { UniswapV2Market } from './uniswap/uniswap-v2-market';
 import { UniswapV2MarketFactory } from './uniswap/uniswap-v2-market-factory';
 import { ArbitrageRunner } from './arbitrage-runner';
 import { TriangleArbitrageStrategy } from './triangle/triangle-arbitrage-strategy';
@@ -41,7 +44,7 @@ import { ArbitrageBlacklist } from './arbitrage-blacklist';
 const PRIVATE_KEY =
   process.env.PRIVATE_KEY || '0xe287672c1f7b7a8a38449626b3303a2ad4430672977b8a6f741a9ca35b6ca10c';
 // const BUNDLE_EXECUTOR_ADDRESS = process.env.BUNDLE_EXECUTOR_ADDRESS || ""
-const BUNDLE_EXECUTOR_ADDRESS = '0x51fbc7797B6fD53aFA8Ce0CAbF5a35c60B198837';
+const MONEY_PRINTER_ADDRESS = '0x28136AcD0C37824B4FAa0A4c16c2067dc067F759'; // last working '0x51fbc7797B6fD53aFA8Ce0CAbF5a35c60B198837';
 
 // const FLASHBOTS_RELAY_SIGNING_KEY = process.env.FLASHBOTS_RELAY_SIGNING_KEY || getDefaultRelaySigningKey();
 
@@ -64,7 +67,7 @@ const BUNDLE_EXECUTOR_ADDRESS = '0x51fbc7797B6fD53aFA8Ce0CAbF5a35c60B198837';
 const HEALTHCHECK_URL = process.env.HEALTHCHECK_URL || '';
 
 const provider = new providers.InfuraProvider('goerli', '8ac04e84ff9e4fd19db5bfa857b90a92');
-const bundleExecutorContract = new Contract(BUNDLE_EXECUTOR_ADDRESS, BUNDLE_EXECUTOR_ABI, provider);
+const moneyPrinterContract = new Contract(MONEY_PRINTER_ADDRESS, BUNDLE_EXECUTOR_ABI, provider);
 
 const arbitrageSigningWallet = new Wallet(PRIVATE_KEY);
 // const flashbotsRelaySigningWallet = new Wallet(FLASHBOTS_RELAY_SIGNING_KEY);
@@ -92,7 +95,87 @@ async function withdrawWeth(
   console.log(await result.wait(1));
 }
 
-async function executeCallData(
+async function executeFlashSwapV2(
+  amountToFirstMarket: BigNumber,
+  amountFromFirstMarket: BigNumber,
+  callData: MultipleCallData,
+  bundleExecutorContract: Contract,
+  executorWallet: Wallet,
+  uniswapLoanMarket: UniswapV2Market,
+) {
+  // const amountRequired: BigNumber = amountToFirstMarket.mul(1000).div(997).add(10);
+  const nonce = await provider.getTransactionCount(arbitrageSigningWallet.address);
+  const abiCoder = new utils.AbiCoder();
+  const data = abiCoder.encode(
+    ['uint256', 'address', 'uint256', 'uint256', 'address[]', 'bytes[]'],
+    [
+      amountFromFirstMarket,
+      uniswapLoanMarket.tokens.find((token) => token !== WETH_ADDRESS),
+      amountToFirstMarket,
+      BigNumber.from(0),
+      callData.targets.slice(1),
+      callData.data.slice(1),
+    ],
+  );
+  // const { data } = await bundleExecutorContract.populateTransaction.uniswapWeth(
+  //   amountToFirstMarket,
+  //   BigNumber.from(0),
+  //   callData.targets,
+  //   callData.data,
+  //   amountRequired,
+  // );
+
+  const loanContract = new Contract(uniswapLoanMarket.marketAddress, UNISWAP_V2_PAIR_ABI, provider);
+
+  let isToken0 = uniswapLoanMarket.tokens[0] === WETH_ADDRESS;
+  // uint amount0Out, uint amount1Out, address to, bytes calldata data
+  const transaction = await loanContract.populateTransaction.swap(
+    isToken0 ? BigNumber.from(0) : amountFromFirstMarket,
+    isToken0 ? amountFromFirstMarket : BigNumber.from(0),
+    bundleExecutorContract.address,
+    data,
+    {
+      nonce: nonce,
+      gasPrice: await provider.getGasPrice(),
+      gasLimit: BigNumber.from(1000000),
+    },
+  );
+
+  /*
+  try {
+    const estimateGas = await bundleExecutorContract.provider.estimateGas({
+      ...transaction,
+      from: executorWallet.address,
+    });
+    if (estimateGas.gt(1400000)) {
+      console.log('EstimateGas succeeded, but suspiciously large: ' + estimateGas.toString());
+      return;
+    }
+    transaction.gasLimit = estimateGas.mul(2);
+  } catch (e) {
+    console.warn(`Estimate gas failure for `);
+    throw e;
+    // return;
+  }
+
+   */
+  /*
+  const bundledTransactions = [
+    {
+      signer: executorWallet,
+      transaction: transaction,
+    },
+  ];
+  */
+
+  const signedTransaction = await executorWallet.signTransaction(transaction);
+  const result = await provider.sendTransaction(signedTransaction);
+
+  console.log(result);
+  console.log(await result.wait(2));
+}
+
+async function executeRegularSwap(
   amountToFirstMarket: BigNumber,
   callData: MultipleCallData,
   bundleExecutorContract: Contract,
@@ -219,7 +302,7 @@ async function main() {
           const data = await currentOperation.market.performSwap(
             currentOperation.amountIn,
             currentOperation.action,
-            nextOperation ? nextOperation.market : bundleExecutorContract.address,
+            nextOperation ? nextOperation.market : moneyPrinterContract.address,
           );
           callData.data.push(data.data);
           callData.targets.push(data.target);
@@ -227,13 +310,32 @@ async function main() {
 
         console.log('callData is collected', callData);
         try {
-          const result = await executeCallData(
-            opportunity.operations[0].amountIn,
-            callData,
-            bundleExecutorContract,
-            arbitrageSigningWallet,
-          );
-          console.log('result is', result);
+          let lowMoney = true; // TODO: check if we have enough money
+          if (lowMoney) {
+            let firstMarket = opportunity.operations[0].market;
+            if (firstMarket.protocol === 'uniswapV2') {
+              const result = await executeFlashSwapV2(
+                opportunity.operations[0].amountIn,
+                opportunity.operations[0].amountOut,
+                callData,
+                moneyPrinterContract,
+                arbitrageSigningWallet,
+                firstMarket as UniswapV2Market,
+              );
+              console.log('result is', result);
+            } else {
+              throw new Error('v3 flash loans is not implemented yet');
+            }
+          } else {
+            const result = await executeRegularSwap(
+              opportunity.operations[0].amountIn,
+              callData,
+              moneyPrinterContract,
+              arbitrageSigningWallet,
+            );
+            console.log('result is', result);
+          }
+
           break;
         } catch (e) {
           console.log('error is', e);

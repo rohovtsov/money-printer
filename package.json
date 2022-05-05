@@ -7,7 +7,7 @@
   "scripts": {
     "start": "ts-node src/index.ts",
     "start-old": "npx ts-node --project tsconfig.json src/index.ts",
-    "deploy": "hardhat run scripts/deploy.ts --network ropsten",
+    "deploy": "hardhat run scripts/deploy.ts --network goerli",
     "test": "npx hardhat test",
     "build": "npx tsc",
     "lint": "npx eslint src"

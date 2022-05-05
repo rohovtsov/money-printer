@@ -11,16 +11,30 @@ export function tokenShortName(address: Address) {
 }
 
 export function printOpportunity(opp: ArbitrageOpportunity): void {
-  let path = `${opp.operations?.[0]?.amountIn}${opp.operations.map(op => ` > ${op.action} > ${op.amountOut}`).join('')}`;
-  let tokens = `${opp.operations.map((op => `https://goerli.etherscan.io/token/${op.action === 'sell' ? op.market.tokens[0] : op.market.tokens[1] }`)).join('\n')}`;
-  let markets = `${opp.operations.map((op => `https://goerli.etherscan.io/address/${op.market.marketAddress}#readContract`)).join('\n')}`;
+  let path = `${opp.operations?.[0]?.amountIn}${opp.operations
+    .map((op) => ` > ${op.action} > ${op.amountOut}`)
+    .join('')}`;
+  let tokens = `${opp.operations
+    .map(
+      (op) =>
+        `https://goerli.etherscan.io/token/${
+          op.action === 'sell' ? op.market.tokens[0] : op.market.tokens[1]
+        }`,
+    )
+    .join('\n')}`;
+  let markets = `${opp.operations
+    .map(
+      (op) =>
+        `https://goerli.etherscan.io/address/${op.market.marketAddress}#readContract (${op.market.protocol})`,
+    )
+    .join('\n')}`;
 
   console.log(
     `Type: ${opp.strategyName}\n` +
-    `Profit: ${opp.profit.toString()} of ${tokenShortName(opp.startToken)}\n` +
-    `Path: ${path}\n` +
-    `${tokens}\n` +
-    `Markets:\n` +
-    `${markets}\n`
-  )
+      `Profit: ${opp.profit.toString()} of ${tokenShortName(opp.startToken)}\n` +
+      `Path: ${path}\n` +
+      `${tokens}\n` +
+      `Markets:\n` +
+      `${markets}\n`,
+  );
 }

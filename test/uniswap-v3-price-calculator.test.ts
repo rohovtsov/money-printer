@@ -1,6 +1,12 @@
 import { BigNumber, Contract, providers } from 'ethers';
 import { UniswapV3MarketFactory } from '../src/uniswap/uniswap-v3-market-factory';
-import { GWEI, ETHER, UNISWAP_V3_FACTORY_ADDRESS, UNISWAP_V3_QUOTER_ABI, UNISWAP_V3_QUOTER_ADDRESS } from '../src/entities';
+import {
+  GWEI,
+  ETHER,
+  UNISWAP_V3_FACTORY_ADDRESS,
+  UNISWAP_V3_QUOTER_ABI,
+  UNISWAP_V3_QUOTER_ADDRESS,
+} from '../src/entities';
 import { UniswapV3Market } from '../src/uniswap/uniswap-v3-market';
 import { UniswapV3PoolStateSyncer } from '../src/uniswap/uniswap-v3-pool-state-syncer';
 import { FeeAmount, Pool } from '@uniswap/v3-sdk';
@@ -14,7 +20,7 @@ function calcPricesWithSyncPool(market: UniswapV3Market, amount: BigNumber) {
     market.calcTokensOut('buy', amount),
     market.calcTokensIn('sell', amount),
     market.calcTokensIn('buy', amount),
-  ]
+  ];
 }
 
 async function calcPricesWithSdkPool(market: UniswapV3Market, amount: BigNumber) {
@@ -28,7 +34,7 @@ async function calcPricesWithSdkPool(market: UniswapV3Market, amount: BigNumber)
     JSBI.BigInt(market.pool?.sqrtRatioX96 ?? 0),
     JSBI.BigInt(market.pool?.liquidity ?? 0),
     market.pool?.tickCurrent ?? 0,
-    (market.pool?.tickDataProvider as any).ticks
+    (market.pool?.tickDataProvider as any)?.ticks,
   );
 
   const result = await Promise.all([
@@ -38,7 +44,7 @@ async function calcPricesWithSdkPool(market: UniswapV3Market, amount: BigNumber)
     pool.getInputAmount(CurrencyAmount.fromRawAmount(token1, JSBI.BigInt(amount.toString()))),
   ]);
 
-  return result.map(res => {
+  return result.map((res) => {
     return BigNumber.from(res[0].toSignificant(100));
   });
 }
@@ -52,23 +58,45 @@ describe('UniswapV3PriceCalculator', function () {
     const syncer = new UniswapV3PoolStateSyncer(provider, 10);
     const markets = await factory.getEthMarkets();
 
-    const market = markets.find(m => m.marketAddress.toLowerCase() === '0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8') as UniswapV3Market;
+    const market = markets.find(
+      (m) => m.marketAddress.toLowerCase() === '0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8',
+    ) as UniswapV3Market;
     const quoter = new Contract(UNISWAP_V3_QUOTER_ADDRESS, UNISWAP_V3_QUOTER_ABI, provider);
     const amount = BigNumber.from('335636606225208118');
 
     const contractPrices = await Promise.all([
-      quoter.callStatic.quoteExactInputSingle(market.tokens[0], market.tokens[1], market.fee, amount.toString(), 0).catch(() => null),
-      quoter.callStatic.quoteExactInputSingle(market.tokens[1], market.tokens[0], market.fee, amount.toString(), 0).catch(() => null),
-      quoter.callStatic.quoteExactOutputSingle(market.tokens[1], market.tokens[0], market.fee, amount.toString(), 0).catch(() => null),
-      quoter.callStatic.quoteExactOutputSingle(market.tokens[0], market.tokens[1], market.fee, amount.toString(), 0).catch(() => null),
-      syncer.syncPoolStates([market])
+      quoter.callStatic
+        .quoteExactInputSingle(market.tokens[0], market.tokens[1], market.fee, amount.toString(), 0)
+        .catch(() => null),
+      quoter.callStatic
+        .quoteExactInputSingle(market.tokens[1], market.tokens[0], market.fee, amount.toString(), 0)
+        .catch(() => null),
+      quoter.callStatic
+        .quoteExactOutputSingle(
+          market.tokens[1],
+          market.tokens[0],
+          market.fee,
+          amount.toString(),
+          0,
+        )
+        .catch(() => null),
+      quoter.callStatic
+        .quoteExactOutputSingle(
+          market.tokens[0],
+          market.tokens[1],
+          market.fee,
+          amount.toString(),
+          0,
+        )
+        .catch(() => null),
+      syncer.syncPoolStates([market]),
     ]);
 
     const syncPrices = calcPricesWithSyncPool(market, amount);
     const sdkPrices = await calcPricesWithSdkPool(market, amount);
 
-    console.log(contractPrices.map(b => b?.toString()));
-    console.log(sdkPrices.map(b => b?.toString()));
+    console.log(contractPrices.map((b) => b?.toString()));
+    console.log(sdkPrices.map((b) => b?.toString()));
 
     for (let i = 0; i < 4; i++) {
       expect(contractPrices[i].toString()).equal(sdkPrices[i]?.toString());
@@ -76,7 +104,6 @@ describe('UniswapV3PriceCalculator', function () {
     }
   });
 });
-
 
 /*
 Profit: -99999304748229172238 of WETH
