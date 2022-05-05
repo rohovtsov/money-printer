@@ -47,7 +47,7 @@ contract MoneyPrinter is IUniswapV2Callee {
         _;
     }
 
-    constructor(address _executor) public payable {
+    constructor(address _executor) payable {
         owner = msg.sender;
         executor = _executor;
         if (msg.value > 0) {
@@ -62,30 +62,33 @@ contract MoneyPrinter is IUniswapV2Callee {
         address token0 = IUniswapV2Pair(msg.sender).token0(); // fetch the address of token0
         address token1 = IUniswapV2Pair(msg.sender).token1(); // fetch the address of token1
         assert(msg.sender == factoryV2.getPair(token0, token1)); // ensure that msg.sender is a V2 pair
-        // мне дали денег в займ
-        (uint256 _wethAmountToFirstMarket, uint256 _ethAmountToCoinbase, address[] memory _targets,  bytes[] memory _payloads, uint256 amountRequired) = abi.decode(data, (uint256, uint256, address[], bytes[], uint256));
-        performTriangle(_wethAmountToFirstMarket, _ethAmountToCoinbase, _targets, _payloads); // надо выполнить все тоже самое что в uniswapWeth
-        assert(WETH.transfer(msg.sender, amountRequired), 'failed to return enough money'); // потом вернуть деньги с комиссией
+        (uint256 _amountToFirstMarket, address _tokenToFirstMarket, uint256 _wethBeforeAmount, uint256 _ethAmountToCoinbase, address[] memory _targets,  bytes[] memory _payloads) = abi.decode(data, (uint256, address, uint256, uint256, address[], bytes[]));
+        performTriangle(_amountToFirstMarket, _tokenToFirstMarket, _wethBeforeAmount, _ethAmountToCoinbase, _targets, _payloads); // надо выполнить все тоже самое что в uniswapWeth
+        require(WETH.transfer(msg.sender, _wethBeforeAmount), 'Q1'); // потом вернуть деньги с комиссией
     }
 
-    function uniswapWeth(uint256 _wethAmountToFirstMarket, uint256 _ethAmountToCoinbase, address[] memory _targets, bytes[] memory _payloads) external onlyExecutor payable {
-//        if (WETH.balanceOf(address(this)) + address(this).balance < _wethAmountToFirstMarket) {
-//            data = abi.encode(_wethAmountToFirstMarket, _ethAmountToCoinbase, _targets, _payloads)
-//        }
-        performTriangle(_wethAmountToFirstMarket, _ethAmountToCoinbase, _targets, _payloads);
+    function uniswapWeth(uint256 _amountToFirstMarket, uint256 _ethAmountToCoinbase, address[] memory _targets, bytes[] memory _payloads) external onlyExecutor payable {
+        performTriangle(_amountToFirstMarket, address(WETH), 0, _ethAmountToCoinbase, _targets, _payloads);
     }
 
-    function performTriangle(uint256 _wethAmountToFirstMarket, uint256 _ethAmountToCoinbase, address[] memory _targets, bytes[] memory _payloads) private {
-        require (_targets.length == _payloads.length, "targets and payloads must be the same length");
-        uint256 _wethBalanceBefore = WETH.balanceOf(address(this));
-        WETH.transfer(_targets[0], _wethAmountToFirstMarket);
-        for (uint256 i = 0; i < _targets.length; i++) {
+    function performTriangle(
+        uint256 _amountToFirstMarket,
+        address _tokenToFirstMarket,
+        uint256 _wethBeforeAmount,
+        uint256 _ethAmountToCoinbase,
+        address[] memory _targets,
+        bytes[] memory _payloads
+    ) private {
+        require (_targets.length == _payloads.length, "Q2");
+        uint256 _wethBalanceBefore = _wethBeforeAmount > 0 ? _wethBeforeAmount : WETH.balanceOf(address(this));
+        IERC20(_tokenToFirstMarket).transfer(_targets[0], _amountToFirstMarket);
+        for (uint64 i = 0; i < _targets.length; i++) {
             (bool _success, bytes memory _response) = _targets[i].call(_payloads[i]);
-            require(_success, appendUintToString("failed on executing swap ", i)); _response;
+            require(_success, "Q4"); _response;
         }
 
         uint256 _wethBalanceAfter = WETH.balanceOf(address(this));
-        require(_wethBalanceAfter > _wethBalanceBefore + _ethAmountToCoinbase, "swap is not profitable");
+        require(_wethBalanceAfter > _wethBalanceBefore + _ethAmountToCoinbase, "Q3");
         if (_ethAmountToCoinbase == 0) {
             return;
         }
@@ -106,27 +109,5 @@ contract MoneyPrinter is IUniswapV2Callee {
         (bool _success, bytes memory _result) = _to.call{value: _value}(_data);
         require(_success);
         return _result;
-    }
-
-    function appendUintToString(string memory inStr, uint v) private pure returns (string memory) {
-        uint maxlength = 100;
-        bytes memory reversed = new bytes(maxlength);
-        uint i = 0;
-        while (v != 0) {
-            uint remainder = v % 10;
-            v = v / 10;
-            reversed[i++] = bytes1(uint8(48 + remainder));
-        }
-        bytes memory inStrb = bytes(inStr);
-        bytes memory s = new bytes(inStrb.length + i);
-        uint j;
-        for (j = 0; j < inStrb.length; j++) {
-            s[j] = inStrb[j];
-        }
-        for (j = 0; j < i; j++) {
-            s[j + inStrb.length] = reversed[i - 1 - j];
-        }
-
-        return string(s);
     }
 }

@@ -44,7 +44,7 @@ import { ArbitrageBlacklist } from './arbitrage-blacklist';
 const PRIVATE_KEY =
   process.env.PRIVATE_KEY || '0xe287672c1f7b7a8a38449626b3303a2ad4430672977b8a6f741a9ca35b6ca10c';
 // const BUNDLE_EXECUTOR_ADDRESS = process.env.BUNDLE_EXECUTOR_ADDRESS || ""
-const MONEY_PRINTER_ADDRESS = '0xE8b00FB5d4F690e39D3f0C24df1889262944508B'; // last working '0x51fbc7797B6fD53aFA8Ce0CAbF5a35c60B198837';
+const MONEY_PRINTER_ADDRESS = '0xe130Eb0687f29BCE3a54B9437c9493C5De739da7'; // last working '0x51fbc7797B6fD53aFA8Ce0CAbF5a35c60B198837';
 
 // const FLASHBOTS_RELAY_SIGNING_KEY = process.env.FLASHBOTS_RELAY_SIGNING_KEY || getDefaultRelaySigningKey();
 
@@ -97,17 +97,25 @@ async function withdrawWeth(
 
 async function executeFlashSwapV2(
   amountToFirstMarket: BigNumber,
+  amountFromFirstMarket: BigNumber,
   callData: MultipleCallData,
   bundleExecutorContract: Contract,
   executorWallet: Wallet,
   uniswapLoanMarket: UniswapV2Market,
 ) {
-  const amountRequired: BigNumber = amountToFirstMarket.mul(1000).div(997).add(10);
+  // const amountRequired: BigNumber = amountToFirstMarket.mul(1000).div(997).add(10);
   const nonce = await provider.getTransactionCount(arbitrageSigningWallet.address);
   const abiCoder = new utils.AbiCoder();
   const data = abiCoder.encode(
-    ['uint256', 'uint256', 'address[]', 'bytes[]', 'uint256'],
-    [amountToFirstMarket, BigNumber.from(0), callData.targets, callData.data, amountRequired],
+    ['uint256', 'address', 'uint256', 'uint256', 'address[]', 'bytes[]'],
+    [
+      amountFromFirstMarket,
+      uniswapLoanMarket.tokens.find((token) => token !== WETH_ADDRESS),
+      amountToFirstMarket,
+      BigNumber.from(0),
+      callData.targets.slice(1),
+      callData.data.slice(1),
+    ],
   );
   // const { data } = await bundleExecutorContract.populateTransaction.uniswapWeth(
   //   amountToFirstMarket,
@@ -122,8 +130,8 @@ async function executeFlashSwapV2(
   let isToken0 = uniswapLoanMarket.tokens[0] === WETH_ADDRESS;
   // uint amount0Out, uint amount1Out, address to, bytes calldata data
   const transaction = await loanContract.populateTransaction.swap(
-    isToken0 ? amountToFirstMarket : BigNumber.from(0),
-    isToken0 ? BigNumber.from(0) : amountToFirstMarket,
+    isToken0 ? BigNumber.from(0) : amountFromFirstMarket,
+    isToken0 ? amountFromFirstMarket : BigNumber.from(0),
     bundleExecutorContract.address,
     data,
     {
@@ -303,24 +311,15 @@ async function main() {
         try {
           let lowMoney = true; // TODO: check if we have enough money
           if (lowMoney) {
-            if (opportunity.operations[0].market.protocol === 'uniswapV2') {
-              let marketToLoanFrom: UniswapV2Market | null = markets.find(
-                (m) =>
-                  m.tokens.includes(WETH_ADDRESS) &&
-                  opportunity.operations.every((o) => !o.market.tokens.includes(m.tokens[0])) &&
-                  m.protocol === 'uniswapV2' &&
-                  m.hasEnoughReserves(WETH_ADDRESS, opportunity.operations[0].amountIn),
-              ) as UniswapV2Market | null;
-              if (!marketToLoanFrom) {
-                throw new Error('No market to loan from');
-              }
-              console.log('>> loan from', marketToLoanFrom.marketAddress);
+            let firstMarket = opportunity.operations[0].market;
+            if (firstMarket.protocol === 'uniswapV2') {
               const result = await executeFlashSwapV2(
                 opportunity.operations[0].amountIn,
+                opportunity.operations[0].amountOut,
                 callData,
                 moneyPrinterContract,
                 arbitrageSigningWallet,
-                marketToLoanFrom,
+                firstMarket as UniswapV2Market,
               );
               console.log('result is', result);
             } else {
