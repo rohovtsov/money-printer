@@ -288,12 +288,9 @@ async function main() {
     .pipe(take(1))
     .subscribe(async (opportunities) => {
       console.log(`Found opportunities: ${opportunities.length} in ${endTime('render')}ms\n`);
-      const sortedOpportunities = opportunities.sort((op1, op2) =>
-        op2.profit.sub(op1.profit).div(BigNumber.from(10).pow(18)).toNumber(),
-      );
 
       // sortedOpportunities.forEach(printOpportunity);
-      for (let opportunity of sortedOpportunities) {
+      for (let opportunity of opportunities) {
         printOpportunity(opportunity);
         const callData: MultipleCallData = { data: [], targets: [] };
         for (let i = 0; i < opportunity.operations.length; i++) {
