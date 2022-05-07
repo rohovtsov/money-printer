@@ -25,7 +25,7 @@ import {
   WETH_ABI,
   ERC20_ABI,
   ArbitrageOpportunity,
-  BLACKLIST_TOKENS,
+  BLACKLIST_TOKENS, TransactionSender, UNISWAP_V3_FACTORY_ADDRESSES,
 } from './entities';
 import { UniswappyV2EthPair } from './old/UniswappyV2EthPair';
 import { Arbitrage2 } from './old/Arbitrage2';
@@ -43,6 +43,7 @@ import { UniswapV3Market } from './uniswap/uniswap-v3-market';
 import { ArbitrageBlacklist } from './arbitrage-blacklist';
 import { Web3TransactionSender } from './sender/web3-transaction-sender';
 import { FlashbotsTransactionSender } from './sender/flashbots-transaction-sender';
+import { TransactionReceipt } from '@ethersproject/abstract-provider/src.ts';
 
 // const ETHEREUM_RPC_URL = process.env.ETHEREUM_RPC_URL || "https://mainnet.infura.io/v3/08a6fc8910ca460e99dd411ec0286be6"
 const PRIVATE_KEY =
@@ -70,6 +71,7 @@ const FLASHBOTS_RELAY_SIGNING_KEY = process.env.FLASHBOTS_RELAY_SIGNING_KEY;
 
 const HEALTHCHECK_URL = process.env.HEALTHCHECK_URL || '';
 const NETWORK = 'goerli';
+const useFlashbots = true;
 
 const provider = new providers.InfuraProvider(NETWORK, '8ac04e84ff9e4fd19db5bfa857b90a92');
 const moneyPrinterContract = new Contract(MONEY_PRINTER_ADDRESS, MONEY_PRINTER_ABI, provider);
@@ -77,14 +79,14 @@ const moneyPrinterContract = new Contract(MONEY_PRINTER_ADDRESS, MONEY_PRINTER_A
 const arbitrageSigningWallet = new Wallet(PRIVATE_KEY);
 // const flashbotsRelaySigningWallet = new Wallet(FLASHBOTS_RELAY_SIGNING_KEY);
 
-async function executeRegularSwap(
+async function createRegularSwap(
   callData: MultipleCallData,
   printMoneyContract: Contract,
-  executorWallet: Wallet,
-) {
+  ethAmountToCoinbase: BigNumber,
+): Promise<PopulatedTransaction> {
   const nonce = await provider.getTransactionCount(arbitrageSigningWallet.address);
   const transaction = await printMoneyContract.populateTransaction.printMoney(
-    BigNumber.from(0),
+    ethAmountToCoinbase,
     callData.targets,
     callData.data,
     {
@@ -141,7 +143,6 @@ async function main() {
   //12370000 = 9 marketsV3
   //12369800 = 2 marketsV3
 
-  const useFlashbots = false;
   const sender = useFlashbots ?
     await FlashbotsTransactionSender.create(provider, NETWORK, FLASHBOTS_RELAY_SIGNING_KEY) :
     new Web3TransactionSender(provider, 2);
@@ -189,7 +190,7 @@ async function main() {
       // sortedOpportunities.forEach(printOpportunity);
       for (let opportunity of opportunities) {
         printOpportunity(opportunity);
-        await executeOpportunity(opportunity);
+        await executeOpportunity(opportunity, sender);
       }
     });
 
@@ -219,10 +220,11 @@ async function main() {
 main();
 // withdrawWeth(ETHER.mul(2), bundleExecutorContract, arbitrageSigningWallet); // если хочется вывести 2 кефира например
 
-async function executeOpportunity(opportunity: ArbitrageOpportunity): Promise<void> {
+async function executeOpportunity(opportunity: ArbitrageOpportunity, sender: TransactionSender): Promise<void> {
   const callData: MultipleCallData = { data: [], targets: [] };
 
   let lowMoney = true; // TODO: check if we have enough money
+  let ethAmountToCoinbase = useFlashbots ? opportunity.profit.div(2) : BigNumber.from(0);
 
   for (let i = 0; i < opportunity.operations.length; i++) {
     const currentOperation = opportunity.operations[i];
@@ -292,6 +294,8 @@ async function executeOpportunity(opportunity: ArbitrageOpportunity): Promise<vo
 
   console.log('callData is collected', callData);
   try {
+    let transactionData;
+
     if (lowMoney) {
       const firstOperation = opportunity.operations[0];
       const abiCoder = new utils.AbiCoder();
@@ -310,20 +314,26 @@ async function executeOpportunity(opportunity: ArbitrageOpportunity): Promise<vo
         throw new Error('Failed to populate transaction 5');
       }
 
-      const result = await executeRegularSwap(
+      transactionData = await createRegularSwap(
         { data: [loanTransaction.data], targets: [firstOperation.market.marketAddress] },
         moneyPrinterContract,
-        arbitrageSigningWallet,
+        ethAmountToCoinbase,
       );
-      console.log('result is', result);
     } else {
-      const result = await executeRegularSwap(
+      transactionData = await createRegularSwap(
         callData,
         moneyPrinterContract,
-        arbitrageSigningWallet,
+        ethAmountToCoinbase,
       );
-      console.log('result is', result);
     }
+
+    const receipt = await sender.sendTransaction({
+      signer: arbitrageSigningWallet,
+      transactionData,
+      blockNumber: opportunity.blockNumber + 1,
+    })
+
+    console.log('result is', receipt);
   } catch (e) {
     console.log('error is', e);
   }
