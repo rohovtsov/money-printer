@@ -32,6 +32,7 @@ export const PRINTER_QUERY_ADDRESS = {
 
 export const MONEY_PRINTER_ADDRESS = {
   'goerli': '0x18B6EA53FBDBB38d3E3df4E86Bf52E2512EAc619',
+  'mainnet': '0xC49FF8f6bE0Ed002D97FD04b349A405efB1c3A4f',
   //'goerli': '0x51fbc7797B6fD53aFA8Ce0CAbF5a35c60B198837', //last working
 }[NETWORK] as string;
 

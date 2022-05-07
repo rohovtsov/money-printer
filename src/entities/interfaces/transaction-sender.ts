@@ -11,5 +11,7 @@ export interface TransactionData {
 
 
 export interface TransactionSender {
-  sendTransaction(data: TransactionData): Promise<TransactionReceipt | null>
+  sendTransaction(data: TransactionData): Promise<TransactionReceipt | null>;
+
+  simulateTransaction(data: TransactionData): Promise<void>;
 }

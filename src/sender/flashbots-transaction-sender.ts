@@ -24,22 +24,6 @@ export class FlashbotsTransactionSender implements TransactionSender {
       transaction: transactionData,
     }]);
 
-    const simulation = await this.flashbotsProvider.simulate(signedBundle, blockNumber);
-
-    if ('error' in simulation || simulation.firstRevert !== undefined) {
-      console.log(simulation);
-      throw new Error('Simulation Error');
-    }
-
-    console.log(
-      `Submitting bundle, profit sent to miner: ${bigNumberToDecimal(
-        simulation.coinbaseDiff,
-      )}, effective gas price: ${bigNumberToDecimal(
-        simulation.coinbaseDiff.div(simulation.totalGasUsed),
-        9,
-      )} GWEI at ${blockNumber}`,
-    );
-
     const result = await this.flashbotsProvider.sendRawBundle(signedBundle, blockNumber);
 
     if ('error' in result) {
@@ -51,6 +35,33 @@ export class FlashbotsTransactionSender implements TransactionSender {
     const receipts = await result.receipts() ?? [];
 
     return receipts?.[0] ?? null;
+  }
+
+  async simulateTransaction(data: TransactionData): Promise<any> {
+    const { signer, transactionData, blockNumber } = data;
+
+    const signedBundle = await this.flashbotsProvider.signBundle([{
+      signer: signer,
+      transaction: transactionData,
+    }]);
+
+    const simulation = await this.flashbotsProvider.simulate(signedBundle, blockNumber);
+
+    if ('error' in simulation || simulation.firstRevert !== undefined) {
+      console.log('Simulation error');
+      throw new Error('Simulation Error');
+    }
+
+    console.log(
+      `Simulating bundle, profit sent to miner: ${bigNumberToDecimal(
+        simulation.coinbaseDiff,
+      )}, effective gas price: ${bigNumberToDecimal(
+        simulation.coinbaseDiff.div(simulation.totalGasUsed),
+        9,
+      )} GWEI at ${blockNumber}`,
+    );
+
+    return simulation;
   }
 
   static async create(
@@ -65,7 +76,6 @@ export class FlashbotsTransactionSender implements TransactionSender {
 }
 
 /*
-0
   [
   {
     to: '0x28cee28a7C4b4022AC92685C07d2f33Ab1A0e122',

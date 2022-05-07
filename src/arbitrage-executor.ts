@@ -9,11 +9,17 @@ import { BigNumber, Contract, PopulatedTransaction, providers, utils, Wallet } f
 
 
 
+export interface SimulatedArbitrageOpportunity extends ArbitrageOpportunity {
+  transactionData: PopulatedTransaction;
+}
+
+
 export class ArbitrageExecutor {
   private readonly arbitrageSigningWallet;
   readonly moneyPrinterContract;
 
   constructor(
+    readonly sender: TransactionSender,
     readonly provider: providers.JsonRpcProvider,
     privateKey: string,
   ) {
@@ -26,24 +32,17 @@ export class ArbitrageExecutor {
     printMoneyContract: Contract,
     ethAmountToCoinbase: BigNumber,
   ): Promise<PopulatedTransaction> {
-    const nonce = await this.provider.getTransactionCount(this.arbitrageSigningWallet.address);
-    const transaction = await printMoneyContract.populateTransaction.printMoney(
+    return await printMoneyContract.populateTransaction.printMoney(
       ethAmountToCoinbase,
       callData.targets,
       callData.data,
       {
-        nonce: nonce,
-        gasPrice: await this.provider.getGasPrice(),
-        gasLimit: BigNumber.from(4000000),
+        gasLimit: BigNumber.from(600000),
       },
     );
-    return transaction;
   }
 
-  async executeOpportunity(
-    opportunity: ArbitrageOpportunity,
-    sender: TransactionSender,
-  ): Promise<void> {
+  private async createOpportunityTransactionData(opportunity: ArbitrageOpportunity): Promise<PopulatedTransaction> {
     const callData: MultipleCallData = { data: [], targets: [] };
 
     let lowMoney = true; // TODO: check if we have enough money
@@ -62,6 +61,7 @@ export class ArbitrageExecutor {
             const trans = await new Contract(
               currentOperation.tokenOut,
               ERC20_ABI,
+              //TODO: точно нужен provider?
               this.provider,
             ).populateTransaction.transfer(
               getNextAddress(nextOperation.market),
@@ -87,6 +87,7 @@ export class ArbitrageExecutor {
             const transaction = await new Contract(
               WETH_ADDRESS,
               ERC20_ABI,
+              //TODO: точно нужен provider?
               this.provider,
             ).populateTransaction.transfer(
               currentOperation.market.marketAddress,
@@ -115,46 +116,68 @@ export class ArbitrageExecutor {
       callData.targets.push(data.target);
     }
 
-    console.log('callData is collected', callData);
-    try {
-      let transactionData;
+    let transactionData: PopulatedTransaction;
 
-      if (lowMoney) {
-        const firstOperation = opportunity.operations[0];
-        const abiCoder = new utils.AbiCoder();
-        const data = abiCoder.encode(
-          ['uint256', 'address[]', 'bytes[]'],
-          [opportunity.operations[0].amountIn, callData.targets, callData.data],
-        );
-        const loanTransaction = await firstOperation.market.performSwap(
-          firstOperation.amountIn,
-          firstOperation.action,
-          MONEY_PRINTER_ADDRESS,
-          data,
-        );
+    if (lowMoney) {
+      const firstOperation = opportunity.operations[0];
+      const abiCoder = new utils.AbiCoder();
+      const data = abiCoder.encode(
+        ['uint256', 'address[]', 'bytes[]'],
+        [opportunity.operations[0].amountIn, callData.targets, callData.data],
+      );
+      const loanTransaction = await firstOperation.market.performSwap(
+        firstOperation.amountIn,
+        firstOperation.action,
+        MONEY_PRINTER_ADDRESS,
+        data,
+      );
 
-        if (!loanTransaction || !loanTransaction.data) {
-          throw new Error('Failed to populate transaction 5');
-        }
-
-        transactionData = await this.createRegularSwap(
-          { data: [loanTransaction.data], targets: [firstOperation.market.marketAddress] },
-          this.moneyPrinterContract,
-          ethAmountToCoinbase,
-        );
-      } else {
-        transactionData = await this.createRegularSwap(
-          callData,
-          this.moneyPrinterContract,
-          ethAmountToCoinbase,
-        );
+      if (!loanTransaction || !loanTransaction.data) {
+        throw new Error('Failed to populate transaction 5');
       }
 
-      const receipt = await sender.sendTransaction({
+      transactionData = await this.createRegularSwap(
+        { data: [loanTransaction.data], targets: [firstOperation.market.marketAddress] },
+        this.moneyPrinterContract,
+        ethAmountToCoinbase,
+      );
+    } else {
+      transactionData = await this.createRegularSwap(
+        callData,
+        this.moneyPrinterContract,
+        ethAmountToCoinbase,
+      );
+    }
+
+    return transactionData;
+  }
+
+  async simulateOpportunity(opportunity: ArbitrageOpportunity, gasPrice: BigNumber): Promise<SimulatedArbitrageOpportunity> {
+    const data = await this.createOpportunityTransactionData(opportunity);
+    const transactionData = {
+      ...data,
+      gasPrice,
+    };
+
+    await this.sender.simulateTransaction({
+      signer: this.arbitrageSigningWallet,
+      transactionData: transactionData,
+      blockNumber: opportunity.blockNumber + 1,
+    });
+
+    return {
+      ...opportunity,
+      transactionData,
+    }
+  }
+
+  async executeOpportunity(opportunity: SimulatedArbitrageOpportunity): Promise<void> {
+    try {
+      const receipt = await this.sender.sendTransaction({
         signer: this.arbitrageSigningWallet,
-        transactionData,
+        transactionData: opportunity.transactionData,
         blockNumber: opportunity.blockNumber + 1,
-      });
+      })
 
       console.log('result is', receipt);
     } catch (e) {

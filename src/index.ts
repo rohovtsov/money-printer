@@ -1,7 +1,7 @@
 import { providers } from 'ethers';
-import { take } from 'rxjs';
+import { defer, EMPTY, filter, from, map, mergeMap, shareReplay, skip, switchMap, take } from 'rxjs';
 import { ArbitrageBlacklist } from './arbitrage-blacklist';
-import { ArbitrageRunner } from './arbitrage-runner';
+import { ArbitrageRunner, filterCorrelatingOpportunities } from './arbitrage-runner';
 import {
   BLACKLIST_MARKETS,
   BLACKLIST_TOKENS,
@@ -10,7 +10,7 @@ import {
   EthMarket,
   EthMarketFactory, FLASHBOTS_RELAY_SIGNING_KEY, INFURA_API_KEY,
   NETWORK,
-  printOpportunity, PRIVATE_KEY,
+  printOpportunity, PRIVATE_KEY, startTime,
   UNISWAP_V2_FACTORY_ADDRESSES,
   UNISWAP_V3_FACTORY_ADDRESSES, USE_FLASHBOTS,
   WETH_ADDRESS,
@@ -23,6 +23,8 @@ import { UniswapV2ReservesSyncer } from './uniswap/uniswap-v2-reserves-syncer';
 import { UniswapV3MarketFactory } from './uniswap/uniswap-v3-market-factory';
 import { UniswapV3PoolStateSyncer } from './uniswap/uniswap-v3-pool-state-syncer';
 import { ArbitrageExecutor } from './arbitrage-executor';
+import { combineLatest } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 
 const provider = new providers.InfuraProvider(NETWORK, INFURA_API_KEY);
 
@@ -55,7 +57,7 @@ async function main() {
   console.log(`Loaded markets: ${markets.length}`);
 
   const blacklist = new ArbitrageBlacklist(BLACKLIST_MARKETS, BLACKLIST_TOKENS);
-  const executor = new ArbitrageExecutor(provider, PRIVATE_KEY);
+  const executor = new ArbitrageExecutor(sender, provider, PRIVATE_KEY);
   const allowedMarkets = blacklist.filterMarkets(markets);
 
   const runner = new ArbitrageRunner(
@@ -73,18 +75,56 @@ async function main() {
     provider,
   );
 
-  runner
-    .start()
-    .pipe(take(1))
-    .subscribe(async (opportunities) => {
-      console.log(`Found opportunities: ${opportunities.length} in ${endTime('render')}ms\n`);
+  const currentBlock$ = runner.currentBlock$;
+  const currentGasPrice$ = runner.currentBlock$.pipe(
+    switchMap(blockNumber => defer(async () => ({
+      gasPrice: await provider.getGasPrice(),
+      blockNumber: blockNumber,
+    }))),
+    shareReplay()
+  );
 
-      // sortedOpportunities.forEach(printOpportunity);
-      for (let opportunity of opportunities) {
-        printOpportunity(opportunity);
-        await executor.executeOpportunity(opportunity, sender);
-      }
-    });
+  const opportunities$ = runner
+    .start()
+    .pipe(
+      switchMap((allOpportunities) => {
+        //TODO: if one opportunity will fail the simulation, the ones that were filtrated because of it - may not
+        const filteredOpportunities = filterCorrelatingOpportunities(allOpportunities);
+        console.log(`Found opportunities: ${allOpportunities.length}, non-correlating: ${filteredOpportunities.length} in ${endTime('render')}ms\n`);
+        return from(filteredOpportunities);
+      }),
+    );
+
+  const simulatedOpportunities$ = combineLatest([
+    currentBlock$,
+    currentGasPrice$,
+    opportunities$,
+  ]).pipe(
+    filter(([currentBlock, blockState, opportunity]) => {
+      return currentBlock === blockState.blockNumber && currentBlock === opportunity.blockNumber;
+    }),
+    mergeMap(([_, blockState, opportunity]) => {
+      return from(executor.simulateOpportunity(opportunity, blockState.gasPrice.mul(1))).pipe(
+        catchError(() => {
+          return EMPTY;
+        })
+      );
+    }, 10),
+  );
+
+  combineLatest([
+    currentBlock$,
+    simulatedOpportunities$,
+  ]).pipe(
+    filter(([currentBlock, opportunity]) => {
+      return currentBlock === opportunity.blockNumber;
+    }),
+    take(1),
+    mergeMap(([_, opportunity]) => {
+      printOpportunity(opportunity);
+      return from(executor.executeOpportunity(opportunity));
+    }, 10),
+  ).subscribe();
 }
 
 main();

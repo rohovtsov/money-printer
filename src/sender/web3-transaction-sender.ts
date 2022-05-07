@@ -16,7 +16,10 @@ export class Web3TransactionSender implements TransactionSender {
   async sendTransaction(data: TransactionData): Promise<TransactionReceipt | null> {
     const { signer, transactionData } = data;
 
-    const signedTransaction = await signer.signTransaction(transactionData);
+    const signedTransaction = await signer.signTransaction({
+      ...transactionData,
+      nonce: await this.provider.getTransactionCount(data.signer.address),
+    });
     const result = await this.provider.sendTransaction(signedTransaction);
 
     console.log(result);
@@ -26,5 +29,9 @@ export class Web3TransactionSender implements TransactionSender {
     }
 
     return this.provider.getTransactionReceipt(result.hash);
+  }
+
+  async simulateTransaction(data: TransactionData): Promise<void> {
+
   }
 }

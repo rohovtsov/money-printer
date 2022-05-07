@@ -1,4 +1,4 @@
-import { providers } from 'ethers';
+import { BigNumber, providers } from 'ethers';
 import {
   Address,
   ArbitrageOpportunity,
@@ -16,7 +16,7 @@ import { UniswapV2Market } from './uniswap/uniswap-v2-market';
 import {
   BehaviorSubject,
   combineLatest,
-  concatMap,
+  concatMap, defer,
   delay,
   distinctUntilChanged,
   EMPTY,
@@ -42,6 +42,7 @@ interface SyncEvent {
 
 export class ArbitrageRunner {
   readonly marketsByAddress: Record<Address, EthMarket>;
+  readonly currentBlock$: Observable<number>;
 
   constructor(
     readonly markets: EthMarket[],
@@ -54,10 +55,8 @@ export class ArbitrageRunner {
       acc[market.marketAddress] = market;
       return acc;
     }, {} as Record<Address, EthMarket>);
-  }
 
-  startSync(): Observable<SyncEvent> {
-    const currentBlock$ = merge(
+    this.currentBlock$ = merge(
       fromProviderEvent<number>(this.provider, 'block'),
       from(this.provider.getBlockNumber()),
     ).pipe(
@@ -67,6 +66,10 @@ export class ArbitrageRunner {
       }),
       shareReplay(),
     );
+  }
+
+  private startSync(): Observable<SyncEvent> {
+    const currentBlock$ = this.currentBlock$;
 
     const currentChangedMarkets$: Observable<SyncEvent> = currentBlock$.pipe(
       concatMap((blockNumber: number, index) => {
@@ -132,7 +135,7 @@ export class ArbitrageRunner {
     );
   }
 
-  async syncMarkets(markets: EthMarket[], minBlockNumber: number): Promise<void> {
+  private async syncMarkets(markets: EthMarket[], minBlockNumber: number): Promise<void> {
     const uniswapV2Markets = markets.filter(
       (market) => market.protocol === 'uniswapV2',
     ) as UniswapV2Market[];
@@ -145,7 +148,7 @@ export class ArbitrageRunner {
     ]);
   }
 
-  runStrategies(changedMarkets: EthMarket[], blockNumber: number): ArbitrageOpportunity[] {
+  private runStrategies(changedMarkets: EthMarket[], blockNumber: number): ArbitrageOpportunity[] {
     return this.strategies
       .reduce((acc, strategy) => {
         const opportunities = strategy.getArbitrageOpportunities(changedMarkets, this.markets, blockNumber);
@@ -180,4 +183,22 @@ function loadChangedEthMarkets(
         return acc;
       }, [] as EthMarket[]);
     });
+}
+
+export function filterCorrelatingOpportunities(opportunities: ArbitrageOpportunity[]): ArbitrageOpportunity[] {
+  const usedMarkets = new Set<string>([]);
+
+  return opportunities.filter(opportunity => {
+    for (const operation of opportunity.operations) {
+      const { marketAddress } = operation.market;
+
+      if (usedMarkets.has(marketAddress)) {
+        return false;
+      } else {
+        usedMarkets.add(marketAddress);
+      }
+    }
+
+    return true;
+  });
 }
