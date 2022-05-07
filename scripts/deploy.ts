@@ -30,7 +30,7 @@ async function deployMoneyPrinter() {
   // manually to make sure everything is compiled
   // await hre.run('compile');
 
-  console.log(`Deploying to ${NETWORK}`);
+  console.log(`Deploying to ${NETWORK} ...`);
   // We get the contract to deploy
   const EXECUTOR_ADDRESS = '0x5e9a214bf9864143e44778F9729B230083388cDB';
   const BundleExecutor = await ethers.getContractFactory('MoneyPrinter');

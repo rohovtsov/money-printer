@@ -1,23 +1,16 @@
-import { BigNumber, Contract, PopulatedTransaction, providers, utils, Wallet } from 'ethers';
+import { providers } from 'ethers';
 import { take } from 'rxjs';
 import { ArbitrageBlacklist } from './arbitrage-blacklist';
 import { ArbitrageRunner } from './arbitrage-runner';
 import {
-  ArbitrageOpportunity,
   BLACKLIST_MARKETS,
   BLACKLIST_TOKENS,
   endTime,
-  ERC20_ABI,
   ETHER,
   EthMarket,
-  EthMarketFactory, FLASHBOTS_RELAY_SIGNING_KEY, INFURA_API_KEY, MINER_REWORD_FRACTION,
-  MONEY_PRINTER_ABI,
-  MONEY_PRINTER_ADDRESS,
-  MultipleCallData,
+  EthMarketFactory, FLASHBOTS_RELAY_SIGNING_KEY, INFURA_API_KEY,
   NETWORK,
-  printOpportunity,
-  PRIVATE_KEY,
-  TransactionSender,
+  printOpportunity, PRIVATE_KEY,
   UNISWAP_V2_FACTORY_ADDRESSES,
   UNISWAP_V3_FACTORY_ADDRESSES, USE_FLASHBOTS,
   WETH_ADDRESS,
@@ -29,30 +22,9 @@ import { UniswapV2MarketFactory } from './uniswap/uniswap-v2-market-factory';
 import { UniswapV2ReservesSyncer } from './uniswap/uniswap-v2-reserves-syncer';
 import { UniswapV3MarketFactory } from './uniswap/uniswap-v3-market-factory';
 import { UniswapV3PoolStateSyncer } from './uniswap/uniswap-v3-pool-state-syncer';
+import { ArbitrageExecutor } from './arbitrage-executor';
 
 const provider = new providers.InfuraProvider(NETWORK, INFURA_API_KEY);
-const moneyPrinterContract = new Contract(MONEY_PRINTER_ADDRESS, MONEY_PRINTER_ABI, provider);
-
-const arbitrageSigningWallet = new Wallet(PRIVATE_KEY);
-
-async function createRegularSwap(
-  callData: MultipleCallData,
-  printMoneyContract: Contract,
-  ethAmountToCoinbase: BigNumber,
-): Promise<PopulatedTransaction> {
-  const nonce = await provider.getTransactionCount(arbitrageSigningWallet.address);
-  const transaction = await printMoneyContract.populateTransaction.printMoney(
-    ethAmountToCoinbase,
-    callData.targets,
-    callData.data,
-    {
-      nonce: nonce,
-      gasPrice: await provider.getGasPrice(),
-      gasLimit: BigNumber.from(4000000),
-    },
-  );
-  return transaction;
-}
 
 async function main() {
   //TODO: filter markets by reserves after retrieval
@@ -83,6 +55,7 @@ async function main() {
   console.log(`Loaded markets: ${markets.length}`);
 
   const blacklist = new ArbitrageBlacklist(BLACKLIST_MARKETS, BLACKLIST_TOKENS);
+  const executor = new ArbitrageExecutor(provider, PRIVATE_KEY);
   const allowedMarkets = blacklist.filterMarkets(markets);
 
   const runner = new ArbitrageRunner(
@@ -109,139 +82,9 @@ async function main() {
       // sortedOpportunities.forEach(printOpportunity);
       for (let opportunity of opportunities) {
         printOpportunity(opportunity);
-        await executeOpportunity(opportunity, sender);
+        await executor.executeOpportunity(opportunity, sender);
       }
     });
 }
 
 main();
-
-async function executeOpportunity(
-  opportunity: ArbitrageOpportunity,
-  sender: TransactionSender,
-): Promise<void> {
-  const callData: MultipleCallData = { data: [], targets: [] };
-
-  let lowMoney = true; // TODO: check if we have enough money
-  let ethAmountToCoinbase = USE_FLASHBOTS ? opportunity.profit.mul(MINER_REWORD_FRACTION) : BigNumber.from(0);
-
-  for (let i = 0; i < opportunity.operations.length; i++) {
-    const currentOperation = opportunity.operations[i];
-    const nextOperation = opportunity.operations[i + 1];
-
-    // pre first step operations
-    if (i === 0) {
-      if (lowMoney) {
-        // flashloan swap
-        if (currentOperation.market.protocol === 'uniswapV2') {
-          // выполняем флеш займ в конце всех шагов, т.к. он упаковывает в себя их дату
-          const trans = await new Contract(
-            currentOperation.tokenOut,
-            ERC20_ABI,
-            provider,
-          ).populateTransaction.transfer(
-            getNextAddress(nextOperation.market),
-            currentOperation.amountOut,
-          );
-
-          if (!trans || !trans.data) {
-            throw new Error('Failed to populate transaction 4');
-          }
-
-          callData.data.push(trans.data);
-          callData.targets.push(currentOperation.tokenOut);
-          continue;
-        } else {
-          // кажется что для v3 не нужны дополнительные шаги
-          // throw new Error('flash swap on v3 is not implemented yet');
-          continue;
-        }
-      } else {
-        // regular swap
-        // move weth to the first v2 market
-        if (currentOperation.market.protocol === 'uniswapV2') {
-          const transaction = await new Contract(
-            WETH_ADDRESS,
-            ERC20_ABI,
-            provider,
-          ).populateTransaction.transfer(
-            currentOperation.market.marketAddress,
-            opportunity.operations[0].amountIn,
-          );
-          if (!transaction || !transaction.data) {
-            throw new Error('Failed to populate transaction 1');
-          }
-          callData.data.push(transaction.data);
-          callData.targets.push(WETH_ADDRESS);
-        } else {
-          // для v3 для обычного свопа нет необходимости переводить weth, он будет выплачен внутри коллбека
-        }
-      }
-    }
-
-    const data = await currentOperation.market.performSwap(
-      currentOperation.amountIn,
-      currentOperation.action,
-      !nextOperation || nextOperation.market.protocol === 'uniswapV3'
-        ? moneyPrinterContract.address
-        : nextOperation.market,
-      [],
-    );
-    callData.data.push(data.data);
-    callData.targets.push(data.target);
-  }
-
-  console.log('callData is collected', callData);
-  try {
-    let transactionData;
-
-    if (lowMoney) {
-      const firstOperation = opportunity.operations[0];
-      const abiCoder = new utils.AbiCoder();
-      const data = abiCoder.encode(
-        ['uint256', 'address[]', 'bytes[]'],
-        [opportunity.operations[0].amountIn, callData.targets, callData.data],
-      );
-      const loanTransaction = await firstOperation.market.performSwap(
-        firstOperation.amountIn,
-        firstOperation.action,
-        MONEY_PRINTER_ADDRESS,
-        data,
-      );
-
-      if (!loanTransaction || !loanTransaction.data) {
-        throw new Error('Failed to populate transaction 5');
-      }
-
-      transactionData = await createRegularSwap(
-        { data: [loanTransaction.data], targets: [firstOperation.market.marketAddress] },
-        moneyPrinterContract,
-        ethAmountToCoinbase,
-      );
-    } else {
-      transactionData = await createRegularSwap(
-        callData,
-        moneyPrinterContract,
-        ethAmountToCoinbase,
-      );
-    }
-
-    const receipt = await sender.sendTransaction({
-      signer: arbitrageSigningWallet,
-      transactionData,
-      blockNumber: opportunity.blockNumber + 1,
-    });
-
-    console.log('result is', receipt);
-  } catch (e) {
-    console.log('error is', e);
-  }
-}
-
-function getNextAddress(nextMarket: EthMarket): string {
-  if (nextMarket.protocol === 'uniswapV2') {
-    return nextMarket.marketAddress;
-  }
-
-  return MONEY_PRINTER_ADDRESS;
-}

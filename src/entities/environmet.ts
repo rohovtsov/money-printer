@@ -7,4 +7,4 @@ export const PRIVATE_KEY = process.env.PRIVATE_KEY || '0xe287672c1f7b7a8a3844962
 
 export const USE_FLASHBOTS = Boolean(process.env.USE_FLASHBOTS ?? true);
 export const FLASHBOTS_RELAY_SIGNING_KEY = process.env.FLASHBOTS_RELAY_SIGNING_KEY;
-export const MINER_REWORD_FRACTION = Number(process.env.MINER_REWORD_PERCENT ?? 50) / 100;
+export const MINER_REWORD_PERCENT = Number(process.env.MINER_REWORD_PERCENT ?? 50);
