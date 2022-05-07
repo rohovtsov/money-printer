@@ -156,6 +156,7 @@ export class UniswapV3PoolStateSyncer {
         console.log(pool);
         console.log(markets.length);
         console.log(marketAddressesToSync);
+        continue;
       }
       this.setPoolState(marketsByAddress[pool.id], pool);
       marketAddressesToSync.delete(pool.id);

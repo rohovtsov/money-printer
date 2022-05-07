@@ -41,6 +41,7 @@ export interface EthMarket {
     amountIn: BigNumber,
     action: MarketAction,
     recipient: string | EthMarket,
+    data: string | [],
   ): Promise<CallData>;
 }
 

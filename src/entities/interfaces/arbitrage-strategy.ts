@@ -8,6 +8,8 @@ export interface ArbitrageOperation {
   amountIn: BigNumber;
   amountOut: BigNumber;
   action: MarketAction;
+  tokenIn: string;
+  tokenOut: string;
 }
 
 export interface ArbitrageOpportunity {
@@ -18,5 +20,8 @@ export interface ArbitrageOpportunity {
 }
 
 export interface ArbitrageStrategy {
-  getArbitrageOpportunities(changedMarkets: EthMarket[], allMarkets: EthMarket[]): ArbitrageOpportunity[];
+  getArbitrageOpportunities(
+    changedMarkets: EthMarket[],
+    allMarkets: EthMarket[],
+  ): ArbitrageOpportunity[];
 }

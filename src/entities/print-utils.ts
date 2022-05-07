@@ -25,7 +25,7 @@ export function printOpportunity(opp: ArbitrageOpportunity): void {
   let markets = `${opp.operations
     .map(
       (op) =>
-        `https://goerli.etherscan.io/address/${op.market.marketAddress}#readContract (${op.market.protocol})`,
+        `https://goerli.etherscan.io/address/${op.market.marketAddress}#readContract (${op.market.protocol} ${op.action})`,
     )
     .join('\n')}`;
 

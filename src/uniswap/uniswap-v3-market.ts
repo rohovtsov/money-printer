@@ -7,13 +7,13 @@ import {
   CallData,
   EthMarket,
   MarketAction,
-  UNISWAP_POOL_ABI,
+  UNISWAP_V3_POOL_ABI,
   WETH_ADDRESS,
 } from '../entities';
 import { AdvancedPool } from './uniswap-v3-sdk-advanced-pool';
 
 export class UniswapV3Market implements EthMarket {
-  static uniswapInterface = new Contract(WETH_ADDRESS, UNISWAP_POOL_ABI);
+  static uniswapInterface = new Contract(WETH_ADDRESS, UNISWAP_V3_POOL_ABI);
 
   readonly protocol = 'uniswapV3';
   public sqrtPrice?: BigNumber;
@@ -78,6 +78,7 @@ export class UniswapV3Market implements EthMarket {
     amountIn: BigNumber,
     action: MarketAction,
     recipient: string | EthMarket,
+    data: string | [] = [],
   ): Promise<CallData> {
     // function swap(
     //     address recipient,
@@ -86,15 +87,20 @@ export class UniswapV3Market implements EthMarket {
     //     uint160 sqrtPriceLimitX96,
     //     bytes data
     //   ) external override noDelegateCall returns (int256 amount0, int256 amount1)
+    // TODO КАЖЕТСЯ ПЕРВЫЙ V2 МАРКЕТ СКИДЫВАЕТ ДЕНЬГИ НА НЕ АДРЕСС КОНТРАКТА А НА АДРЕС СЛЕДУЮЩЕГО РЫНКА
     const toAddress = typeof recipient === 'string' ? recipient : recipient.marketAddress;
-    const sqrtPriceLimitX96 = BigNumber.from(0); // TODO FIXME как то надо это значение посчитать
+    const zeroForOne = action === 'sell';
+    const MIN_SQRT_RATIO = BigNumber.from('4295128739');
+    const MAX_SQRT_RATIO = BigNumber.from('1461446703485210103287273052203988822378723970342'); /// @dev The maximum value that can be returned from #getSqrtRatioAtTick. Equivalent to getSqrtRatioAtTick(MAX_TICK)
+    const sqrtPriceLimitX96 = zeroForOne ? MIN_SQRT_RATIO.add(1) : MAX_SQRT_RATIO.sub(1); // TODO FIXME как то надо это значение посчитать
 
+    console.log('populate from ', this.marketAddress, ' amountIn = ', amountIn.abs().toString());
     const populatedTransaction = await UniswapV3Market.uniswapInterface.populateTransaction.swap(
       toAddress,
-      action === 'sell',
+      zeroForOne,
       amountIn.abs(),
       sqrtPriceLimitX96,
-      [],
+      data,
     );
     if (populatedTransaction === undefined || populatedTransaction.data === undefined) {
       throw new Error('Populated transaction is undefined');

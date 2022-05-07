@@ -59,6 +59,7 @@ export class UniswapV2Market implements EthMarket {
     amountIn: BigNumber,
     action: MarketAction,
     recipient: string | EthMarket,
+    data: string | [] = [],
   ): Promise<CallData> {
     // function swap(uint amount0Out, uint amount1Out, address to, bytes calldata data) external lock {
     const toAddress = typeof recipient === 'string' ? recipient : recipient.marketAddress;
@@ -69,7 +70,7 @@ export class UniswapV2Market implements EthMarket {
       amount0Out,
       amount1Out,
       toAddress,
-      [],
+      data,
     );
     if (populatedTransaction === undefined || populatedTransaction.data === undefined) {
       throw new Error('Populated transaction is undefined');

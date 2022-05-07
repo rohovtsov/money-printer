@@ -104,6 +104,14 @@ export class TriangleArbitrageStrategy implements ArbitrageStrategy {
       operations: triangle.markets.map((market, id) => {
         return {
           market,
+          tokenIn:
+            triangle.actions[id] === 'buy'
+              ? triangle.markets[id].tokens[1]
+              : triangle.markets[id].tokens[0],
+          tokenOut:
+            triangle.actions[id] === 'buy'
+              ? triangle.markets[id].tokens[0]
+              : triangle.markets[id].tokens[1],
           amountIn: amounts[id],
           amountOut: amounts[id + 1],
           action: triangle.actions[id],

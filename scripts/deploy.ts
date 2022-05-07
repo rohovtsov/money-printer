@@ -4,6 +4,7 @@
 // When running the script with `npx hardhat run <script>` you'll find the Hardhat
 // Runtime Environment's members available in the global scope.
 import { ethers } from 'hardhat';
+import { WETH_ADDRESS } from '../src/entities';
 
 async function deployMoneyPrinterQuery() {
   // Hardhat always runs the compile task when running scripts with its command
@@ -32,11 +33,11 @@ async function deployMoneyPrinter() {
   // We get the contract to deploy
   const EXECUTOR_ADDRESS = '0x5e9a214bf9864143e44778F9729B230083388cDB';
   const BundleExecutor = await ethers.getContractFactory('MoneyPrinter');
-  const query = await BundleExecutor.deploy(EXECUTOR_ADDRESS, {
+  const contract = await BundleExecutor.deploy(EXECUTOR_ADDRESS, WETH_ADDRESS, {
     // value: ethers.utils.parseEther('0.1'),
   });
-  await query.deployed();
-  console.log('MoneyPrinter deployed to:', query.address);
+  await contract.deployed();
+  console.log('MoneyPrinter deployed to:', contract.address);
 }
 
 async function deployFlashBotsUniswapQuery() {

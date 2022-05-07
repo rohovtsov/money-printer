@@ -1,5 +1,6 @@
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
+import { WETH_ADDRESS } from '../src/entities';
 import { MoneyPrinter, UniswapV3PoolMock, UniswapV3QuoterMock } from '../typechain-types';
 
 describe('MoneyPrinter', function () {
@@ -17,7 +18,7 @@ describe('MoneyPrinter', function () {
     await quoterMock.deployed();
     await poolMock.deployed();
 
-    query = (await MoneyPrinter.deploy(quoterMock.address)) as MoneyPrinter;
+    query = (await MoneyPrinter.deploy(quoterMock.address, WETH_ADDRESS)) as MoneyPrinter;
     await query.deployed();
   });
 
