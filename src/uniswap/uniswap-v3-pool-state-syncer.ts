@@ -1,5 +1,5 @@
 import { BigNumber, providers } from 'ethers';
-import { Address, endTime, splitIntoBatches, startTime } from '../entities';
+import { Address, endTime, splitIntoBatches, startTime, UNISWAP_V3_GRAPH_ENDPOINT } from '../entities';
 import { UniswapV3Market } from './uniswap-v3-market';
 const fetch = require('node-fetch');
 import gql from 'graphql-tag';
@@ -43,8 +43,7 @@ export class UniswapV3PoolStateSyncer {
 
   constructor(readonly provider: providers.JsonRpcProvider, readonly parallelCount: number) {
     this.client = new ApolloClient({
-      // uri: 'https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3',
-      uri: 'https://api.thegraph.com/subgraphs/name/liqwiz/uniswap-v3-goerli',
+      uri: UNISWAP_V3_GRAPH_ENDPOINT,
       fetch,
     });
 
