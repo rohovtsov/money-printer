@@ -41,17 +41,18 @@ export class TriangleArbitrageStrategy implements ArbitrageStrategy {
   getArbitrageOpportunities(
     changedMarkets: EthMarket[],
     allMarkets: EthMarket[],
+    blockNumber: number,
   ): ArbitrageOpportunity[] {
     const changedTriangles = filterChangedTriangles(changedMarkets, this.trianglesByMarket);
     console.log(`Changed triangles ${changedTriangles.length}`);
     return changedTriangles
-      .map(this.calculateOpportunity.bind(this))
+      .map((triangle) => this.calculateOpportunity(triangle, blockNumber))
       .filter(Boolean) as ArbitrageOpportunity[];
   }
 
-  calculateOpportunity(triangle: Triangle): ArbitrageOpportunity | null {
+  calculateOpportunity(triangle: Triangle, blockNumber: number): ArbitrageOpportunity | null {
     return this.options[triangle.startToken].reduce((acc, startAmount) => {
-      const opportunity = this.calculateOpportunityForAmount(triangle, startAmount);
+      const opportunity = this.calculateOpportunityForAmount(triangle, startAmount, blockNumber);
 
       if (opportunity && (!acc || opportunity.profit.gt(acc.profit))) {
         acc = opportunity;
@@ -64,6 +65,7 @@ export class TriangleArbitrageStrategy implements ArbitrageStrategy {
   calculateOpportunityForAmount(
     triangle: Triangle,
     startAmount: BigNumber,
+    blockNumber: number,
   ): ArbitrageOpportunity | null {
     const amounts: BigNumber[] = [startAmount];
     let amount: BigNumber = startAmount;
@@ -100,6 +102,7 @@ export class TriangleArbitrageStrategy implements ArbitrageStrategy {
     }
 
     return {
+      blockNumber,
       strategyName: 'triangle',
       operations: triangle.markets.map((market, id) => {
         return {

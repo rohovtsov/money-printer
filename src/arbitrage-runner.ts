@@ -127,7 +127,7 @@ export class ArbitrageRunner {
       map((event: SyncEvent) => {
         startTime('render');
         console.log(`Changed markets: ${event.changedMarkets.length} in ${event.blockNumber}`);
-        return this.runStrategies(event.changedMarkets);
+        return this.runStrategies(event.changedMarkets, event.blockNumber);
       }),
     );
   }
@@ -145,10 +145,10 @@ export class ArbitrageRunner {
     ]);
   }
 
-  runStrategies(changedMarkets: EthMarket[]): ArbitrageOpportunity[] {
+  runStrategies(changedMarkets: EthMarket[], blockNumber: number): ArbitrageOpportunity[] {
     return this.strategies
       .reduce((acc, strategy) => {
-        const opportunities = strategy.getArbitrageOpportunities(changedMarkets, this.markets);
+        const opportunities = strategy.getArbitrageOpportunities(changedMarkets, this.markets, blockNumber);
         acc.push(...opportunities);
         return acc;
       }, [] as ArbitrageOpportunity[])
