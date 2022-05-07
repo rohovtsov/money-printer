@@ -1,6 +1,18 @@
 import { providers } from 'ethers';
-import { defer, EMPTY, filter, from, map, mergeMap, shareReplay, skip, switchMap, take } from 'rxjs';
+import {
+  combineLatest,
+  defer,
+  EMPTY,
+  filter,
+  from,
+  mergeMap,
+  shareReplay,
+  switchMap,
+  take,
+} from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { ArbitrageBlacklist } from './arbitrage-blacklist';
+import { ArbitrageExecutor } from './arbitrage-executor';
 import { ArbitrageRunner, filterCorrelatingOpportunities } from './arbitrage-runner';
 import {
   BLACKLIST_MARKETS,
@@ -8,11 +20,15 @@ import {
   endTime,
   ETHER,
   EthMarket,
-  EthMarketFactory, FLASHBOTS_RELAY_SIGNING_KEY, INFURA_API_KEY,
+  EthMarketFactory,
+  FLASHBOTS_RELAY_SIGNING_KEY,
+  INFURA_API_KEY,
   NETWORK,
-  printOpportunity, PRIVATE_KEY, startTime,
+  printOpportunity,
+  PRIVATE_KEY,
   UNISWAP_V2_FACTORY_ADDRESSES,
-  UNISWAP_V3_FACTORY_ADDRESSES, USE_FLASHBOTS,
+  UNISWAP_V3_FACTORY_ADDRESSES,
+  USE_FLASHBOTS,
   WETH_ADDRESS,
 } from './entities';
 import { FlashbotsTransactionSender } from './sender/flashbots-transaction-sender';
@@ -22,9 +38,6 @@ import { UniswapV2MarketFactory } from './uniswap/uniswap-v2-market-factory';
 import { UniswapV2ReservesSyncer } from './uniswap/uniswap-v2-reserves-syncer';
 import { UniswapV3MarketFactory } from './uniswap/uniswap-v3-market-factory';
 import { UniswapV3PoolStateSyncer } from './uniswap/uniswap-v3-pool-state-syncer';
-import { ArbitrageExecutor } from './arbitrage-executor';
-import { combineLatest } from 'rxjs';
-import { catchError } from 'rxjs/operators';
 
 const provider = new providers.InfuraProvider(NETWORK, INFURA_API_KEY);
 
@@ -65,7 +78,7 @@ async function main() {
     [
       new TriangleArbitrageStrategy(
         {
-          [WETH_ADDRESS]: [ETHER.div(100)], //, ETHER.mul(10), ETHER]
+          [WETH_ADDRESS]: [ETHER.mul(1)], //, ETHER.mul(10), ETHER]
         },
         allowedMarkets,
       ),
@@ -77,23 +90,27 @@ async function main() {
 
   const currentBlock$ = runner.currentBlock$;
   const currentGasPrice$ = runner.currentBlock$.pipe(
-    switchMap(blockNumber => defer(async () => ({
-      gasPrice: await provider.getGasPrice(),
-      blockNumber: blockNumber,
-    }))),
-    shareReplay()
+    switchMap((blockNumber) =>
+      defer(async () => ({
+        gasPrice: await provider.getGasPrice(),
+        blockNumber: blockNumber,
+      })),
+    ),
+    shareReplay(),
   );
 
-  const opportunities$ = runner
-    .start()
-    .pipe(
-      switchMap((allOpportunities) => {
-        //TODO: if one opportunity will fail the simulation, the ones that were filtrated because of it - may not
-        const filteredOpportunities = filterCorrelatingOpportunities(allOpportunities);
-        console.log(`Found opportunities: ${allOpportunities.length}, non-correlating: ${filteredOpportunities.length} in ${endTime('render')}ms\n`);
-        return from(filteredOpportunities);
-      }),
-    );
+  const opportunities$ = runner.start().pipe(
+    switchMap((allOpportunities) => {
+      //TODO: if one opportunity will fail the simulation, the ones that were filtrated because of it - may not
+      const filteredOpportunities = filterCorrelatingOpportunities(allOpportunities);
+      console.log(
+        `Found opportunities: ${allOpportunities.length}, non-correlating: ${
+          filteredOpportunities.length
+        } in ${endTime('render')}ms\n`,
+      );
+      return from(filteredOpportunities);
+    }),
+  );
 
   const simulatedOpportunities$ = combineLatest([
     currentBlock$,
@@ -107,24 +124,23 @@ async function main() {
       return from(executor.simulateOpportunity(opportunity, blockState.gasPrice.mul(1))).pipe(
         catchError(() => {
           return EMPTY;
-        })
+        }),
       );
     }, 10),
   );
 
-  combineLatest([
-    currentBlock$,
-    simulatedOpportunities$,
-  ]).pipe(
-    filter(([currentBlock, opportunity]) => {
-      return currentBlock === opportunity.blockNumber;
-    }),
-    take(1),
-    mergeMap(([_, opportunity]) => {
-      printOpportunity(opportunity);
-      return from(executor.executeOpportunity(opportunity));
-    }, 10),
-  ).subscribe();
+  combineLatest([currentBlock$, simulatedOpportunities$])
+    .pipe(
+      filter(([currentBlock, opportunity]) => {
+        return currentBlock === opportunity.blockNumber;
+      }),
+      take(1),
+      mergeMap(([_, opportunity]) => {
+        printOpportunity(opportunity);
+        return from(executor.executeOpportunity(opportunity));
+      }, 10),
+    )
+    .subscribe();
 }
 
 main();

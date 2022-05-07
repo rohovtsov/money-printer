@@ -35,6 +35,11 @@ export const MONEY_PRINTER_ABI = [
         name: '_executor',
         type: 'address',
       },
+      {
+        internalType: 'address',
+        name: '_WETH9_address',
+        type: 'address',
+      },
     ],
     stateMutability: 'payable',
     type: 'constructor',
@@ -138,24 +143,6 @@ export const MONEY_PRINTER_ABI = [
       },
     ],
     name: 'uniswapV3SwapCallback',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-  {
-    inputs: [
-      {
-        internalType: 'uint256',
-        name: '_wethAmount',
-        type: 'uint256',
-      },
-      {
-        internalType: 'address',
-        name: '_to',
-        type: 'address',
-      },
-    ],
-    name: 'withdrawWeth',
     outputs: [],
     stateMutability: 'nonpayable',
     type: 'function',

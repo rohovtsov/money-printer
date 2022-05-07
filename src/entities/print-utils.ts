@@ -1,3 +1,4 @@
+import { NETWORK } from './environmet';
 import { ArbitrageOpportunity } from './interfaces/arbitrage-strategy';
 import { Address } from './interfaces/eth-market';
 import { WETH_ADDRESS } from './addresses';
@@ -17,7 +18,7 @@ export function printOpportunity(opp: ArbitrageOpportunity): void {
   let tokens = `${opp.operations
     .map(
       (op) =>
-        `https://goerli.etherscan.io/token/${
+        `https://${NETWORK !== 'mainnet' ? 'www' : NETWORK}.etherscan.io/token/${
           op.action === 'sell' ? op.market.tokens[0] : op.market.tokens[1]
         }`,
     )
@@ -25,7 +26,9 @@ export function printOpportunity(opp: ArbitrageOpportunity): void {
   let markets = `${opp.operations
     .map(
       (op) =>
-        `https://goerli.etherscan.io/address/${op.market.marketAddress}#readContract (${op.market.protocol} ${op.action})`,
+        `https://${NETWORK !== 'mainnet' ? 'www' : NETWORK}.etherscan.io/address/${
+          op.market.marketAddress
+        }#readContract (${op.market.protocol} ${op.action})`,
     )
     .join('\n')}`;
 
