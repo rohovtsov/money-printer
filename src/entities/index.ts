@@ -14,3 +14,4 @@ export * from './interfaces/transaction-sender';
 export * from './parsers/uniswap-pair-created-log-parser';
 export * from './parsers/uniswap-pool-created-log-parser';
 export * from './flashbots-provider-factory';
+export * from './environmet';

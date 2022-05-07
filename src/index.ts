@@ -10,13 +10,16 @@ import {
   ERC20_ABI,
   ETHER,
   EthMarket,
-  EthMarketFactory,
+  EthMarketFactory, FLASHBOTS_RELAY_SIGNING_KEY, INFURA_API_KEY, MINER_REWORD_FRACTION,
   MONEY_PRINTER_ABI,
+  MONEY_PRINTER_ADDRESS,
   MultipleCallData,
+  NETWORK,
   printOpportunity,
+  PRIVATE_KEY,
   TransactionSender,
   UNISWAP_V2_FACTORY_ADDRESSES,
-  UNISWAP_V3_FACTORY_ADDRESSES,
+  UNISWAP_V3_FACTORY_ADDRESSES, USE_FLASHBOTS,
   WETH_ADDRESS,
 } from './entities';
 import { FlashbotsTransactionSender } from './sender/flashbots-transaction-sender';
@@ -27,16 +30,7 @@ import { UniswapV2ReservesSyncer } from './uniswap/uniswap-v2-reserves-syncer';
 import { UniswapV3MarketFactory } from './uniswap/uniswap-v3-market-factory';
 import { UniswapV3PoolStateSyncer } from './uniswap/uniswap-v3-pool-state-syncer';
 
-const PRIVATE_KEY =
-  process.env.PRIVATE_KEY || '0xe287672c1f7b7a8a38449626b3303a2ad4430672977b8a6f741a9ca35b6ca10c';
-const MONEY_PRINTER_ADDRESS = '0x18B6EA53FBDBB38d3E3df4E86Bf52E2512EAc619'; // last working '0x51fbc7797B6fD53aFA8Ce0CAbF5a35c60B198837';
-
-const FLASHBOTS_RELAY_SIGNING_KEY = process.env.FLASHBOTS_RELAY_SIGNING_KEY;
-
-const NETWORK = 'goerli';
-const useFlashbots = true;
-
-const provider = new providers.InfuraProvider(NETWORK, '8ac04e84ff9e4fd19db5bfa857b90a92');
+const provider = new providers.InfuraProvider(NETWORK, INFURA_API_KEY);
 const moneyPrinterContract = new Contract(MONEY_PRINTER_ADDRESS, MONEY_PRINTER_ABI, provider);
 
 const arbitrageSigningWallet = new Wallet(PRIVATE_KEY);
@@ -60,14 +54,15 @@ async function createRegularSwap(
   return transaction;
 }
 
-//{ '1': 116, '10': 712, '60': 3038, '200': 2673 };
 async function main() {
   //TODO: filter markets by reserves after retrieval
   //TODO: ensure all token addresses from different markets are checksumed
   //12370000 = 9 marketsV3
   //12369800 = 2 marketsV3
 
-  const sender = useFlashbots
+  console.log(`Launching on ${NETWORK} ${USE_FLASHBOTS ? 'using flashbots ' : ''}...`);
+
+  const sender = USE_FLASHBOTS
     ? await FlashbotsTransactionSender.create(provider, NETWORK, FLASHBOTS_RELAY_SIGNING_KEY)
     : new Web3TransactionSender(provider, 2);
 
@@ -128,7 +123,7 @@ async function executeOpportunity(
   const callData: MultipleCallData = { data: [], targets: [] };
 
   let lowMoney = true; // TODO: check if we have enough money
-  let ethAmountToCoinbase = useFlashbots ? opportunity.profit.div(2) : BigNumber.from(0);
+  let ethAmountToCoinbase = USE_FLASHBOTS ? opportunity.profit.mul(MINER_REWORD_FRACTION) : BigNumber.from(0);
 
   for (let i = 0; i < opportunity.operations.length; i++) {
     const currentOperation = opportunity.operations[i];
