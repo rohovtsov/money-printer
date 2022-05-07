@@ -1,6 +1,6 @@
 import { FlashbotsBundleProvider } from '@flashbots/ethers-provider-bundle';
 // import Web3 from 'web3';
-import { BigNumber, Contract, providers, Wallet, utils } from 'ethers';
+import { BigNumber, Contract, providers, Wallet, utils, Transaction, PopulatedTransaction } from 'ethers';
 import { take } from 'rxjs';
 import {
   BLACKLIST_MARKETS,
@@ -19,7 +19,6 @@ import {
   UNISWAP_V2_PAIR_ABI,
   UNISWAP_V3_POOL_ABI,
   UNISWAP_V2_FACTORY_ADDRESSES,
-  UNISWAP_V3_FACTORY_ADDRESS,
   UNISWAP_V3_QUOTER_ABI,
   UNISWAP_V3_QUOTER_ADDRESS,
   WETH_ADDRESS,
@@ -31,7 +30,6 @@ import {
 import { UniswappyV2EthPair } from './old/UniswappyV2EthPair';
 import { Arbitrage2 } from './old/Arbitrage2';
 import { get } from 'https';
-import { getDefaultRelaySigningKey } from './entities';
 import { UniswapV2Market } from './uniswap/uniswap-v2-market';
 import { UniswapV2MarketFactory } from './uniswap/uniswap-v2-market-factory';
 import { ArbitrageRunner } from './arbitrage-runner';
@@ -43,6 +41,8 @@ import { UniswapV3PoolStateSyncer } from './uniswap/uniswap-v3-pool-state-syncer
 import { swapLocal, swapTest } from './old/UniswapV3Pool';
 import { UniswapV3Market } from './uniswap/uniswap-v3-market';
 import { ArbitrageBlacklist } from './arbitrage-blacklist';
+import { Web3TransactionSender } from './sender/web3-transaction-sender';
+import { FlashbotsTransactionSender } from './sender/flashbots-transaction-sender';
 
 // const ETHEREUM_RPC_URL = process.env.ETHEREUM_RPC_URL || "https://mainnet.infura.io/v3/08a6fc8910ca460e99dd411ec0286be6"
 const PRIVATE_KEY =
@@ -50,7 +50,7 @@ const PRIVATE_KEY =
 // const BUNDLE_EXECUTOR_ADDRESS = process.env.BUNDLE_EXECUTOR_ADDRESS || ""
 const MONEY_PRINTER_ADDRESS = '0x18B6EA53FBDBB38d3E3df4E86Bf52E2512EAc619'; // last working '0x51fbc7797B6fD53aFA8Ce0CAbF5a35c60B198837';
 
-// const FLASHBOTS_RELAY_SIGNING_KEY = process.env.FLASHBOTS_RELAY_SIGNING_KEY || getDefaultRelaySigningKey();
+const FLASHBOTS_RELAY_SIGNING_KEY = process.env.FLASHBOTS_RELAY_SIGNING_KEY;
 
 // const MINER_REWARD_PERCENTAGE = parseInt(process.env.MINER_REWARD_PERCENTAGE || "80")
 
@@ -69,8 +69,9 @@ const MONEY_PRINTER_ADDRESS = '0x18B6EA53FBDBB38d3E3df4E86Bf52E2512EAc619'; // l
 // }
 
 const HEALTHCHECK_URL = process.env.HEALTHCHECK_URL || '';
+const NETWORK = 'goerli';
 
-const provider = new providers.InfuraProvider('goerli', '8ac04e84ff9e4fd19db5bfa857b90a92');
+const provider = new providers.InfuraProvider(NETWORK, '8ac04e84ff9e4fd19db5bfa857b90a92');
 const moneyPrinterContract = new Contract(MONEY_PRINTER_ADDRESS, MONEY_PRINTER_ABI, provider);
 
 const arbitrageSigningWallet = new Wallet(PRIVATE_KEY);
@@ -108,18 +109,8 @@ async function executeRegularSwap(
     throw e;
     // return;
   }*/
-  const bundledTransactions = [
-    {
-      signer: executorWallet,
-      transaction: transaction,
-    },
-  ];
 
-  const signedTransaction = await executorWallet.signTransaction(transaction);
-  const result = await provider.sendTransaction(signedTransaction);
-
-  console.log(result);
-  console.log(await result.wait(2));
+  return transaction;
 
   // const signedBundle = await this.flashbotsProvider.signBundle(bundledTransactions);
   //
@@ -149,12 +140,20 @@ async function main() {
   //TODO: ensure all token addresses from different markets are checksumed
   //12370000 = 9 marketsV3
   //12369800 = 2 marketsV3
+
+  const useFlashbots = false;
+  const sender = useFlashbots ?
+    await FlashbotsTransactionSender.create(provider, NETWORK, FLASHBOTS_RELAY_SIGNING_KEY) :
+    new Web3TransactionSender(provider, 2);
+
   const LAST_BLOCK = 20000000;
   const factories: EthMarketFactory[] = [
     ...UNISWAP_V2_FACTORY_ADDRESSES.map(
       (address) => new UniswapV2MarketFactory(provider, address, LAST_BLOCK),
     ),
-    new UniswapV3MarketFactory(provider, UNISWAP_V3_FACTORY_ADDRESS, LAST_BLOCK),
+    ...UNISWAP_V3_FACTORY_ADDRESSES.map(
+      (address) => new UniswapV3MarketFactory(provider, address, LAST_BLOCK),
+    )
   ];
 
   const markets: EthMarket[] = (
@@ -165,7 +164,6 @@ async function main() {
 
   const blacklist = new ArbitrageBlacklist(BLACKLIST_MARKETS, BLACKLIST_TOKENS);
   const allowedMarkets = blacklist.filterMarkets(markets);
-  console.log(allowedMarkets.length);
 
   const runner = new ArbitrageRunner(
     allowedMarkets,
