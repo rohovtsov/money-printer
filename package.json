@@ -8,6 +8,7 @@
     "start": "ts-node src/index.ts",
     "start-old": "npx ts-node --project tsconfig.json src/index.ts",
     "deploy": "hardhat run scripts/deploy.ts --network goerli",
+    "deploy-mainnet": "hardhat run scripts/deploy.ts --network mainnet",
     "test": "npx hardhat test",
     "build": "npx tsc",
     "lint": "npx eslint src"

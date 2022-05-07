@@ -32,7 +32,10 @@ async function deployMoneyPrinter() {
 
   console.log(`Deploying to ${NETWORK} ...`);
   // We get the contract to deploy
-  const EXECUTOR_ADDRESS = '0x5e9a214bf9864143e44778F9729B230083388cDB';
+  const EXECUTOR_ADDRESS =
+    NETWORK === 'mainnet'
+      ? '0xCfF78979C0bF25062ec239376B0dAc2eBECbece6'
+      : '0x5e9a214bf9864143e44778F9729B230083388cDB';
   const BundleExecutor = await ethers.getContractFactory('MoneyPrinter');
   const contract = await BundleExecutor.deploy(EXECUTOR_ADDRESS, WETH_ADDRESS, {
     // value: ethers.utils.parseEther('0.1'),
