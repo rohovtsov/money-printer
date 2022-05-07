@@ -19,10 +19,9 @@ import {
   UNISWAP_V2_PAIR_ABI,
   UNISWAP_POOL_ABI,
   UNISWAP_V2_FACTORY_ADDRESSES,
-  UNISWAP_V3_FACTORY_ADDRESS,
   UNISWAP_V3_QUOTER_ABI,
   UNISWAP_V3_QUOTER_ADDRESS,
-  WETH_ADDRESS, createFlashbotsBundleProvider, TransactionSender,
+  WETH_ADDRESS, TransactionSender, UNISWAP_V3_FACTORY_ADDRESSES,
 } from './entities';
 import { UniswappyV2EthPair } from './old/UniswappyV2EthPair';
 import { Arbitrage2 } from './old/Arbitrage2';
@@ -249,7 +248,9 @@ async function main() {
     ...UNISWAP_V2_FACTORY_ADDRESSES.map(
       (address) => new UniswapV2MarketFactory(provider, address, LAST_BLOCK),
     ),
-    /*new UniswapV3MarketFactory(provider, UNISWAP_V3_FACTORY_ADDRESS, LAST_BLOCK),*/
+    ...UNISWAP_V3_FACTORY_ADDRESSES.map(
+      (address) => new UniswapV3MarketFactory(provider, address, LAST_BLOCK),
+    )
   ];
 
   const markets: EthMarket[] = (
