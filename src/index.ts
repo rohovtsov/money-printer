@@ -296,47 +296,6 @@ async function executeOpportunity(opportunity: ArbitrageOpportunity): Promise<vo
   try {
     if (lowMoney) {
       const firstOperation = opportunity.operations[0];
-      // if (firstOperation.market.protocol === 'uniswapV2') {
-      //   const abiCoder = new utils.AbiCoder();
-      //   const data = abiCoder.encode(
-      //     ['uint256', 'address[]', 'bytes[]'],
-      //     [opportunity.operations[0].amountIn, callData.targets, callData.data],
-      //   );
-      //   const uniswapLoanMarket = opportunity.operations[0].market;
-      //   const loanContract = new Contract(
-      //     uniswapLoanMarket.marketAddress,
-      //     UNISWAP_V2_PAIR_ABI,
-      //     provider,
-      //   );
-      //
-      //   let amount0Out =
-      //     opportunity.operations[0].action === 'sell'
-      //       ? BigNumber.from(0)
-      //       : opportunity.operations[0].amountOut;
-      //   let amount1Out =
-      //     opportunity.operations[0].action === 'sell'
-      //       ? opportunity.operations[0].amountOut
-      //       : BigNumber.from(0);
-      //
-      //   // uint amount0Out, uint amount1Out, address to, bytes calldata data
-      //   const loanTransaction = await loanContract.populateTransaction.swap(
-      //     amount0Out,
-      //     amount1Out,
-      //     MONEY_PRINTER_ADDRESS, // это должно вызываться на адресе контракта, потому что на нем будет вызван колбек
-      //     data,
-      //   );
-      //
-      //   if (!loanTransaction || !loanTransaction.data) {
-      //     throw new Error('Failed to populate transaction 3');
-      //   }
-      //
-      //   const result = await executeRegularSwap(
-      //     { data: [loanTransaction.data], targets: [loanContract.address] },
-      //     moneyPrinterContract,
-      //     arbitrageSigningWallet,
-      //   );
-      //   console.log('result is', result);
-      // } else {
       const abiCoder = new utils.AbiCoder();
       const data = abiCoder.encode(
         ['uint256', 'address[]', 'bytes[]'],
@@ -348,29 +307,6 @@ async function executeOpportunity(opportunity: ArbitrageOpportunity): Promise<vo
         MONEY_PRINTER_ADDRESS,
         data,
       );
-      // const uniswapLoanMarket = opportunity.operations[0].market;
-      // const loanContract = new Contract(
-      //   uniswapLoanMarket.marketAddress,
-      //   UNISWAP_V3_POOL_ABI,
-      //   provider,
-      // );
-      //
-      // let amount0Out =
-      //   opportunity.operations[0].action === 'sell'
-      //     ? BigNumber.from(0)
-      //     : opportunity.operations[0].amountOut;
-      // let amount1Out =
-      //   opportunity.operations[0].action === 'sell'
-      //     ? opportunity.operations[0].amountOut
-      //     : BigNumber.from(0);
-      //
-      // // uint amount0Out, uint amount1Out, address to, bytes calldata data
-      // const loanTransaction = await loanContract.populateTransaction.swap(
-      //   amount0Out,
-      //   amount1Out,
-      //   MONEY_PRINTER_ADDRESS, // это должно вызываться на адресе контракта, потому что на нем будет вызван колбек
-      //   data,
-      // );
 
       if (!loanTransaction || !loanTransaction.data) {
         throw new Error('Failed to populate transaction 5');
@@ -382,7 +318,6 @@ async function executeOpportunity(opportunity: ArbitrageOpportunity): Promise<vo
         arbitrageSigningWallet,
       );
       console.log('result is', result);
-      // }
     } else {
       const result = await executeRegularSwap(
         callData,
