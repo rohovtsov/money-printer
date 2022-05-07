@@ -94,7 +94,6 @@ export class UniswapV3Market implements EthMarket {
     const MAX_SQRT_RATIO = BigNumber.from('1461446703485210103287273052203988822378723970342'); /// @dev The maximum value that can be returned from #getSqrtRatioAtTick. Equivalent to getSqrtRatioAtTick(MAX_TICK)
     const sqrtPriceLimitX96 = zeroForOne ? MIN_SQRT_RATIO.add(1) : MAX_SQRT_RATIO.sub(1); // TODO FIXME как то надо это значение посчитать
 
-    console.log('populate from ', this.marketAddress, ' amountIn = ', amountIn.abs().toString());
     const populatedTransaction = await UniswapV3Market.uniswapInterface.populateTransaction.swap(
       toAddress,
       zeroForOne,

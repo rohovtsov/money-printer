@@ -1,75 +1,38 @@
-import { FlashbotsBundleProvider } from '@flashbots/ethers-provider-bundle';
-// import Web3 from 'web3';
-import { BigNumber, Contract, providers, Wallet, utils, Transaction, PopulatedTransaction } from 'ethers';
+import { BigNumber, Contract, PopulatedTransaction, providers, utils, Wallet } from 'ethers';
 import { take } from 'rxjs';
+import { ArbitrageBlacklist } from './arbitrage-blacklist';
+import { ArbitrageRunner } from './arbitrage-runner';
 import {
+  ArbitrageOpportunity,
   BLACKLIST_MARKETS,
-  MONEY_PRINTER_ABI,
+  BLACKLIST_TOKENS,
   endTime,
+  ERC20_ABI,
   ETHER,
   EthMarket,
   EthMarketFactory,
-  groupEthMarkets,
-  GWEI,
+  MONEY_PRINTER_ABI,
   MultipleCallData,
-  PRINTER_QUERY_ABI,
-  PRINTER_QUERY_ADDRESS,
   printOpportunity,
-  startTime,
-  UNISWAP_V2_PAIR_ABI,
-  UNISWAP_V3_POOL_ABI,
+  TransactionSender,
   UNISWAP_V2_FACTORY_ADDRESSES,
-  UNISWAP_V3_QUOTER_ABI,
-  UNISWAP_V3_QUOTER_ADDRESS,
+  UNISWAP_V3_FACTORY_ADDRESSES,
   WETH_ADDRESS,
-  WETH_ABI,
-  ERC20_ABI,
-  ArbitrageOpportunity,
-  BLACKLIST_TOKENS, TransactionSender, UNISWAP_V3_FACTORY_ADDRESSES,
 } from './entities';
-import { UniswappyV2EthPair } from './old/UniswappyV2EthPair';
-import { Arbitrage2 } from './old/Arbitrage2';
-import { get } from 'https';
-import { UniswapV2Market } from './uniswap/uniswap-v2-market';
-import { UniswapV2MarketFactory } from './uniswap/uniswap-v2-market-factory';
-import { ArbitrageRunner } from './arbitrage-runner';
+import { FlashbotsTransactionSender } from './sender/flashbots-transaction-sender';
+import { Web3TransactionSender } from './sender/web3-transaction-sender';
 import { TriangleArbitrageStrategy } from './triangle/triangle-arbitrage-strategy';
-import { WETH } from '@uniswap/sdk';
+import { UniswapV2MarketFactory } from './uniswap/uniswap-v2-market-factory';
 import { UniswapV2ReservesSyncer } from './uniswap/uniswap-v2-reserves-syncer';
 import { UniswapV3MarketFactory } from './uniswap/uniswap-v3-market-factory';
 import { UniswapV3PoolStateSyncer } from './uniswap/uniswap-v3-pool-state-syncer';
-import { swapLocal, swapTest } from './old/UniswapV3Pool';
-import { UniswapV3Market } from './uniswap/uniswap-v3-market';
-import { ArbitrageBlacklist } from './arbitrage-blacklist';
-import { Web3TransactionSender } from './sender/web3-transaction-sender';
-import { FlashbotsTransactionSender } from './sender/flashbots-transaction-sender';
-import { TransactionReceipt } from '@ethersproject/abstract-provider/src.ts';
 
-// const ETHEREUM_RPC_URL = process.env.ETHEREUM_RPC_URL || "https://mainnet.infura.io/v3/08a6fc8910ca460e99dd411ec0286be6"
 const PRIVATE_KEY =
   process.env.PRIVATE_KEY || '0xe287672c1f7b7a8a38449626b3303a2ad4430672977b8a6f741a9ca35b6ca10c';
-// const BUNDLE_EXECUTOR_ADDRESS = process.env.BUNDLE_EXECUTOR_ADDRESS || ""
 const MONEY_PRINTER_ADDRESS = '0x18B6EA53FBDBB38d3E3df4E86Bf52E2512EAc619'; // last working '0x51fbc7797B6fD53aFA8Ce0CAbF5a35c60B198837';
 
 const FLASHBOTS_RELAY_SIGNING_KEY = process.env.FLASHBOTS_RELAY_SIGNING_KEY;
 
-// const MINER_REWARD_PERCENTAGE = parseInt(process.env.MINER_REWARD_PERCENTAGE || "80")
-
-// if (PRIVATE_KEY === "") {
-//   console.warn("Must provide PRIVATE_KEY environment variable")
-//   process.exit(1)
-// }
-// if (BUNDLE_EXECUTOR_ADDRESS === "") {
-//   console.warn("Must provide BUNDLE_EXECUTOR_ADDRESS environment variable. Please see README.md")
-//   process.exit(1)
-// }
-
-// if (FLASHBOTS_RELAY_SIGNING_KEY === "") {
-//   console.warn("Must provide FLASHBOTS_RELAY_SIGNING_KEY. Please see https://github.com/flashbots/pm/blob/main/guides/searcher-onboarding.md")
-//   process.exit(1)
-// }
-
-const HEALTHCHECK_URL = process.env.HEALTHCHECK_URL || '';
 const NETWORK = 'goerli';
 const useFlashbots = true;
 
@@ -77,7 +40,6 @@ const provider = new providers.InfuraProvider(NETWORK, '8ac04e84ff9e4fd19db5bfa8
 const moneyPrinterContract = new Contract(MONEY_PRINTER_ADDRESS, MONEY_PRINTER_ABI, provider);
 
 const arbitrageSigningWallet = new Wallet(PRIVATE_KEY);
-// const flashbotsRelaySigningWallet = new Wallet(FLASHBOTS_RELAY_SIGNING_KEY);
 
 async function createRegularSwap(
   callData: MultipleCallData,
@@ -95,45 +57,7 @@ async function createRegularSwap(
       gasLimit: BigNumber.from(4000000),
     },
   );
-
-  /* try {
-    const estimateGas = await bundleExecutorContract.provider.estimateGas({
-      ...transaction,
-      from: executorWallet.address,
-    });
-    if (estimateGas.gt(1400000)) {
-      console.log('EstimateGas succeeded, but suspiciously large: ' + estimateGas.toString());
-      return;
-    }
-    transaction.gasLimit = estimateGas.mul(2);
-  } catch (e) {
-    console.warn(`Estimate gas failure for `);
-    throw e;
-    // return;
-  }*/
-
   return transaction;
-
-  // const signedBundle = await this.flashbotsProvider.signBundle(bundledTransactions);
-  //
-  // const simulation = await this.flashbotsProvider.simulate(signedBundle, blockNumber + 1);
-  // if ('error' in simulation || simulation.firstRevert !== undefined) {
-  //   console.log(`Simulation Error on token ${bestCrossedMarket.tokenAddress}, skipping`);
-  //   continue;
-  // }
-  // console.log(
-  //   `Submitting bundle, profit sent to miner: ${bigNumberToDecimal(
-  //     simulation.coinbaseDiff,
-  //   )}, effective gas price: ${bigNumberToDecimal(
-  //     simulation.coinbaseDiff.div(simulation.totalGasUsed),
-  //     9,
-  //   )} GWEI`,
-  // );
-  // const bundlePromises = _.map([blockNumber + 1, blockNumber + 2], (targetBlockNumber) =>
-  //   this.flashbotsProvider.sendRawBundle(signedBundle, targetBlockNumber),
-  // );
-  // await Promise.all(bundlePromises);
-  // return;
 }
 
 //{ '1': 116, '10': 712, '60': 3038, '200': 2673 };
@@ -143,9 +67,9 @@ async function main() {
   //12370000 = 9 marketsV3
   //12369800 = 2 marketsV3
 
-  const sender = useFlashbots ?
-    await FlashbotsTransactionSender.create(provider, NETWORK, FLASHBOTS_RELAY_SIGNING_KEY) :
-    new Web3TransactionSender(provider, 2);
+  const sender = useFlashbots
+    ? await FlashbotsTransactionSender.create(provider, NETWORK, FLASHBOTS_RELAY_SIGNING_KEY)
+    : new Web3TransactionSender(provider, 2);
 
   const LAST_BLOCK = 20000000;
   const factories: EthMarketFactory[] = [
@@ -154,7 +78,7 @@ async function main() {
     ),
     ...UNISWAP_V3_FACTORY_ADDRESSES.map(
       (address) => new UniswapV3MarketFactory(provider, address, LAST_BLOCK),
-    )
+    ),
   ];
 
   const markets: EthMarket[] = (
@@ -193,34 +117,14 @@ async function main() {
         await executeOpportunity(opportunity, sender);
       }
     });
-
-  // console.log("Searcher Wallet Address: " + await arbitrageSigningWallet.getAddress())
-  // console.log("Flashbots Relay Signing Wallet Address: " + await flashbotsRelaySigningWallet.getAddress())
-  // const flashbotsProvider = await FlashbotsBundleProvider.create(provider, flashbotsRelaySigningWallet);
-  /*const arbitrage = new Arbitrage(
-    // arbitrageSigningWallet
-    // flashbotsProvider,
-    // new Contract(BUNDLE_EXECUTOR_ADDRESS, BUNDLE_EXECUTOR_ABI, provider)
-  )
-
-  const markets = await UniswappyV2EthPair.getUniswapMarketsByToken(provider, FACTORY_ADDRESSES);
-  provider.on('block', async (blockNumber) => {
-    await UniswappyV2EthPair.updateReserves(provider, markets.allMarketPairs);
-    const bestCrossedMarkets = await arbitrage.evaluateMarkets(markets.marketsByToken);
-    if (bestCrossedMarkets.length === 0) {
-      console.log("No crossed markets")
-      return
-    }
-    bestCrossedMarkets.forEach(Arbitrage.printCrossedMarket);
-    console.log(bestCrossedMarkets, blockNumber);
-    // arbitrage.takeCrossedMarkets(bestCrossedMarkets, blockNumber, MINER_REWARD_PERCENTAGE).then(healthcheck).catch(console.error)
-  })*/
 }
 
 main();
-// withdrawWeth(ETHER.mul(2), bundleExecutorContract, arbitrageSigningWallet); // если хочется вывести 2 кефира например
 
-async function executeOpportunity(opportunity: ArbitrageOpportunity, sender: TransactionSender): Promise<void> {
+async function executeOpportunity(
+  opportunity: ArbitrageOpportunity,
+  sender: TransactionSender,
+): Promise<void> {
   const callData: MultipleCallData = { data: [], targets: [] };
 
   let lowMoney = true; // TODO: check if we have enough money
@@ -331,7 +235,7 @@ async function executeOpportunity(opportunity: ArbitrageOpportunity, sender: Tra
       signer: arbitrageSigningWallet,
       transactionData,
       blockNumber: opportunity.blockNumber + 1,
-    })
+    });
 
     console.log('result is', receipt);
   } catch (e) {
