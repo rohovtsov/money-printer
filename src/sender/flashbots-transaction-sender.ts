@@ -1,28 +1,26 @@
-import { providers } from 'ethers';
+import { BigNumber, providers } from 'ethers';
 import {
   Address,
   bigNumberToDecimal,
   createFlashbotsBundleProvider,
   TransactionData,
-  TransactionSender
+  TransactionSender,
 } from '../entities';
 import { FlashbotsBundleProvider } from '@flashbots/ethers-provider-bundle';
 import { TransactionReceipt } from '@ethersproject/abstract-provider/src.ts';
 
-
-
 export class FlashbotsTransactionSender implements TransactionSender {
-  constructor(
-    readonly flashbotsProvider: FlashbotsBundleProvider,
-  ) { }
+  constructor(readonly flashbotsProvider: FlashbotsBundleProvider) {}
 
   async sendTransaction(data: TransactionData): Promise<TransactionReceipt | null> {
     const { signer, transactionData, blockNumber } = data;
 
-    const signedBundle = await this.flashbotsProvider.signBundle([{
-      signer: signer,
-      transaction: transactionData,
-    }]);
+    const signedBundle = await this.flashbotsProvider.signBundle([
+      {
+        signer: signer,
+        transaction: transactionData,
+      },
+    ]);
 
     const result = await this.flashbotsProvider.sendRawBundle(signedBundle, blockNumber);
 
@@ -32,18 +30,20 @@ export class FlashbotsTransactionSender implements TransactionSender {
     }
 
     await result.wait();
-    const receipts = await result.receipts() ?? [];
+    const receipts = (await result.receipts()) ?? [];
 
     return receipts?.[0] ?? null;
   }
 
-  async simulateTransaction(data: TransactionData): Promise<any> {
+  async simulateTransaction(data: TransactionData): Promise<BigNumber> {
     const { signer, transactionData, blockNumber } = data;
 
-    const signedBundle = await this.flashbotsProvider.signBundle([{
-      signer: signer,
-      transaction: transactionData,
-    }]);
+    const signedBundle = await this.flashbotsProvider.signBundle([
+      {
+        signer: signer,
+        transaction: transactionData,
+      },
+    ]);
 
     const simulation = await this.flashbotsProvider.simulate(signedBundle, blockNumber);
 
@@ -61,13 +61,13 @@ export class FlashbotsTransactionSender implements TransactionSender {
       )} GWEI at ${blockNumber}`,
     );
 
-    return simulation;
+    return BigNumber.from(simulation.results?.[0]?.gasUsed ?? 0);
   }
 
   static async create(
     provider: providers.JsonRpcProvider,
     network?: string,
-    signingKey?: Address
+    signingKey?: Address,
   ): Promise<FlashbotsTransactionSender> {
     return new FlashbotsTransactionSender(
       await createFlashbotsBundleProvider(provider, network, signingKey),

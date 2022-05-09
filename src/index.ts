@@ -96,7 +96,7 @@ async function main() {
         blockNumber: blockNumber,
       })),
     ),
-    shareReplay(),
+    shareReplay(1),
   );
 
   const opportunities$ = runner.start().pipe(
@@ -121,7 +121,7 @@ async function main() {
       return currentBlock === blockState.blockNumber && currentBlock === opportunity.blockNumber;
     }),
     mergeMap(([_, blockState, opportunity]) => {
-      return from(executor.simulateOpportunity(opportunity, blockState.gasPrice.mul(1))).pipe(
+      return from(executor.simulateOpportunity(opportunity, blockState.gasPrice)).pipe(
         catchError(() => {
           return EMPTY;
         }),

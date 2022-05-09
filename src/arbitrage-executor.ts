@@ -1,18 +1,17 @@
 import {
-  ArbitrageOpportunity, ERC20_ABI, EthMarket, MINER_REWORD_PERCENT,
-  MONEY_PRINTER_ABI, MONEY_PRINTER_ADDRESS,
+  ArbitrageOpportunity,
+  ERC20_ABI,
+  EthMarket,
+  MINER_REWORD_PERCENT,
+  MONEY_PRINTER_ABI,
+  MONEY_PRINTER_ADDRESS,
   MultipleCallData,
+  SimulatedArbitrageOpportunity,
   TransactionSender,
-  USE_FLASHBOTS, WETH_ADDRESS
+  USE_FLASHBOTS,
+  WETH_ADDRESS,
 } from './entities';
 import { BigNumber, Contract, PopulatedTransaction, providers, utils, Wallet } from 'ethers';
-
-
-
-export interface SimulatedArbitrageOpportunity extends ArbitrageOpportunity {
-  transactionData: PopulatedTransaction;
-}
-
 
 export class ArbitrageExecutor {
   private readonly arbitrageSigningWallet;
@@ -42,11 +41,15 @@ export class ArbitrageExecutor {
     );
   }
 
-  private async createOpportunityTransactionData(opportunity: ArbitrageOpportunity): Promise<PopulatedTransaction> {
+  private async createOpportunityTransactionData(
+    opportunity: ArbitrageOpportunity,
+  ): Promise<PopulatedTransaction> {
     const callData: MultipleCallData = { data: [], targets: [] };
 
     let lowMoney = true; // TODO: check if we have enough money
-    let ethAmountToCoinbase = USE_FLASHBOTS ? opportunity.profit.mul(MINER_REWORD_PERCENT).div(100) : BigNumber.from(0);
+    let ethAmountToCoinbase = USE_FLASHBOTS
+      ? opportunity.profit.mul(MINER_REWORD_PERCENT).div(100)
+      : BigNumber.from(0);
 
     for (let i = 0; i < opportunity.operations.length; i++) {
       const currentOperation = opportunity.operations[i];
@@ -152,14 +155,17 @@ export class ArbitrageExecutor {
     return transactionData;
   }
 
-  async simulateOpportunity(opportunity: ArbitrageOpportunity, gasPrice: BigNumber): Promise<SimulatedArbitrageOpportunity> {
+  async simulateOpportunity(
+    opportunity: ArbitrageOpportunity,
+    gasPrice: BigNumber,
+  ): Promise<SimulatedArbitrageOpportunity> {
     const data = await this.createOpportunityTransactionData(opportunity);
     const transactionData = {
       ...data,
       gasPrice,
     };
 
-    await this.sender.simulateTransaction({
+    const gasUsed = await this.sender.simulateTransaction({
       signer: this.arbitrageSigningWallet,
       transactionData: transactionData,
       blockNumber: opportunity.blockNumber + 1,
@@ -167,8 +173,9 @@ export class ArbitrageExecutor {
 
     return {
       ...opportunity,
+      gasUsed,
       transactionData,
-    }
+    };
   }
 
   async executeOpportunity(opportunity: SimulatedArbitrageOpportunity): Promise<void> {
@@ -177,7 +184,7 @@ export class ArbitrageExecutor {
         signer: this.arbitrageSigningWallet,
         transactionData: opportunity.transactionData,
         blockNumber: opportunity.blockNumber + 1,
-      })
+      });
 
       console.log('result is', receipt);
     } catch (e) {
@@ -185,7 +192,6 @@ export class ArbitrageExecutor {
     }
   }
 }
-
 
 function getNextAddress(nextMarket: EthMarket): string {
   if (nextMarket.protocol === 'uniswapV2') {

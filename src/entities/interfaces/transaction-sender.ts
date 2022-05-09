@@ -1,7 +1,5 @@
-import { PopulatedTransaction, Wallet } from 'ethers';
+import { BigNumber, PopulatedTransaction, Wallet } from 'ethers';
 import { TransactionReceipt } from '@ethersproject/abstract-provider/src.ts';
-
-
 
 export interface TransactionData {
   transactionData: PopulatedTransaction;
@@ -9,9 +7,8 @@ export interface TransactionData {
   signer: Wallet;
 }
 
-
 export interface TransactionSender {
   sendTransaction(data: TransactionData): Promise<TransactionReceipt | null>;
 
-  simulateTransaction(data: TransactionData): Promise<void>;
+  simulateTransaction(data: TransactionData): Promise<BigNumber>;
 }

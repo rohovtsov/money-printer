@@ -1,17 +1,9 @@
-import { providers } from 'ethers';
-import {
-  TransactionData,
-  TransactionSender
-} from '../entities';
+import { BigNumber, providers } from 'ethers';
+import { TransactionData, TransactionSender } from '../entities';
 import { TransactionReceipt } from '@ethersproject/abstract-provider/src.ts';
 
-
-
 export class Web3TransactionSender implements TransactionSender {
-  constructor(
-    readonly provider: providers.JsonRpcProvider,
-    readonly confirmations: number = -1
-  ) { }
+  constructor(readonly provider: providers.JsonRpcProvider, readonly confirmations: number = -1) {}
 
   async sendTransaction(data: TransactionData): Promise<TransactionReceipt | null> {
     const { signer, transactionData } = data;
@@ -31,7 +23,7 @@ export class Web3TransactionSender implements TransactionSender {
     return this.provider.getTransactionReceipt(result.hash);
   }
 
-  async simulateTransaction(data: TransactionData): Promise<void> {
-
+  async simulateTransaction(data: TransactionData): Promise<BigNumber> {
+    return BigNumber.from(0);
   }
 }
