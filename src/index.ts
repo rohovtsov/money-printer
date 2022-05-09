@@ -78,7 +78,7 @@ async function main() {
     [
       new TriangleArbitrageStrategy(
         {
-          [WETH_ADDRESS]: [ETHER.mul(1)], //, ETHER.mul(10), ETHER]
+          [WETH_ADDRESS]: [ETHER.div(100)], //, ETHER.mul(10), ETHER]
         },
         allowedMarkets,
       ),

@@ -1,16 +1,31 @@
+import { TransactionReceipt } from '@ethersproject/abstract-provider/src.ts';
+import { FlashbotsBundleProvider } from '@flashbots/ethers-provider-bundle';
 import { BigNumber, providers } from 'ethers';
+import { readFileSync } from 'fs';
+import fs from 'fs/promises';
+import { concatMap, Subject } from 'rxjs';
 import {
   Address,
+  ArbitrageOpportunity,
   bigNumberToDecimal,
   createFlashbotsBundleProvider,
+  NETWORK,
   TransactionData,
   TransactionSender,
 } from '../entities';
-import { FlashbotsBundleProvider } from '@flashbots/ethers-provider-bundle';
-import { TransactionReceipt } from '@ethersproject/abstract-provider/src.ts';
+
+const storePath = `simulations/${NETWORK}.json`;
 
 export class FlashbotsTransactionSender implements TransactionSender {
-  constructor(readonly flashbotsProvider: FlashbotsBundleProvider) {}
+  private opportunityResults$ = new Subject<{
+    opportunity: ArbitrageOpportunity;
+    result: boolean;
+  }>();
+  private map = JSON.parse(readFileSync(storePath, { encoding: 'utf8' }));
+
+  constructor(readonly flashbotsProvider: FlashbotsBundleProvider) {
+    this.opportunityStore();
+  }
 
   async sendTransaction(data: TransactionData): Promise<TransactionReceipt | null> {
     const { signer, transactionData, blockNumber } = data;
@@ -48,10 +63,13 @@ export class FlashbotsTransactionSender implements TransactionSender {
     const simulation = await this.flashbotsProvider.simulate(signedBundle, blockNumber);
 
     if ('error' in simulation || simulation.firstRevert !== undefined) {
-      console.log('Simulation error');
+      this.opportunityResults$.next({ opportunity: data.opportunity, result: false });
+      // @ts-ignore
+      console.log('Simulation error', simulation?.firstRevert?.revert);
       throw new Error('Simulation Error');
     }
 
+    this.opportunityResults$.next({ opportunity: data.opportunity, result: true });
     console.log(
       `Simulating bundle, profit sent to miner: ${bigNumberToDecimal(
         simulation.coinbaseDiff,
@@ -62,6 +80,29 @@ export class FlashbotsTransactionSender implements TransactionSender {
     );
 
     return BigNumber.from(simulation.results?.[0]?.gasUsed ?? 0);
+  }
+
+  private opportunityStore(): void {
+    this.opportunityResults$
+      .pipe(
+        concatMap(async ({ opportunity, result }): Promise<void> => {
+          opportunity.operations.forEach((op) => {
+            if (!this.map[op.market.marketAddress]) {
+              this.map[op.market.marketAddress] = [0, 0];
+              this.map = Object.keys(this.map)
+                .sort()
+                .reduce((obj: Record<string, [number, number]>, key) => {
+                  obj[key] = this.map[key];
+                  return obj;
+                }, {});
+            }
+            this.map[op.market.marketAddress][result ? 0 : 1] += 1;
+          });
+
+          return fs.writeFile(storePath, JSON.stringify(this.map, null, 2));
+        }),
+      )
+      .subscribe(() => {});
   }
 
   static async create(

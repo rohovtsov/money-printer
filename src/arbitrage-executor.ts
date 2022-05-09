@@ -169,6 +169,7 @@ export class ArbitrageExecutor {
       signer: this.arbitrageSigningWallet,
       transactionData: transactionData,
       blockNumber: opportunity.blockNumber + 1,
+      opportunity,
     });
 
     return {
@@ -184,6 +185,7 @@ export class ArbitrageExecutor {
         signer: this.arbitrageSigningWallet,
         transactionData: opportunity.transactionData,
         blockNumber: opportunity.blockNumber + 1,
+        opportunity,
       });
 
       console.log('result is', receipt);
