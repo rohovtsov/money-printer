@@ -1,5 +1,11 @@
 import { BigNumber, providers } from 'ethers';
-import { Address, endTime, splitIntoBatches, startTime, UNISWAP_V3_GRAPH_ENDPOINT } from '../entities';
+import {
+  Address,
+  endTime,
+  splitIntoBatches,
+  startTime,
+  UNISWAP_V3_GRAPH_ENDPOINT,
+} from '../entities';
 import { UniswapV3Market } from './uniswap-v3-market';
 const fetch = require('node-fetch');
 import gql from 'graphql-tag';
@@ -152,9 +158,9 @@ export class UniswapV3PoolStateSyncer {
       }
 
       if (!marketsByAddress[pool.id]) {
-        console.log(pool);
-        console.log(markets.length);
-        console.log(marketAddressesToSync);
+        // console.log(pool);
+        // console.log(markets.length);
+        // console.log(marketAddressesToSync);
         continue;
       }
       this.setPoolState(marketsByAddress[pool.id], pool);

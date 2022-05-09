@@ -1,28 +1,41 @@
+import { TransactionReceipt } from '@ethersproject/abstract-provider/src.ts';
+import { FlashbotsBundleProvider } from '@flashbots/ethers-provider-bundle';
 import { providers } from 'ethers';
+import { readFileSync } from 'fs';
+import fs from 'fs/promises';
+import { concatMap, Subject } from 'rxjs';
 import {
   Address,
+  ArbitrageOpportunity,
   bigNumberToDecimal,
   createFlashbotsBundleProvider,
+  NETWORK,
   TransactionData,
-  TransactionSender
+  TransactionSender,
 } from '../entities';
-import { FlashbotsBundleProvider } from '@flashbots/ethers-provider-bundle';
-import { TransactionReceipt } from '@ethersproject/abstract-provider/src.ts';
 
-
+let storePath = `simulations/${NETWORK}.json`;
 
 export class FlashbotsTransactionSender implements TransactionSender {
-  constructor(
-    readonly flashbotsProvider: FlashbotsBundleProvider,
-  ) { }
+  private opportunityResults$ = new Subject<{
+    opportunity: ArbitrageOpportunity;
+    result: boolean;
+  }>();
+  private map = JSON.parse(readFileSync(storePath, { encoding: 'utf8' }));
+
+  constructor(readonly flashbotsProvider: FlashbotsBundleProvider) {
+    this.opportunityStore();
+  }
 
   async sendTransaction(data: TransactionData): Promise<TransactionReceipt | null> {
     const { signer, transactionData, blockNumber } = data;
 
-    const signedBundle = await this.flashbotsProvider.signBundle([{
-      signer: signer,
-      transaction: transactionData,
-    }]);
+    const signedBundle = await this.flashbotsProvider.signBundle([
+      {
+        signer: signer,
+        transaction: transactionData,
+      },
+    ]);
 
     const result = await this.flashbotsProvider.sendRawBundle(signedBundle, blockNumber);
 
@@ -32,7 +45,7 @@ export class FlashbotsTransactionSender implements TransactionSender {
     }
 
     await result.wait();
-    const receipts = await result.receipts() ?? [];
+    const receipts = (await result.receipts()) ?? [];
 
     return receipts?.[0] ?? null;
   }
@@ -40,18 +53,23 @@ export class FlashbotsTransactionSender implements TransactionSender {
   async simulateTransaction(data: TransactionData): Promise<any> {
     const { signer, transactionData, blockNumber } = data;
 
-    const signedBundle = await this.flashbotsProvider.signBundle([{
-      signer: signer,
-      transaction: transactionData,
-    }]);
+    const signedBundle = await this.flashbotsProvider.signBundle([
+      {
+        signer: signer,
+        transaction: transactionData,
+      },
+    ]);
 
     const simulation = await this.flashbotsProvider.simulate(signedBundle, blockNumber);
 
     if ('error' in simulation || simulation.firstRevert !== undefined) {
-      console.log('Simulation error');
+      this.opportunityResults$.next({ opportunity: data.opportunity, result: false });
+      // @ts-ignore
+      console.log('Simulation error', simulation?.firstRevert?.revert);
       throw new Error('Simulation Error');
     }
 
+    this.opportunityResults$.next({ opportunity: data.opportunity, result: true });
     console.log(
       `Simulating bundle, profit sent to miner: ${bigNumberToDecimal(
         simulation.coinbaseDiff,
@@ -64,10 +82,33 @@ export class FlashbotsTransactionSender implements TransactionSender {
     return simulation;
   }
 
+  private opportunityStore(): void {
+    this.opportunityResults$
+      .pipe(
+        concatMap(async ({ opportunity, result }): Promise<void> => {
+          opportunity.operations.forEach((op) => {
+            if (!this.map[op.market.marketAddress]) {
+              this.map[op.market.marketAddress] = [0, 0];
+              this.map = Object.keys(this.map)
+                .sort()
+                .reduce((obj: Record<string, [number, number]>, key) => {
+                  obj[key] = this.map[key];
+                  return obj;
+                }, {});
+            }
+            this.map[op.market.marketAddress][result ? 0 : 1] += 1;
+          });
+
+          return fs.writeFile(storePath, JSON.stringify(this.map, null, 2));
+        }),
+      )
+      .subscribe(() => {});
+  }
+
   static async create(
     provider: providers.JsonRpcProvider,
     network?: string,
-    signingKey?: Address
+    signingKey?: Address,
   ): Promise<FlashbotsTransactionSender> {
     return new FlashbotsTransactionSender(
       await createFlashbotsBundleProvider(provider, network, signingKey),
