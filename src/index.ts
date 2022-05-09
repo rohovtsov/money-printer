@@ -60,14 +60,14 @@ async function main() {
     ? await FlashbotsTransactionSender.create(provider, NETWORK, FLASHBOTS_RELAY_SIGNING_KEY)
     : new Web3TransactionSender(provider, 2);
 
-  const LAST_BLOCK = 12369800;
+  const LAST_BLOCK = 20000000;
   const factories: EthMarketFactory[] = [
     ...UNISWAP_V2_FACTORY_ADDRESSES.map(
       (address) => new UniswapV2MarketFactory(provider, address, LAST_BLOCK),
     ),
-    /*...UNISWAP_V3_FACTORY_ADDRESSES.map(
+    ...UNISWAP_V3_FACTORY_ADDRESSES.map(
       (address) => new UniswapV3MarketFactory(provider, address, LAST_BLOCK),
-    ),*/
+    ),
   ];
 
   const markets: EthMarket[] = (
