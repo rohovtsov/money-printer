@@ -1,11 +1,13 @@
-import { providers } from 'ethers';
+import { BigNumber, providers } from 'ethers';
 import {
-  combineLatest,
+  concatMap,
   defer,
   EMPTY,
   filter,
-  from,
+  map,
+  merge,
   mergeMap,
+  of,
   shareReplay,
   switchMap,
   take,
@@ -15,6 +17,7 @@ import { ArbitrageBlacklist } from './arbitrage-blacklist';
 import { ArbitrageExecutor } from './arbitrage-executor';
 import { ArbitrageRunner, filterCorrelatingOpportunities } from './arbitrage-runner';
 import {
+  ArbitrageOpportunity,
   BLACKLIST_MARKETS,
   BLACKLIST_TOKENS,
   endTime,
@@ -26,6 +29,9 @@ import {
   NETWORK,
   printOpportunity,
   PRIVATE_KEY,
+  rateLimit,
+  SimulatedArbitrageOpportunity,
+  startTime,
   UNISWAP_V2_FACTORY_ADDRESSES,
   UNISWAP_V3_FACTORY_ADDRESSES,
   USE_FLASHBOTS,
@@ -89,7 +95,7 @@ async function main() {
   );
 
   const currentBlock$ = runner.currentBlock$;
-  const currentGasPrice$ = runner.currentBlock$.pipe(
+  const currentBlockState$ = currentBlock$.pipe(
     switchMap((blockNumber) =>
       defer(async () => ({
         gasPrice: await provider.getGasPrice(),
@@ -99,46 +105,67 @@ async function main() {
     shareReplay(1),
   );
 
-  const opportunities$ = runner.start().pipe(
-    switchMap((allOpportunities) => {
+  const concurrentSimulationCount = 20;
+  const simulatedOpportunities$ = runner.start().pipe(
+    concatMap((event) => {
       //TODO: if one opportunity will fail the simulation, the ones that were filtrated because of it - may not
-      const filteredOpportunities = filterCorrelatingOpportunities(allOpportunities);
+      //const opportunities = filterCorrelatingOpportunities(event.opportunities);
+      const opportunities = event.opportunities;
       console.log(
-        `Found opportunities: ${allOpportunities.length}, non-correlating: ${
-          filteredOpportunities.length
+        `Found opportunities: ${event.opportunities.length}, non-correlating: ${
+          opportunities.length
         } in ${endTime('render')}ms\n`,
       );
-      return from(filteredOpportunities);
-    }),
-  );
 
-  const simulatedOpportunities$ = combineLatest([
-    currentBlock$,
-    currentGasPrice$,
-    opportunities$,
-  ]).pipe(
-    filter(([currentBlock, blockState, opportunity]) => {
-      return currentBlock === blockState.blockNumber && currentBlock === opportunity.blockNumber;
-    }),
-    mergeMap(([_, blockState, opportunity]) => {
-      return from(executor.simulateOpportunity(opportunity, blockState.gasPrice)).pipe(
-        catchError(() => {
+      const gasPrice$ = currentBlockState$.pipe(
+        filter((state) => state.blockNumber >= event.blockNumber),
+        map((state) => state.gasPrice),
+        take(1),
+      );
+
+      return gasPrice$.pipe(
+        concatMap((gasPrice) => {
+          return merge(
+            ...opportunities.map((opportunity) =>
+              defer(() => executor.simulateOpportunity(opportunity, gasPrice)).pipe(
+                catchError(() => of(opportunity)),
+              ),
+            ),
+            concurrentSimulationCount,
+          );
+        }),
+        concatMap((opportunity: ArbitrageOpportunity | SimulatedArbitrageOpportunity) => {
+          const profitNet = (opportunity as SimulatedArbitrageOpportunity)?.profitNet ?? undefined;
+
+          if (profitNet && profitNet.gt(BigNumber.from(0))) {
+            const simulatedOpportunity = opportunity as SimulatedArbitrageOpportunity;
+            runner.queueOpportunity(simulatedOpportunity);
+            return of(simulatedOpportunity);
+          }
+
           return EMPTY;
         }),
       );
-    }, 10),
+    }),
   );
 
-  combineLatest([currentBlock$, simulatedOpportunities$])
+  simulatedOpportunities$
     .pipe(
-      filter(([currentBlock, opportunity]) => {
-        return currentBlock === opportunity.blockNumber;
+      mergeMap((opportunity) => {
+        return currentBlock$.pipe(
+          concatMap((currentBlock) => {
+            if (currentBlock > opportunity.blockNumber) {
+              return EMPTY;
+            }
+
+            console.log(`Executing opportunity...`);
+            printOpportunity(opportunity);
+            return defer(() => executor.executeOpportunity(opportunity)).pipe(
+              catchError(() => EMPTY),
+            );
+          }),
+        );
       }),
-      take(1),
-      mergeMap(([_, opportunity]) => {
-        printOpportunity(opportunity);
-        return from(executor.executeOpportunity(opportunity));
-      }, 10),
     )
     .subscribe();
 }

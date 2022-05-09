@@ -47,7 +47,13 @@ interface SyncEvent {
   initial: boolean;
 }
 
+interface ArbitrageEvent {
+  opportunities: ArbitrageOpportunity[];
+  blockNumber: number;
+}
+
 export class ArbitrageRunner {
+  private queuedOpportunities: ArbitrageOpportunity[] = [];
   readonly marketsByAddress: Record<Address, EthMarket>;
   readonly currentBlock$: Observable<number>;
 
@@ -105,9 +111,10 @@ export class ArbitrageRunner {
     //TODO: buffer changed markets while sync is in progress.
     const syncedChangedMarkets$ = changedMarkets$.pipe(
       concatMap((event) => {
-        return from(this.syncMarkets(event.changedMarkets, event.blockNumber)).pipe(
-          map(() => event),
-        );
+        const queuedMarkets = this.retrieveQueuedMarketsAndEmptyQueue();
+        const changedMarkets = mergeMarkets(queuedMarkets, event.changedMarkets);
+
+        return from(this.syncMarkets(changedMarkets, event.blockNumber)).pipe(map(() => event));
       }),
     );
 
@@ -140,14 +147,37 @@ export class ArbitrageRunner {
     );
   }
 
-  start(): Observable<ArbitrageOpportunity[]> {
+  start(): Observable<ArbitrageEvent> {
     return this.startSync().pipe(
       map((event: SyncEvent) => {
         startTime('render');
         console.log(`Changed markets: ${event.changedMarkets.length} in ${event.blockNumber}`);
-        return this.runStrategies(event.changedMarkets, event.blockNumber);
+        return {
+          opportunities: this.runStrategies(event.changedMarkets, event.blockNumber),
+          blockNumber: event.blockNumber,
+        };
       }),
     );
+  }
+
+  queueOpportunity(opportunity: ArbitrageOpportunity) {
+    this.queuedOpportunities.push(opportunity);
+  }
+
+  private retrieveQueuedMarketsAndEmptyQueue(): EthMarket[] {
+    const markets = new Set<EthMarket>([]);
+
+    for (const opportunity of this.queuedOpportunities) {
+      for (const operation of opportunity.operations) {
+        markets.add(operation.market);
+      }
+    }
+
+    console.log(
+      `Retrieved from queue: ${this.queuedOpportunities.length} opportunities in total of ${markets.size} changed markets`,
+    );
+    this.queuedOpportunities = [];
+    return Array.from(markets);
   }
 
   private async syncMarkets(markets: EthMarket[], minBlockNumber: number): Promise<void> {
@@ -222,4 +252,18 @@ export function filterCorrelatingOpportunities(
 
     return true;
   });
+}
+
+function mergeMarkets(marketsA: EthMarket[], marketsB: EthMarket[]): EthMarket[] {
+  const uniqueMarkets = new Set<EthMarket>([]);
+
+  for (const market of marketsA) {
+    uniqueMarkets.add(market);
+  }
+
+  for (const market of marketsB) {
+    uniqueMarkets.add(market);
+  }
+
+  return Array.from(uniqueMarkets);
 }

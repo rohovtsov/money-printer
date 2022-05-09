@@ -174,6 +174,7 @@ export class ArbitrageExecutor {
 
     return {
       ...opportunity,
+      profitNet: opportunity.profit.sub(gasUsed.mul(gasPrice)),
       gasUsed,
       transactionData,
     };

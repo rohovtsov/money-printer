@@ -10,6 +10,7 @@ import {
   bigNumberToDecimal,
   createFlashbotsBundleProvider,
   NETWORK,
+  sleep,
   TransactionData,
   TransactionSender,
 } from '../entities';
@@ -22,14 +23,20 @@ export class FlashbotsTransactionSender implements TransactionSender {
     result: boolean;
   }>();
   private map = JSON.parse(readFileSync(storePath, { encoding: 'utf8' }));
+  private rateLimitedTill = 0;
 
   constructor(readonly flashbotsProvider: FlashbotsBundleProvider) {
     this.opportunityStore();
   }
 
   async sendTransaction(data: TransactionData): Promise<TransactionReceipt | null> {
-    const { signer, transactionData, blockNumber } = data;
+    const delay = Math.max(this.rateLimitedTill ? this.rateLimitedTill - Date.now() : 0, 0);
 
+    if (delay > 0) {
+      await sleep(delay);
+    }
+
+    const { signer, transactionData, blockNumber } = data;
     const signedBundle = await this.flashbotsProvider.signBundle([
       {
         signer: signer,
@@ -37,17 +44,30 @@ export class FlashbotsTransactionSender implements TransactionSender {
       },
     ]);
 
-    const result = await this.flashbotsProvider.sendRawBundle(signedBundle, blockNumber);
+    try {
+      const result = await this.flashbotsProvider.sendRawBundle(signedBundle, blockNumber);
 
-    if ('error' in result) {
-      console.log(result);
-      throw new Error('Relay Error');
+      if ('error' in result) {
+        console.log(result);
+        throw new Error('Relay Error');
+      }
+
+      await result.wait();
+      const receipts = (await result.receipts()) ?? [];
+      return receipts?.[0] ?? null;
+    } catch (err: any) {
+      const ratelimitResetAt = Number(err?.headers?.['x-ratelimit-reset']) * 1000;
+
+      if (ratelimitResetAt && !isNaN(ratelimitResetAt)) {
+        this.rateLimitedTill = Math.max(this.rateLimitedTill, ratelimitResetAt);
+        console.log(
+          `Transaction send rate limited. Wake up in ${this.rateLimitedTill - Date.now()}ms`,
+        );
+        return this.sendTransaction(data);
+      } else {
+        throw err;
+      }
     }
-
-    await result.wait();
-    const receipts = (await result.receipts()) ?? [];
-
-    return receipts?.[0] ?? null;
   }
 
   async simulateTransaction(data: TransactionData): Promise<BigNumber> {
@@ -73,13 +93,16 @@ export class FlashbotsTransactionSender implements TransactionSender {
     console.log(
       `Simulating bundle, profit sent to miner: ${bigNumberToDecimal(
         simulation.coinbaseDiff,
+      )} / ${bigNumberToDecimal(
+        data.opportunity.profit,
+        18,
       )}, effective gas price: ${bigNumberToDecimal(
         simulation.coinbaseDiff.div(simulation.totalGasUsed),
         9,
       )} GWEI at ${blockNumber}`,
     );
 
-    return BigNumber.from(simulation.results?.[0]?.gasUsed ?? 0);
+    return BigNumber.from(simulation.totalGasUsed);
   }
 
   private opportunityStore(): void {
