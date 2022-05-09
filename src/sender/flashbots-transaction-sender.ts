@@ -85,7 +85,7 @@ export class FlashbotsTransactionSender implements TransactionSender {
     if ('error' in simulation || simulation.firstRevert !== undefined) {
       this.opportunityResults$.next({ opportunity: data.opportunity, result: false });
       // @ts-ignore
-      console.log('Simulation error', simulation?.firstRevert?.revert);
+      console.log('Simulation error', simulation?.firstRevert?.revert, simulation.error);
       throw new Error('Simulation Error');
     }
 

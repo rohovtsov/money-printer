@@ -1,7 +1,6 @@
-import { BigNumber, providers, Wallet } from 'ethers';
+import { BigNumber, providers } from 'ethers';
 import { concatMap, delay, Observable, of, OperatorFunction } from 'rxjs';
 import { Listener } from '@ethersproject/providers';
-import { SimulatedArbitrageOpportunity } from './interfaces/arbitrage-execution';
 
 export const ETHER = BigNumber.from(10).pow(18);
 export const GWEI = BigNumber.from(10).pow(9);
@@ -66,4 +65,23 @@ export async function sleep(delay: number): Promise<void> {
   if (delay > 0) {
     return new Promise((resolve) => setTimeout(resolve, delay));
   }
+}
+
+export async function getBaseFeePerGas(
+  provider: providers.JsonRpcProvider,
+  blockNumber: number,
+): Promise<BigNumber> {
+  //TODO: maybe getBlock("pending") takes more time to request???
+  //12.5% (~ 13%) = is max base gas price increase per next block
+  const MAX_GAS_FACTOR = 13;
+
+  return provider.getBlock('pending').then((block) => {
+    if (block.baseFeePerGas && block.number > blockNumber) {
+      return block.baseFeePerGas;
+    } else if (block.baseFeePerGas) {
+      return block.baseFeePerGas.mul(MAX_GAS_FACTOR);
+    } else {
+      return provider.getGasPrice().then((gas) => gas.mul(MAX_GAS_FACTOR));
+    }
+  });
 }

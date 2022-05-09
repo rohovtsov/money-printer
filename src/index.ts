@@ -25,6 +25,7 @@ import {
   EthMarket,
   EthMarketFactory,
   FLASHBOTS_RELAY_SIGNING_KEY,
+  getBaseFeePerGas,
   INFURA_API_KEY,
   NETWORK,
   printOpportunity,
@@ -59,14 +60,14 @@ async function main() {
     ? await FlashbotsTransactionSender.create(provider, NETWORK, FLASHBOTS_RELAY_SIGNING_KEY)
     : new Web3TransactionSender(provider, 2);
 
-  const LAST_BLOCK = 20000000;
+  const LAST_BLOCK = 12369800;
   const factories: EthMarketFactory[] = [
     ...UNISWAP_V2_FACTORY_ADDRESSES.map(
       (address) => new UniswapV2MarketFactory(provider, address, LAST_BLOCK),
     ),
-    ...UNISWAP_V3_FACTORY_ADDRESSES.map(
+    /*...UNISWAP_V3_FACTORY_ADDRESSES.map(
       (address) => new UniswapV3MarketFactory(provider, address, LAST_BLOCK),
-    ),
+    ),*/
   ];
 
   const markets: EthMarket[] = (
@@ -84,7 +85,7 @@ async function main() {
     [
       new TriangleArbitrageStrategy(
         {
-          [WETH_ADDRESS]: [ETHER.div(100)], //, ETHER.mul(10), ETHER]
+          [WETH_ADDRESS]: [ETHER.div(10)], //, ETHER.mul(10), ETHER]
         },
         allowedMarkets,
       ),
@@ -98,7 +99,7 @@ async function main() {
   const currentBlockState$ = currentBlock$.pipe(
     switchMap((blockNumber) =>
       defer(async () => ({
-        gasPrice: await provider.getGasPrice(),
+        gasPrice: await getBaseFeePerGas(provider, blockNumber),
         blockNumber: blockNumber,
       })),
     ),
@@ -125,6 +126,7 @@ async function main() {
 
       return gasPrice$.pipe(
         concatMap((gasPrice) => {
+          console.log(`Gas price: ${gasPrice}`);
           return merge(
             ...opportunities.map((opportunity) =>
               defer(() => executor.simulateOpportunity(opportunity, gasPrice)).pipe(
