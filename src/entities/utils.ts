@@ -71,16 +71,17 @@ export async function getBaseFeePerGas(
   blockNumber: number,
 ): Promise<BigNumber> {
   //TODO: maybe getBlock("pending") takes more time to request???
-  //12.5% (~ 13%) = is max base gas price increase per next block
-  const MAX_GAS_FACTOR = 13;
+  const block = await provider.getBlock('pending');
 
-  return provider.getBlock('pending').then((block) => {
-    if (block.baseFeePerGas && block.number > blockNumber) {
-      return block.baseFeePerGas;
-    } else if (block.baseFeePerGas) {
-      return block.baseFeePerGas.mul(MAX_GAS_FACTOR).div(100);
-    } else {
-      return provider.getGasPrice().then((gas) => gas.mul(MAX_GAS_FACTOR).div(100));
-    }
+  if (block.baseFeePerGas && block.number > blockNumber) {
+    return block.baseFeePerGas;
+  } else if (block.baseFeePerGas) {
+    return await getBaseFeePerGas(provider, blockNumber);
+  }
+
+  //Fallback is baseFeePerGas is not supported by chain
+  return provider.getGasPrice().then((gas) => {
+    //12.5% (~ 13%) = is max base gas price increase per next block
+    return gas.mul(113).div(100);
   });
 }
