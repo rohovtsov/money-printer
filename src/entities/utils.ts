@@ -78,9 +78,9 @@ export async function getBaseFeePerGas(
     if (block.baseFeePerGas && block.number > blockNumber) {
       return block.baseFeePerGas;
     } else if (block.baseFeePerGas) {
-      return block.baseFeePerGas.mul(MAX_GAS_FACTOR);
+      return block.baseFeePerGas.mul(MAX_GAS_FACTOR).div(100);
     } else {
-      return provider.getGasPrice().then((gas) => gas.mul(MAX_GAS_FACTOR));
+      return provider.getGasPrice().then((gas) => gas.mul(MAX_GAS_FACTOR).div(100));
     }
   });
 }
