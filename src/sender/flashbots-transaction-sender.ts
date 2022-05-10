@@ -31,9 +31,23 @@ export class FlashbotsTransactionSender implements TransactionSender {
     this.opportunityStore();
   }
 
-  async sendTransaction(data: TransactionData): Promise<TransactionReceipt | null> {
-    const delay = Math.max(this.rateLimitedTill ? this.rateLimitedTill - Date.now() : 0, 0);
+  private getRateLimitDelay(): number {
+    return Math.max(this.rateLimitedTill ? this.rateLimitedTill - Date.now() : 0, 0);
+  }
 
+  private handleRateLimitError(err: any): boolean {
+    const ratelimitResetAt = Number(err?.headers?.['x-ratelimit-reset']) * 1000;
+
+    if (ratelimitResetAt && !isNaN(ratelimitResetAt)) {
+      this.rateLimitedTill = Math.max(this.rateLimitedTill, ratelimitResetAt);
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  async sendTransaction(data: TransactionData): Promise<TransactionReceipt | null> {
+    const delay = this.getRateLimitDelay();
     if (delay > 0) {
       await sleep(delay);
     }
@@ -58,10 +72,7 @@ export class FlashbotsTransactionSender implements TransactionSender {
       const receipts = (await result.receipts()) ?? [];
       return receipts?.[0] ?? null;
     } catch (err: any) {
-      const ratelimitResetAt = Number(err?.headers?.['x-ratelimit-reset']) * 1000;
-
-      if (ratelimitResetAt && !isNaN(ratelimitResetAt)) {
-        this.rateLimitedTill = Math.max(this.rateLimitedTill, ratelimitResetAt);
+      if (this.handleRateLimitError(err)) {
         console.log(
           `Transaction send rate limited. Wake up in ${this.rateLimitedTill - Date.now()}ms`,
         );
@@ -73,6 +84,11 @@ export class FlashbotsTransactionSender implements TransactionSender {
   }
 
   async simulateTransaction(data: TransactionData): Promise<BigNumber> {
+    const delay = this.getRateLimitDelay();
+    if (delay > 0) {
+      await sleep(delay);
+    }
+
     const { signer, transactionData, blockNumber } = data;
 
     const signedBundle = await this.flashbotsProvider.signBundle([
@@ -82,34 +98,25 @@ export class FlashbotsTransactionSender implements TransactionSender {
       },
     ]);
 
-    const simulation = await this.flashbotsProvider.simulate(signedBundle, blockNumber);
+    try {
+      const simulation = await this.flashbotsProvider.simulate(signedBundle, blockNumber);
 
-    if ('error' in simulation || simulation.firstRevert !== undefined) {
-      this.opportunityResults$.next({ opportunity: data.opportunity, result: false });
-      /*// @ts-ignore
-      console.log('Simulation error: ', simulation?.firstRevert?.revert, simulation.error);*/
-      throw simulation;
+      if ('error' in simulation || simulation.firstRevert !== undefined) {
+        this.opportunityResults$.next({ opportunity: data.opportunity, result: false });
+        throw simulation;
+      }
+
+      this.opportunityResults$.next({ opportunity: data.opportunity, result: true });
+
+      return BigNumber.from(simulation.totalGasUsed);
+    } catch (err: any) {
+      if (this.handleRateLimitError(err)) {
+        console.log(`Simulation rate limited. Wake up in ${this.rateLimitedTill - Date.now()}ms`);
+        return this.simulateTransaction(data);
+      } else {
+        throw err;
+      }
     }
-
-    this.opportunityResults$.next({ opportunity: data.opportunity, result: true });
-
-    /*const opportunity = data.opportunity;
-    const gasPrice = data.transactionData?.gasPrice ?? BigNumber.from(0);
-    const gasUsed = BigNumber.from(simulation.totalGasUsed);
-    const gasFees = gasUsed.mul(gasPrice);
-    const coinbaseDiff = simulation.coinbaseDiff;
-    const profitNet = opportunity.profit.sub(coinbaseDiff).sub(gasFees);
-
-    console.log(
-      `Simulation ${profitNet.gt(BigNumber.from(0)) ? 'successful' : 'unprofitable'}: ` +
-        `profitNet: ${bigNumberToDecimal(profitNet, 18)} ` +
-        `profitGross: ${bigNumberToDecimal(data.opportunity.profit, 18)}, ` +
-        `coinbase: ${bigNumberToDecimal(coinbaseDiff, 18)}, ` +
-        `gasFees: ${bigNumberToDecimal(gasFees, 18)}, ` +
-        `- at block: ${blockNumber}`,
-    );*/
-
-    return BigNumber.from(simulation.totalGasUsed);
   }
 
   private opportunityStore(): void {
