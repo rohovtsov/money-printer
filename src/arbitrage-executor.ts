@@ -1,5 +1,6 @@
 import {
   ArbitrageOpportunity,
+  bigNumberToDecimal,
   ERC20_ABI,
   EthMarket,
   MINER_REWORD_PERCENT,
@@ -30,12 +31,14 @@ export class ArbitrageExecutor {
     callData: MultipleCallData,
     printMoneyContract: Contract,
     ethAmountToCoinbase: BigNumber,
+    gasPrice: BigNumber,
   ): Promise<PopulatedTransaction> {
     return await printMoneyContract.populateTransaction.printMoney(
       ethAmountToCoinbase,
       callData.targets,
       callData.data,
       {
+        gasPrice,
         gasLimit: BigNumber.from(600000),
       },
     );
@@ -43,13 +46,12 @@ export class ArbitrageExecutor {
 
   private async createOpportunityTransactionData(
     opportunity: ArbitrageOpportunity,
+    ethAmountToCoinbase: BigNumber,
+    gasPrice: BigNumber,
   ): Promise<PopulatedTransaction> {
     const callData: MultipleCallData = { data: [], targets: [] };
 
     let lowMoney = true; // TODO: check if we have enough money
-    let ethAmountToCoinbase = USE_FLASHBOTS
-      ? opportunity.profit.mul(MINER_REWORD_PERCENT).div(100)
-      : BigNumber.from(0);
 
     for (let i = 0; i < opportunity.operations.length; i++) {
       const currentOperation = opportunity.operations[i];
@@ -143,34 +145,121 @@ export class ArbitrageExecutor {
         { data: [loanTransaction.data], targets: [firstOperation.market.marketAddress] },
         this.moneyPrinterContract,
         ethAmountToCoinbase,
+        gasPrice,
       );
     } else {
       transactionData = await this.createRegularSwap(
         callData,
         this.moneyPrinterContract,
         ethAmountToCoinbase,
+        gasPrice,
       );
     }
 
     return transactionData;
   }
 
+  private async createSimulatedOpportunity(
+    opportunity: ArbitrageOpportunity,
+    gasPrice: BigNumber,
+    estimatedGas: BigNumber,
+  ): Promise<SimulatedArbitrageOpportunity> {
+    const gasFees = estimatedGas.mul(gasPrice);
+
+    if (gasFees.gte(opportunity.profit)) {
+      throw {
+        gasFees,
+        profit: opportunity.profit,
+      };
+    }
+
+    const profitWithoutGasFees = opportunity.profit.sub(gasFees);
+    const amountToCoinbase = profitWithoutGasFees.mul(MINER_REWORD_PERCENT).div(100);
+    const profitNet = profitWithoutGasFees.sub(amountToCoinbase);
+
+    if (profitNet.lte(BigNumber.from(0))) {
+      throw {
+        gasFees,
+        amountToCoinbase,
+        profitNet,
+        profit: opportunity.profit,
+      };
+    }
+
+    const transactionData = await this.createOpportunityTransactionData(
+      opportunity,
+      amountToCoinbase,
+      gasPrice,
+    );
+
+    return {
+      ...opportunity,
+      profitNet,
+      transactionData,
+      amountToCoinbase,
+      gasFees,
+    };
+  }
+
   async simulateOpportunity(
     opportunity: ArbitrageOpportunity,
     gasPrice: BigNumber,
   ): Promise<SimulatedArbitrageOpportunity> {
-    const data = await this.createOpportunityTransactionData(opportunity);
-    const transactionData = {
-      ...data,
-      gasPrice,
-    };
-
-    return await this.sender.simulateTransaction({
-      signer: this.arbitrageSigningWallet,
-      transactionData: transactionData,
-      blockNumber: opportunity.blockNumber + 1,
+    const transactionData = await this.createOpportunityTransactionData(
       opportunity,
-    });
+      BigNumber.from(0),
+      gasPrice,
+    );
+    let gasUsed: BigNumber;
+    let simOpp: SimulatedArbitrageOpportunity;
+
+    try {
+      gasUsed = await this.sender.simulateTransaction({
+        signer: this.arbitrageSigningWallet,
+        transactionData: transactionData,
+        blockNumber: opportunity.blockNumber + 1,
+        opportunity,
+      });
+    } catch (err: any) {
+      const revert = err?.firstRevert?.revert;
+      const error = err?.error;
+      console.log(`Simulation ${revert ? 'reverted' : 'error'}. `, revert, error);
+
+      if (error?.message?.startsWith('err: max fee per gas less')) {
+        throw { queue: true };
+      }
+
+      if (error?.message?.startsWith('err: insufficient funds for gas')) {
+        throw { die: true };
+      }
+
+      throw { queue: false };
+    }
+
+    try {
+      simOpp = await this.createSimulatedOpportunity(opportunity, gasPrice, gasUsed);
+    } catch (err: any) {
+      console.log(
+        `Simulation unprofitable. ` +
+          `profitNet: ${bigNumberToDecimal(err?.profitNet ?? BigNumber.from(0), 18)} ` +
+          `profitGross: ${bigNumberToDecimal(err?.profit ?? BigNumber.from(0), 18)}, ` +
+          `gasFees: ${bigNumberToDecimal(err?.gasFees ?? BigNumber.from(0), 18)}, ` +
+          `coinbase: ${bigNumberToDecimal(err?.amountToCoinbase ?? BigNumber.from(0), 18)}, ` +
+          `- at block: ${opportunity.blockNumber}`,
+      );
+      throw { queue: true };
+    }
+
+    console.log(
+      `Simulation successful. ` +
+        `profitNet: ${bigNumberToDecimal(simOpp.profitNet, 18)} ` +
+        `profitGross: ${bigNumberToDecimal(simOpp.profit, 18)}, ` +
+        `gasFees: ${bigNumberToDecimal(simOpp.gasFees, 18)}, ` +
+        `coinbase: ${bigNumberToDecimal(simOpp.amountToCoinbase, 18)}, ` +
+        `- at block: ${simOpp.blockNumber}`,
+    );
+
+    return simOpp;
   }
 
   async executeOpportunity(opportunity: SimulatedArbitrageOpportunity): Promise<void> {

@@ -9,6 +9,7 @@ import {
   ArbitrageOpportunity,
   bigNumberToDecimal,
   createFlashbotsBundleProvider,
+  MINER_REWORD_PERCENT,
   NETWORK,
   SimulatedArbitrageOpportunity,
   sleep,
@@ -71,7 +72,7 @@ export class FlashbotsTransactionSender implements TransactionSender {
     }
   }
 
-  async simulateTransaction(data: TransactionData): Promise<SimulatedArbitrageOpportunity> {
+  async simulateTransaction(data: TransactionData): Promise<BigNumber> {
     const { signer, transactionData, blockNumber } = data;
 
     const signedBundle = await this.flashbotsProvider.signBundle([
@@ -85,14 +86,14 @@ export class FlashbotsTransactionSender implements TransactionSender {
 
     if ('error' in simulation || simulation.firstRevert !== undefined) {
       this.opportunityResults$.next({ opportunity: data.opportunity, result: false });
-      // @ts-ignore
-      console.log('Simulation error: ', simulation?.firstRevert?.revert, simulation.error);
-      throw (simulation as any)?.error ?? new Error('Simulation Error');
+      /*// @ts-ignore
+      console.log('Simulation error: ', simulation?.firstRevert?.revert, simulation.error);*/
+      throw simulation;
     }
 
     this.opportunityResults$.next({ opportunity: data.opportunity, result: true });
 
-    const opportunity = data.opportunity;
+    /*const opportunity = data.opportunity;
     const gasPrice = data.transactionData?.gasPrice ?? BigNumber.from(0);
     const gasUsed = BigNumber.from(simulation.totalGasUsed);
     const gasFees = gasUsed.mul(gasPrice);
@@ -106,14 +107,9 @@ export class FlashbotsTransactionSender implements TransactionSender {
         `coinbase: ${bigNumberToDecimal(coinbaseDiff, 18)}, ` +
         `gasFees: ${bigNumberToDecimal(gasFees, 18)}, ` +
         `- at block: ${blockNumber}`,
-    );
+    );*/
 
-    return {
-      ...opportunity,
-      profitNet,
-      gasUsed,
-      transactionData,
-    };
+    return BigNumber.from(simulation.totalGasUsed);
   }
 
   private opportunityStore(): void {

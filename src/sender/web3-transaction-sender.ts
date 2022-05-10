@@ -23,12 +23,7 @@ export class Web3TransactionSender implements TransactionSender {
     return this.provider.getTransactionReceipt(result.hash);
   }
 
-  async simulateTransaction(data: TransactionData): Promise<SimulatedArbitrageOpportunity> {
-    return {
-      ...data.opportunity,
-      gasUsed: BigNumber.from(0),
-      profitNet: BigNumber.from(0),
-      transactionData: null as unknown as PopulatedTransaction,
-    };
+  async simulateTransaction(data: TransactionData): Promise<BigNumber> {
+    return BigNumber.from(0);
   }
 }

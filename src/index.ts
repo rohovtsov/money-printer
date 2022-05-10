@@ -11,6 +11,7 @@ import {
   shareReplay,
   switchMap,
   take,
+  tap,
 } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { ArbitrageBlacklist } from './arbitrage-blacklist';
@@ -96,6 +97,7 @@ async function main() {
   );
 
   const currentBlock$ = runner.currentBlock$;
+  const thisBlock$ = runner.currentBlock$.pipe(take(1));
   const currentBlockState$ = currentBlock$.pipe(
     switchMap((blockNumber) =>
       defer(async () => ({
@@ -129,26 +131,36 @@ async function main() {
           console.log(`Gas price: ${gasPrice}`);
           return merge(
             ...opportunities.map((opportunity) =>
-              defer(() => executor.simulateOpportunity(opportunity, gasPrice)).pipe(
-                catchError((err: any) => {
-                  if (
-                    err?.message?.startsWith('err: insufficient funds for gas') ||
-                    err?.message?.startsWith('err: max fee per gas less')
-                  ) {
+              thisBlock$.pipe(
+                concatMap((blockNumber) => {
+                  if (blockNumber > opportunity.blockNumber) {
+                    //если блок уже неактуальный, откладываем все до лучших времен.
+                    console.log(
+                      `Simulation postponed. Old block ${opportunity.blockNumber} / ${blockNumber}`,
+                    );
                     runner.queueOpportunity(opportunity);
+                    return EMPTY;
                   }
 
-                  return EMPTY;
-                }),
-                concatMap((opportunity: SimulatedArbitrageOpportunity) => {
-                  const profitNet = opportunity?.profitNet ?? undefined;
+                  return defer(() => executor.simulateOpportunity(opportunity, gasPrice)).pipe(
+                    catchError((err: any) => {
+                      //если отвалилось иза-за неправильного газа, проверим на след. блоке
+                      if (err?.queue) {
+                        runner.queueOpportunity(opportunity);
+                      }
 
-                  if (profitNet && profitNet.gt(BigNumber.from(0))) {
-                    runner.queueOpportunity(opportunity);
-                    return of(opportunity);
-                  }
+                      //если закончились деньги - погибаем
+                      if (err?.die) {
+                        throw new Error('Insufficient funds');
+                      }
 
-                  return EMPTY;
+                      return EMPTY;
+                    }),
+                    tap((opportunity: SimulatedArbitrageOpportunity) => {
+                      //удачную оппортунити с чистой доходностью > 0, проверим на след блоке
+                      runner.queueOpportunity(opportunity);
+                    }),
+                  );
                 }),
               ),
             ),
@@ -162,9 +174,14 @@ async function main() {
   simulatedOpportunities$
     .pipe(
       mergeMap((opportunity) => {
-        return currentBlock$.pipe(
-          concatMap((currentBlock) => {
-            if (currentBlock > opportunity.blockNumber) {
+        return thisBlock$.pipe(
+          concatMap((blockNumber) => {
+            if (blockNumber > opportunity.blockNumber) {
+              console.log(
+                `Execution postponed. Old block ${opportunity.blockNumber} / ${blockNumber}`,
+              );
+              //удачную оппортунити с чистой доходностью > 0, проверим на след блоке
+              runner.queueOpportunity(opportunity);
               return EMPTY;
             }
 
