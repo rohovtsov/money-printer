@@ -130,22 +130,30 @@ async function main() {
           return merge(
             ...opportunities.map((opportunity) =>
               defer(() => executor.simulateOpportunity(opportunity, gasPrice)).pipe(
-                catchError(() => of(opportunity)),
+                catchError((err: any) => {
+                  if (
+                    err?.message?.startsWith('err: insufficient funds for gas') ||
+                    err?.message?.startsWith('err: max fee per gas less')
+                  ) {
+                    runner.queueOpportunity(opportunity);
+                  }
+
+                  return EMPTY;
+                }),
+                concatMap((opportunity: SimulatedArbitrageOpportunity) => {
+                  const profitNet = opportunity?.profitNet ?? undefined;
+
+                  if (profitNet && profitNet.gt(BigNumber.from(0))) {
+                    runner.queueOpportunity(opportunity);
+                    return of(opportunity);
+                  }
+
+                  return EMPTY;
+                }),
               ),
             ),
             concurrentSimulationCount,
           );
-        }),
-        concatMap((opportunity: ArbitrageOpportunity | SimulatedArbitrageOpportunity) => {
-          const profitNet = (opportunity as SimulatedArbitrageOpportunity)?.profitNet ?? undefined;
-
-          if (profitNet && profitNet.gt(BigNumber.from(0))) {
-            const simulatedOpportunity = opportunity as SimulatedArbitrageOpportunity;
-            runner.queueOpportunity(simulatedOpportunity);
-            return of(simulatedOpportunity);
-          }
-
-          return EMPTY;
         }),
       );
     }),

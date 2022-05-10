@@ -38,7 +38,13 @@ export function printOpportunity(opp: ArbitrageOpportunity): void {
   console.log(
     `Type: ${opp.strategyName}\n` +
       `Profit: ${bigNumberToDecimal(opp.profit, 18)} of ${tokenShortName(opp.startToken)}\n` +
-      `${simOpp?.profitNet ? `Profit net: ${bigNumberToDecimal(simOpp.profit, 18)}\n` : ``}` +
+      `${
+        simOpp?.profitNet
+          ? `Profit Net: ${bigNumberToDecimal(simOpp.profitNet, 18)} of ${tokenShortName(
+              opp.startToken,
+            )}\n`
+          : ``
+      }` +
       `Path: ${path}\n` +
       `${tokens}\n` +
       `Markets:\n` +

@@ -110,9 +110,10 @@ export class ArbitrageRunner {
 
     //TODO: buffer changed markets while sync is in progress.
     const syncedChangedMarkets$ = changedMarkets$.pipe(
-      concatMap((event) => {
+      concatMap((changedEvent) => {
         const queuedMarkets = this.retrieveQueuedMarketsAndEmptyQueue();
-        const changedMarkets = mergeMarkets(queuedMarkets, event.changedMarkets);
+        const changedMarkets = mergeMarkets(queuedMarkets, changedEvent.changedMarkets);
+        const event = { ...changedEvent, changedMarkets };
 
         return from(this.syncMarkets(changedMarkets, event.blockNumber)).pipe(map(() => event));
       }),
@@ -129,7 +130,7 @@ export class ArbitrageRunner {
 
             if (event.blockNumber < currentBlock) {
               console.log(
-                `Buffered ${event.changedMarkets.length} changed markets, buffer size: ${changedMarketsBuffer.size} block: ${event.blockNumber}/${currentBlock}`,
+                `Buffered ${event.changedMarkets.length} changed markets, buffer size: ${changedMarketsBuffer.size} - at block: ${event.blockNumber}/${currentBlock}`,
               );
               return EMPTY;
             } else {
@@ -161,6 +162,7 @@ export class ArbitrageRunner {
   }
 
   queueOpportunity(opportunity: ArbitrageOpportunity) {
+    console.log(`Queued opportunity`);
     this.queuedOpportunities.push(opportunity);
   }
 
@@ -174,7 +176,7 @@ export class ArbitrageRunner {
     }
 
     console.log(
-      `Retrieved from queue: ${this.queuedOpportunities.length} opportunities in total of ${markets.size} changed markets`,
+      `Retrieved from queue: ${this.queuedOpportunities.length} opportunities, that has ${markets.size} changed markets`,
     );
     this.queuedOpportunities = [];
     return Array.from(markets);

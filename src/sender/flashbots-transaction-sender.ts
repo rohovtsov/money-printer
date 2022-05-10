@@ -10,6 +10,7 @@ import {
   bigNumberToDecimal,
   createFlashbotsBundleProvider,
   NETWORK,
+  SimulatedArbitrageOpportunity,
   sleep,
   TransactionData,
   TransactionSender,
@@ -70,7 +71,7 @@ export class FlashbotsTransactionSender implements TransactionSender {
     }
   }
 
-  async simulateTransaction(data: TransactionData): Promise<BigNumber> {
+  async simulateTransaction(data: TransactionData): Promise<SimulatedArbitrageOpportunity> {
     const { signer, transactionData, blockNumber } = data;
 
     const signedBundle = await this.flashbotsProvider.signBundle([
@@ -85,24 +86,34 @@ export class FlashbotsTransactionSender implements TransactionSender {
     if ('error' in simulation || simulation.firstRevert !== undefined) {
       this.opportunityResults$.next({ opportunity: data.opportunity, result: false });
       // @ts-ignore
-      console.log('Simulation error', simulation?.firstRevert?.revert, simulation.error);
-      throw new Error('Simulation Error');
+      console.log('Simulation error: ', simulation?.firstRevert?.revert, simulation.error);
+      throw (simulation as any)?.error ?? new Error('Simulation Error');
     }
 
     this.opportunityResults$.next({ opportunity: data.opportunity, result: true });
+
+    const opportunity = data.opportunity;
+    const gasPrice = data.transactionData?.gasPrice ?? BigNumber.from(0);
+    const gasUsed = BigNumber.from(simulation.totalGasUsed);
+    const gasFees = gasUsed.mul(gasPrice);
+    const coinbaseDiff = simulation.coinbaseDiff;
+    const profitNet = opportunity.profit.sub(coinbaseDiff).sub(gasFees);
+
     console.log(
-      `Simulating bundle, profit sent to miner: ${bigNumberToDecimal(
-        simulation.coinbaseDiff,
-      )} / ${bigNumberToDecimal(
-        data.opportunity.profit,
-        18,
-      )}, effective gas price: ${bigNumberToDecimal(
-        simulation.coinbaseDiff.div(simulation.totalGasUsed),
-        9,
-      )} GWEI at ${blockNumber}`,
+      `Simulation ${profitNet.gt(BigNumber.from(0)) ? 'successful' : 'unprofitable'}: ` +
+        `profitNet: ${bigNumberToDecimal(profitNet, 18)} ` +
+        `profitGross: ${bigNumberToDecimal(data.opportunity.profit, 18)}, ` +
+        `coinbase: ${bigNumberToDecimal(coinbaseDiff, 18)}, ` +
+        `gasFees: ${bigNumberToDecimal(gasFees, 18)}, ` +
+        `- at block: ${blockNumber}`,
     );
 
-    return BigNumber.from(simulation.totalGasUsed);
+    return {
+      ...opportunity,
+      profitNet,
+      gasUsed,
+      transactionData,
+    };
   }
 
   private opportunityStore(): void {

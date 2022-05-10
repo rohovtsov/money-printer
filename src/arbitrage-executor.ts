@@ -165,19 +165,12 @@ export class ArbitrageExecutor {
       gasPrice,
     };
 
-    const gasUsed = await this.sender.simulateTransaction({
+    return await this.sender.simulateTransaction({
       signer: this.arbitrageSigningWallet,
       transactionData: transactionData,
       blockNumber: opportunity.blockNumber + 1,
       opportunity,
     });
-
-    return {
-      ...opportunity,
-      profitNet: opportunity.profit.sub(gasUsed.mul(gasPrice)),
-      gasUsed,
-      transactionData,
-    };
   }
 
   async executeOpportunity(opportunity: SimulatedArbitrageOpportunity): Promise<void> {
