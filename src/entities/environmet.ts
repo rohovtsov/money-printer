@@ -3,7 +3,7 @@ import { BigNumber } from 'ethers';
 dotenv.config();
 
 export const NETWORK = process.env.NETWORK || 'goerli';
-export const INFURA_API_KEY = process.env.INFURA_API_KEY || '8ac04e84ff9e4fd19db5bfa857b90a92';
+export const INFURA_API_KEY = process.env.INFURA_API_KEY || '08a6fc8910ca460e99dd411ec0286be6';
 export const PRIVATE_KEY =
   process.env.PRIVATE_KEY || '0xe287672c1f7b7a8a38449626b3303a2ad4430672977b8a6f741a9ca35b6ca10c';
 export const MIN_PROFIT_NET = BigNumber.from(
