@@ -169,6 +169,7 @@ export class ArbitrageExecutor {
     if (gasFees.gte(opportunity.profit)) {
       throw {
         gasFees,
+        profitNet: opportunity.profit.sub(gasFees),
         profit: opportunity.profit,
       };
     }
