@@ -3,6 +3,7 @@ import {
   bigNumberToDecimal,
   ERC20_ABI,
   EthMarket,
+  MIN_PROFIT_NET,
   MINER_REWORD_PERCENT,
   MONEY_PRINTER_ABI,
   MONEY_PRINTER_ADDRESS,
@@ -178,7 +179,7 @@ export class ArbitrageExecutor {
     const amountToCoinbase = profitWithoutGasFees.mul(MINER_REWORD_PERCENT).div(100);
     const profitNet = profitWithoutGasFees.sub(amountToCoinbase);
 
-    if (profitNet.lte(BigNumber.from(0))) {
+    if (profitNet.lte(MIN_PROFIT_NET)) {
       throw {
         gasFees,
         amountToCoinbase,
