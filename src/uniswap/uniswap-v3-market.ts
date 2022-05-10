@@ -21,6 +21,7 @@ export class UniswapV3Market implements EthMarket {
   public pool?: AdvancedPool;
   private readonly poolToken0: Token;
   private readonly poolToken1: Token;
+  private cacheOut: Record<string, BigNumber | null> = {};
 
   constructor(
     readonly marketAddress: Address,
@@ -41,18 +42,23 @@ export class UniswapV3Market implements EthMarket {
       return null;
     }
 
-    try {
-      const token = action === 'sell' ? this.poolToken0 : this.poolToken1;
-      return BigNumber.from(
-        this.pool
-          .getOutputAmountSync(
-            CurrencyAmount.fromRawAmount(token, JSBI.BigInt(amountIn.toString())),
-          )[0]
-          .toSignificant(100),
-      );
-    } catch (e) {
-      return null;
+    const cacheKey = `${action}_${amountIn.toString()}`;
+    if (!this.cacheOut.hasOwnProperty(cacheKey)) {
+      try {
+        const token = action === 'sell' ? this.poolToken0 : this.poolToken1;
+        this.cacheOut[cacheKey] = BigNumber.from(
+          this.pool
+            .getOutputAmountSync(
+              CurrencyAmount.fromRawAmount(token, JSBI.BigInt(amountIn.toString())),
+            )[0]
+            .toSignificant(100),
+        );
+      } catch (e) {
+        this.cacheOut[cacheKey] = null;
+      }
     }
+
+    return this.cacheOut[cacheKey];
   }
 
   calcTokensIn(action: MarketAction, amountOut: BigNumber): BigNumber | null {
@@ -111,6 +117,7 @@ export class UniswapV3Market implements EthMarket {
   }
 
   setPoolState(tick: number, sqrtPriceX96: BigNumber, liquidity: BigNumber, ticks: Tick[]) {
+    this.cacheOut = {};
     try {
       this.pool = new AdvancedPool(
         this.poolToken0,
