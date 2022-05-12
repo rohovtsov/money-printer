@@ -182,6 +182,14 @@ function createTriangles(startingTokens: Address[], group: GroupedEthMarkets): T
           if (market3 === market1) {
             continue;
           }
+          if (
+            market1.protocol === 'uniswapV2' &&
+            market2.protocol === 'uniswapV2' &&
+            market3.protocol === 'uniswapV2'
+          ) {
+            // pure v2 markets is handled by uniswap2-arbitrage-strategy
+            continue;
+          }
 
           triangles.push({
             startToken: tokenA,

@@ -29,6 +29,20 @@ export class UniswapV2Market implements EthMarket {
     this.calculator = SimpleUniswapV2Calculator;
   }
 
+  public getReserve0(): BigNumber {
+    if (!this.reserves) {
+      throw new Error('no reserves is set');
+    }
+    return this.reserves[0];
+  }
+
+  public getReserve1(): BigNumber {
+    if (!this.reserves) {
+      throw new Error('no reserves is set');
+    }
+    return this.reserves[1];
+  }
+
   calcTokensOut(action: MarketAction, amountIn: BigNumber): BigNumber | null {
     if (!this.reserves) {
       console.log(this.marketAddress);

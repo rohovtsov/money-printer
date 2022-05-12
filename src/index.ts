@@ -1,4 +1,4 @@
-import { BigNumber, providers } from 'ethers';
+import { providers } from 'ethers';
 import {
   concatMap,
   defer,
@@ -7,7 +7,6 @@ import {
   map,
   merge,
   mergeMap,
-  of,
   shareReplay,
   switchMap,
   take,
@@ -16,9 +15,8 @@ import {
 import { catchError } from 'rxjs/operators';
 import { ArbitrageBlacklist } from './arbitrage-blacklist';
 import { ArbitrageExecutor } from './arbitrage-executor';
-import { ArbitrageRunner, filterCorrelatingOpportunities } from './arbitrage-runner';
+import { ArbitrageRunner } from './arbitrage-runner';
 import {
-  ArbitrageOpportunity,
   BLACKLIST_MARKETS,
   BLACKLIST_TOKENS,
   endTime,
@@ -31,9 +29,7 @@ import {
   NETWORK,
   printOpportunity,
   PRIVATE_KEY,
-  rateLimit,
   SimulatedArbitrageOpportunity,
-  startTime,
   UNISWAP_V2_FACTORY_ADDRESSES,
   UNISWAP_V3_FACTORY_ADDRESSES,
   USE_FLASHBOTS,
@@ -42,6 +38,7 @@ import {
 import { FlashbotsTransactionSender } from './sender/flashbots-transaction-sender';
 import { Web3TransactionSender } from './sender/web3-transaction-sender';
 import { TriangleArbitrageStrategy } from './triangle/triangle-arbitrage-strategy';
+import { UniswapV2ArbitrageStrategy } from './triangle/uniswap-v2-arbitrage-strategy';
 import { UniswapV2MarketFactory } from './uniswap/uniswap-v2-market-factory';
 import { UniswapV2ReservesSyncer } from './uniswap/uniswap-v2-reserves-syncer';
 import { UniswapV3MarketFactory } from './uniswap/uniswap-v3-market-factory';
@@ -86,10 +83,11 @@ async function main() {
     [
       new TriangleArbitrageStrategy(
         {
-          [WETH_ADDRESS]: [ETHER.div(10)], //, ETHER.mul(10), ETHER]
+          [WETH_ADDRESS]: [ETHER, ETHER.mul(4)], //, ETHER.mul(10), ETHER]
         },
         allowedMarkets,
       ),
+      new UniswapV2ArbitrageStrategy({ startAddresses: [WETH_ADDRESS] }, allowedMarkets),
     ],
     new UniswapV2ReservesSyncer(provider, 5, 1000),
     new UniswapV3PoolStateSyncer(provider, 3),
