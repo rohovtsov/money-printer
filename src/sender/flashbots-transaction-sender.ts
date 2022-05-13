@@ -1,5 +1,8 @@
 import { TransactionReceipt } from '@ethersproject/abstract-provider/src.ts';
-import { FlashbotsBundleProvider } from '@flashbots/ethers-provider-bundle';
+import {
+  FlashbotsBundleProvider,
+  FlashbotsBundleResolution,
+} from '@flashbots/ethers-provider-bundle';
 import { BigNumber, providers } from 'ethers';
 import { readFileSync } from 'fs';
 import fs from 'fs/promises';
@@ -7,17 +10,20 @@ import { concatMap, Subject } from 'rxjs';
 import {
   Address,
   ArbitrageOpportunity,
-  bigNumberToDecimal,
   createFlashbotsBundleProvider,
-  MINER_REWORD_PERCENT,
   NETWORK,
-  SimulatedArbitrageOpportunity,
   sleep,
   TransactionData,
   TransactionSender,
 } from '../entities';
 
 const storePath = `simulations/${NETWORK}.json`;
+
+const resolutionsMap: Record<FlashbotsBundleResolution, string> = {
+  [FlashbotsBundleResolution.BundleIncluded]: 'BundleIncluded',
+  [FlashbotsBundleResolution.AccountNonceTooHigh]: 'AccountNonceTooHigh',
+  [FlashbotsBundleResolution.BlockPassedWithoutInclusion]: 'BlockPassedWithoutInclusion',
+};
 
 export class FlashbotsTransactionSender implements TransactionSender {
   private opportunityResults$ = new Subject<{
@@ -61,20 +67,26 @@ export class FlashbotsTransactionSender implements TransactionSender {
     ]);
 
     try {
-      const result = await this.flashbotsProvider.sendRawBundle(signedBundle, blockNumber);
+      const transaction = await this.flashbotsProvider.sendRawBundle(signedBundle, blockNumber);
 
-      if ('error' in result) {
-        console.log(result);
+      if ('error' in transaction) {
+        console.log(transaction);
         throw new Error('Relay Error');
       }
 
-      await result.wait();
-      const receipts = (await result.receipts()) ?? [];
-      return receipts?.[0] ?? null;
+      const hash = transaction?.bundleTransactions?.[0].hash;
+      console.log(`Flashbots transaction. Sent: ${hash}`);
+      const result = await transaction.wait();
+      const receipt = ((await transaction.receipts()) ?? [])?.[0] ?? null;
+      await this.logResultReport(hash, signedBundle, result, receipt, blockNumber);
+
+      return receipt;
     } catch (err: any) {
       if (this.handleRateLimitError(err)) {
         console.log(
-          `Transaction send rate limited. Wake up in ${this.rateLimitedTill - Date.now()}ms`,
+          `Flashbots transaction send rate limited. Wake up in ${
+            this.rateLimitedTill - Date.now()
+          }ms`,
         );
         return this.sendTransaction(data);
       } else {
@@ -116,6 +128,29 @@ export class FlashbotsTransactionSender implements TransactionSender {
       } else {
         throw err;
       }
+    }
+  }
+
+  private async logResultReport(
+    hash: string,
+    signedBundle: Array<string>,
+    resolution: FlashbotsBundleResolution,
+    receipt: TransactionReceipt | null,
+    blocKNumber: number,
+  ): Promise<void> {
+    console.log(`Flashbots ${hash}. Resolution: ${resolutionsMap[resolution]}`);
+    console.log(`Flashbots ${hash}. Receipt:`, receipt);
+
+    if (receipt === null) {
+      console.log(
+        `Flashbots ${hash}. Bundle stats:`,
+        await this.flashbotsProvider.getBundleStats(hash, blocKNumber),
+      );
+      //TODO: this call affects reputation https://docs.flashbots.net/flashbots-auction/searchers/advanced/troubleshooting#detecting
+      console.log(
+        `Flashbots ${hash}. Conflicting bundles:`,
+        await this.flashbotsProvider.getConflictingBundle(signedBundle, blocKNumber),
+      );
     }
   }
 

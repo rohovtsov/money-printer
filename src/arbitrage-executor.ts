@@ -266,16 +266,14 @@ export class ArbitrageExecutor {
 
   async executeOpportunity(opportunity: SimulatedArbitrageOpportunity): Promise<void> {
     try {
-      const receipt = await this.sender.sendTransaction({
+      await this.sender.sendTransaction({
         signer: this.arbitrageSigningWallet,
         transactionData: opportunity.transactionData,
         blockNumber: opportunity.blockNumber + 1,
         opportunity,
       });
-
-      console.log('result is', receipt);
     } catch (e) {
-      console.log('error is', e);
+      console.log('Execution error.', e);
     }
   }
 }

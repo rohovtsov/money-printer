@@ -36,7 +36,7 @@ export function printOpportunity(opp: ArbitrageOpportunity): void {
     .join('\n')}`;
 
   console.log(
-    `Type: ${opp.strategyName}\n` +
+    `Opportunity of type: ${opp.strategyName} at ${opp.blockNumber}\n` +
       `Profit: ${bigNumberToDecimal(opp.profit, 18)} of ${tokenShortName(opp.startToken)}\n` +
       `${
         simOpp?.profitNet

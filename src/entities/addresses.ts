@@ -50,4 +50,5 @@ export const UNISWAP_V3_FACTORY_ADDRESSES = {
     UNISWAP_V3_FACTORY_ADDRESS,
   ],
   goerli: [UNISWAP_V3_FACTORY_ADDRESS],
+  ropsten: [],
 }[NETWORK] as string[];
