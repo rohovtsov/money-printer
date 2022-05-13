@@ -3,10 +3,9 @@ import {
   Address,
   ArbitrageOpportunity,
   ArbitrageStrategy,
-  endTime,
   EthMarket,
   fromProviderEvent,
-  printOpportunity,
+  getBaseFeePerGas,
   startTime,
   UNISWAP_POOL_EVENT_TOPICS,
   UNISWAP_SYNC_EVENT_TOPIC,
@@ -14,25 +13,17 @@ import {
 import { UniswapV2ReservesSyncer } from './uniswap/uniswap-v2-reserves-syncer';
 import { UniswapV2Market } from './uniswap/uniswap-v2-market';
 import {
-  BehaviorSubject,
-  bufferWhen,
-  combineLatest,
   concatMap,
   defer,
-  delay,
   distinctUntilChanged,
   EMPTY,
-  filter,
+  forkJoin,
   from,
-  interval,
   map,
   merge,
   Observable,
   of,
-  race,
   shareReplay,
-  startWith,
-  Subject,
   switchMap,
   take,
   tap,
@@ -43,12 +34,14 @@ import { retry } from 'rxjs/operators';
 
 interface SyncEvent {
   changedMarkets: EthMarket[];
+  baseFeePerGas: BigNumber;
   blockNumber: number;
   initial: boolean;
 }
 
 interface ArbitrageEvent {
   opportunities: ArbitrageOpportunity[];
+  baseFeePerGas: BigNumber;
   blockNumber: number;
 }
 
@@ -56,6 +49,7 @@ export class ArbitrageRunner {
   private queuedOpportunities: ArbitrageOpportunity[] = [];
   readonly marketsByAddress: Record<Address, EthMarket>;
   readonly currentBlock$: Observable<number>;
+  readonly thisBlock$: Observable<number>;
 
   constructor(
     readonly markets: EthMarket[],
@@ -80,27 +74,37 @@ export class ArbitrageRunner {
       }),
       shareReplay(1),
     );
+    this.thisBlock$ = this.currentBlock$.pipe(take(1));
   }
 
   private startSync(): Observable<SyncEvent> {
     const currentBlock$ = this.currentBlock$;
+    const thisBlock$ = this.thisBlock$;
 
     const changedMarkets$: Observable<SyncEvent> = currentBlock$.pipe(
       concatMap((blockNumber: number, index): Observable<SyncEvent> => {
+        const gasPrice$ = defer(() => getBaseFeePerGas(this.provider, blockNumber)).pipe(retry(5));
+        const changedEthMarkets$ = defer(() =>
+          loadChangedEthMarkets(this.provider, blockNumber, this.marketsByAddress),
+        ).pipe(retry(5));
+
         if (index === 0) {
-          return of({
-            changedMarkets: this.markets,
-            initial: true,
-            blockNumber,
-          });
+          return gasPrice$.pipe(
+            map((gasPrice) => {
+              return {
+                changedMarkets: this.markets,
+                baseFeePerGas: gasPrice,
+                initial: true,
+                blockNumber,
+              };
+            }),
+          );
         }
 
-        return defer(() =>
-          loadChangedEthMarkets(this.provider, blockNumber, this.marketsByAddress),
-        ).pipe(
-          retry(5),
-          map((changedMarkets) => ({
+        return forkJoin([gasPrice$, changedEthMarkets$]).pipe(
+          map(([gasPrice, changedMarkets]) => ({
             changedMarkets,
+            baseFeePerGas: gasPrice,
             initial: false,
             blockNumber,
           })),
@@ -122,7 +126,7 @@ export class ArbitrageRunner {
     const changedMarketsBuffer = new Set<EthMarket>();
     return syncedChangedMarkets$.pipe(
       switchMap((event) => {
-        return currentBlock$.pipe(
+        return thisBlock$.pipe(
           switchMap((currentBlock) => {
             for (const market of event.changedMarkets) {
               changedMarketsBuffer.add(market);
@@ -142,7 +146,6 @@ export class ArbitrageRunner {
               return of(result);
             }
           }),
-          take(1),
         );
       }),
     );
@@ -155,6 +158,7 @@ export class ArbitrageRunner {
         console.log(`Changed markets: ${event.changedMarkets.length} in ${event.blockNumber}`);
         return {
           opportunities: this.runStrategies(event.changedMarkets, event.blockNumber),
+          baseFeePerGas: event.baseFeePerGas,
           blockNumber: event.blockNumber,
         };
       }),
