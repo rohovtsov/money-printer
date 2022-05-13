@@ -1,3 +1,4 @@
+import 'log-timestamp';
 import { providers } from 'ethers';
 import {
   concatMap,
@@ -84,7 +85,7 @@ async function main() {
     [
       new TriangleArbitrageStrategy(
         {
-          [WETH_ADDRESS]: [ETHER, ETHER.mul(4)], //, ETHER.mul(10), ETHER]
+          [WETH_ADDRESS]: [ETHER.mul(13)], //, ETHER.mul(10), ETHER]
         },
         allowedMarkets,
       ),
