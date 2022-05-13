@@ -85,3 +85,10 @@ export async function getBaseFeePerGas(
     return gas.mul(113).div(100);
   });
 }
+
+export async function getLastBlockNumber(provider: providers.JsonRpcProvider): Promise<number> {
+  //TODO: maybe getBlock("pending") takes more time to request???
+  const block = await provider.getBlock('latest');
+
+  return block.number;
+}

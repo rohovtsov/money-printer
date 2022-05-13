@@ -25,6 +25,7 @@ import {
   EthMarketFactory,
   FLASHBOTS_RELAY_SIGNING_KEY,
   getBaseFeePerGas,
+  getLastBlockNumber,
   INFURA_API_KEY,
   NETWORK,
   printOpportunity,
@@ -58,7 +59,7 @@ async function main() {
     ? await FlashbotsTransactionSender.create(provider, NETWORK, FLASHBOTS_RELAY_SIGNING_KEY)
     : new Web3TransactionSender(provider, 2);
 
-  const LAST_BLOCK = 20000000;
+  const LAST_BLOCK = await getLastBlockNumber(provider);
   const factories: EthMarketFactory[] = [
     ...UNISWAP_V2_FACTORY_ADDRESSES.map(
       (address) => new UniswapV2MarketFactory(provider, address, LAST_BLOCK),

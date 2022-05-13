@@ -142,15 +142,19 @@ export class FlashbotsTransactionSender implements TransactionSender {
     console.log(`Flashbots ${hash}. Receipt:`, receipt);
 
     if (receipt === null) {
-      console.log(
-        `Flashbots ${hash}. Bundle stats:`,
-        await this.flashbotsProvider.getBundleStats(hash, blocKNumber),
-      );
-      //TODO: this call affects reputation https://docs.flashbots.net/flashbots-auction/searchers/advanced/troubleshooting#detecting
-      console.log(
-        `Flashbots ${hash}. Conflicting bundles:`,
-        await this.flashbotsProvider.getConflictingBundle(signedBundle, blocKNumber),
-      );
+      try {
+        console.log(
+          `Flashbots ${hash}. Bundle stats:`,
+          await this.flashbotsProvider.getBundleStats(hash, blocKNumber),
+        );
+        //TODO: this call affects reputation https://docs.flashbots.net/flashbots-auction/searchers/advanced/troubleshooting#detecting
+        console.log(
+          `Flashbots ${hash}. Conflicting bundles:`,
+          await this.flashbotsProvider.getConflictingBundle(signedBundle, blocKNumber),
+        );
+      } catch (err) {
+        console.log(`Flashbots ${hash} Error while getting stats.`, err);
+      }
     }
   }
 
