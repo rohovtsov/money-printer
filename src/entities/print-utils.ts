@@ -21,7 +21,7 @@ export function printOpportunity(opp: ArbitrageOpportunity): void {
   let tokens = `${opp.operations
     .map(
       (op) =>
-        `https://${NETWORK !== 'mainnet' ? 'www' : NETWORK}.etherscan.io/token/${
+        `https://${NETWORK === 'mainnet' ? 'www' : NETWORK}.etherscan.io/token/${
           op.action === 'sell' ? op.market.tokens[0] : op.market.tokens[1]
         }`,
     )
@@ -29,7 +29,7 @@ export function printOpportunity(opp: ArbitrageOpportunity): void {
   let markets = `${opp.operations
     .map(
       (op) =>
-        `https://${NETWORK !== 'mainnet' ? 'www' : NETWORK}.etherscan.io/address/${
+        `https://${NETWORK === 'mainnet' ? 'www' : NETWORK}.etherscan.io/address/${
           op.market.marketAddress
         }#readContract (${op.market.protocol} ${op.action})`,
     )
