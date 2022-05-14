@@ -225,7 +225,7 @@ export class ArbitrageExecutor {
       });
     } catch (err: SimulationResponseSuccess | RelayResponseError | any) {
       const revert = err?.firstRevert?.revert ?? err?.firstRevert?.error;
-      const error = err?.error ?? err;
+      const error = err?.error ?? (!revert ? err : undefined);
       console.log(`Simulation ${revert ? 'reverted' : 'error'}.`, revert, error);
 
       if (error?.message?.startsWith('err: max fee per gas less')) {
