@@ -10,10 +10,11 @@ import {
   MultipleCallData,
   SimulatedArbitrageOpportunity,
   TransactionSender,
-  USE_FLASHBOTS,
   WETH_ADDRESS,
 } from './entities';
 import { BigNumber, Contract, PopulatedTransaction, providers, utils, Wallet } from 'ethers';
+import { SimulationResponseSuccess } from '@flashbots/ethers-provider-bundle/src';
+import { RelayResponseError } from '@flashbots/ethers-provider-bundle';
 
 export class ArbitrageExecutor {
   private readonly arbitrageSigningWallet;
@@ -222,10 +223,10 @@ export class ArbitrageExecutor {
         blockNumber: opportunity.blockNumber + 1,
         opportunity,
       });
-    } catch (err: any) {
-      const revert = err?.firstRevert?.revert;
-      const error = err?.error;
-      console.log(`Simulation ${revert ? 'reverted' : 'error'}. `, revert, error);
+    } catch (err: SimulationResponseSuccess | RelayResponseError | any) {
+      const revert = err?.firstRevert?.revert ?? err?.firstRevert?.error;
+      const error = err?.error ?? err;
+      console.log(`Simulation ${revert ? 'reverted' : 'error'}.`, revert, error);
 
       if (error?.message?.startsWith('err: max fee per gas less')) {
         throw { queue: true };
