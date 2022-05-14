@@ -1,30 +1,30 @@
 import {
   Address,
-  EthMarketFactory, getLogsRegressive, mergeLogPacks, PairCreatedEvent, parsePairCreatedLog,
+  EthMarketFactory,
+  PairCreatedEvent,
+  parsePairCreatedLog,
   UNISWAP_PAIR_CREATED_EVENT_TOPIC,
 } from '../entities';
 import { UniswapV2Market } from './uniswap-v2-market';
 import { providers } from 'ethers';
-import { lastValueFrom } from 'rxjs';
+import { LogsCache } from '../entities/logs-cache';
 
 export class UniswapV2MarketFactory implements EthMarketFactory {
   constructor(
     readonly provider: providers.JsonRpcProvider,
     readonly factoryAddress: Address,
     readonly toBlock: number,
-  ) { }
+  ) {}
 
   async getEthMarkets(): Promise<UniswapV2Market[]> {
-    const pack = await lastValueFrom(getLogsRegressive(this.provider, {
-      fromBlock: 0,
-      toBlock: this.toBlock,
-      topics: [
-        UNISWAP_PAIR_CREATED_EVENT_TOPIC
-      ],
-      address: this.factoryAddress
-    }).pipe(mergeLogPacks()));
+    const cache = new LogsCache(this.provider, {
+      topics: [UNISWAP_PAIR_CREATED_EVENT_TOPIC],
+      address: this.factoryAddress,
+    });
 
-    return pack.logs.map(log => {
+    const pack = await cache.getLogsRegressive(this.toBlock);
+
+    return pack.logs.map((log) => {
       const event = parsePairCreatedLog(log) as PairCreatedEvent;
       return new UniswapV2Market(event.pair, [event.token0, event.token1]);
     });

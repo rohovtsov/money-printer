@@ -1,37 +1,37 @@
 import {
   Address,
   EthMarketFactory,
-  getLogsRegressive,
-  mergeLogPacks,
   parsePoolCreatedLog,
   PoolCreatedEvent,
   UNISWAP_POOL_CREATED_EVENT_TOPIC,
 } from '../entities';
 import { providers } from 'ethers';
 import { UniswapV3Market } from './uniswap-v3-market';
-import { lastValueFrom } from 'rxjs';
+import { LogsCache } from '../entities/logs-cache';
 
 export class UniswapV3MarketFactory implements EthMarketFactory {
   constructor(
     readonly provider: providers.JsonRpcProvider,
     readonly factoryAddress: Address,
     readonly toBlock: number,
-    readonly fromBlock = 0,
-  ) { }
+  ) {}
 
   async getEthMarkets(): Promise<UniswapV3Market[]> {
-    const pack = await lastValueFrom(getLogsRegressive(this.provider, {
-      fromBlock: this.fromBlock,
-      toBlock: this.toBlock,
-      topics: [
-        UNISWAP_POOL_CREATED_EVENT_TOPIC
-      ],
-      address: this.factoryAddress
-    }).pipe(mergeLogPacks()));
+    const cache = new LogsCache(this.provider, {
+      topics: [UNISWAP_POOL_CREATED_EVENT_TOPIC],
+      address: this.factoryAddress,
+    });
 
-    return pack.logs.map(log => {
+    const pack = await cache.getLogsRegressive(this.toBlock);
+
+    return pack.logs.map((log) => {
       const event = parsePoolCreatedLog(log) as PoolCreatedEvent;
-      return new UniswapV3Market(event.pool, [event.token0, event.token1], event.fee, event.tickSpacing);
+      return new UniswapV3Market(
+        event.pool,
+        [event.token0, event.token1],
+        event.fee,
+        event.tickSpacing,
+      );
     });
   }
 }

@@ -10,6 +10,7 @@
     "deploy": "hardhat run scripts/deploy.ts --network goerli",
     "deploy-mainnet": "hardhat run scripts/deploy.ts --network mainnet",
     "test": "npx hardhat test",
+    "testQuery": "npx hardhat test test/MoneyPrinterQuery.test.ts",
     "build": "npx tsc",
     "lint": "npx eslint src",
     "prepare": "husky install"
