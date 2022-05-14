@@ -6,6 +6,7 @@
   "types": "build/index.d.ts",
   "scripts": {
     "start": "ts-node src/index.ts",
+    "startAndLogToFile": "ts-node src/index.ts > output.log",
     "start-old": "npx ts-node --project tsconfig.json src/index.ts",
     "deploy": "hardhat run scripts/deploy.ts --network goerli",
     "deploy-mainnet": "hardhat run scripts/deploy.ts --network mainnet",
