@@ -193,7 +193,6 @@ async function main() {
   let market = marketsV3[marketsV3.length - 1];
   let ticks = market?.pool?.advancedTicks ?? [];
   let tick = market?.pool?.tickCurrent ?? 0;
-  x;
   let sqrtRatioX96 = BigNumber.from(market?.pool?.sqrtRatioX96?.toString());
   let liquidity = BigNumber.from(market?.pool?.liquidity?.toString());
   let result: BigNumber | null;
