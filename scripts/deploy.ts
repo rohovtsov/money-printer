@@ -15,9 +15,8 @@ async function deployMoneyPrinterQuery() {
   // await hre.run('compile');
 
   // We get the contract to deploy
-  const UNISWAP_V3_QUOTER_ADDRESS = '0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6';
   const MoneyPrinterQuery = await ethers.getContractFactory('MoneyPrinterQuery');
-  const query = await MoneyPrinterQuery.deploy(UNISWAP_V3_QUOTER_ADDRESS);
+  const query = await MoneyPrinterQuery.deploy();
   await query.deployed();
   console.log('MoneyPrinterQuery deployed to:', query.address);
 }
@@ -61,7 +60,7 @@ async function deployFlashBotsUniswapQuery() {
 
 // We recommend this pattern to be able to use async/await everywhere
 // and properly handle errors.
-deployMoneyPrinter().catch((error) => {
+deployMoneyPrinterQuery().catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });

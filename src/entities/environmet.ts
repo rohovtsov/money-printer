@@ -16,4 +16,4 @@ export const FLASHBOTS_RELAY_SIGNING_KEY = process.env.FLASHBOTS_RELAY_SIGNING_K
 export const MINER_REWORD_PERCENT = Number(process.env.MINER_REWORD_PERCENT ?? 50);
 export const UNISWAP_V3_GRAPH_ENDPOINT =
   process.env.UNISWAP_V3_GRAPH_ENDPOINT ||
-  'https://api.thegraph.com/subgraphs/name/liqwiz/uniswap-v3-goerli';
+  'https://api.thegraph.com/subgraphs/name/ln-e/uniswap-v3-goerli';

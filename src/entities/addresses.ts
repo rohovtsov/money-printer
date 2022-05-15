@@ -31,6 +31,10 @@ export const MONEY_PRINTER_ADDRESS = {
   //'goerli': '0x51fbc7797B6fD53aFA8Ce0CAbF5a35c60B198837', //last working
 }[NETWORK] as string;
 
+export const MONEY_PRINTER_QUERY_ADDRESS = {
+  goerli: '0xa338a8ade040538536D6C79BEB4b18eEe0b443B0',
+}[NETWORK] as string;
+
 export const UNISWAP_V2_FACTORY_ADDRESSES = {
   mainnet: [
     CRO_FACTORY_ADDRESS,

@@ -22,7 +22,6 @@ interface PoolData {
   liquidity: string;
   ticks: {
     tickIdx: string;
-    liquidityGross: string;
     liquidityNet: string;
   }[];
 }
@@ -67,7 +66,6 @@ export class UniswapV3PoolStateSyncer {
           liquidity
           ticks(first: 1000, skip: $offset, orderBy: tickIdx) {
             tickIdx
-            liquidityGross
             liquidityNet
           }
         }
@@ -88,7 +86,6 @@ export class UniswapV3PoolStateSyncer {
           liquidity
           ticks(first: 1000, orderBy: tickIdx) {
             tickIdx
-            liquidityGross
             liquidityNet
           }
         }
@@ -369,7 +366,7 @@ export class UniswapV3PoolStateSyncer {
         (tick) =>
           new Tick({
             index: Number(tick.tickIdx),
-            liquidityGross: JSBI.BigInt(tick.liquidityGross.toString()),
+            liquidityGross: JSBI.BigInt(0),
             liquidityNet: JSBI.BigInt(tick.liquidityNet.toString()),
           }),
       ),

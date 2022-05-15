@@ -1,50 +1,72 @@
 pragma solidity ^0.8.0;
 
+//TODO: remove console.log
 import "hardhat/console.sol";
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
 import '@uniswap/v3-periphery/contracts/interfaces/IQuoter.sol';
 
-contract MoneyPrinterQuery {
-    IQuoter private quoter;
+//TODO: recheck type casting
+//TODO: reuse uniswap libraries?
+import './libraries/BitMath.sol';
 
-    constructor(IQuoter _quoter) {
-        quoter = _quoter;
+contract MoneyPrinterQuery {
+    int24 internal constant MIN_TICK = -887272;
+    int24 internal constant MAX_TICK = -MIN_TICK;
+
+    //TODO: recheck type casting
+    //TODO: reuse uniswap libraries?
+    //TODO: recheck
+    function nextInitializedTickWithinOneWord(
+        IUniswapV3Pool pool,
+        int24 tick,
+        int24 tickSpacing
+    ) internal view returns (int24 next, bool initialized) {
+        int24 compressed = tick / tickSpacing;
+        if (tick < 0 && tick % tickSpacing != 0) compressed--; // round towards negative infinity
+
+        // start from the word of the next tick, since the current tick state doesn't matter
+        compressed = compressed + 1;
+        int16 wordPos = int16(compressed >> 8);
+        uint8 bitPos = uint8(uint24(compressed) % 256);
+
+        // all the 1s at or to the left of the bitPos
+        uint256 mask = ~((1 << bitPos) - 1);
+        uint256 masked = pool.tickBitmap(wordPos) & mask;
+
+        // if there are no initialized ticks to the left of the current tick, return leftmost in the word
+        initialized = masked != 0;
+        // overflow/underflow is possible, but prevented externally by limiting both tickSpacing and tick
+        next = initialized
+        ? (compressed + int24(BitMath.leastSignificantBit(masked) - uint24(bitPos))) * tickSpacing
+        : (compressed + int24(type(uint8).max - uint24(bitPos))) * tickSpacing;
     }
 
-    function getTickBitmapForPool(IUniswapV3Pool pool, int16 fromTick, int16 toTick) external view returns (int256[2][] memory) {
-        uint256 count = uint16(8000);
-        int256[2][] memory result = new int256[2][](count);
-        uint256 id = 0;
+    function getTicksForPool(IUniswapV3Pool pool, uint24 initialBufferSize) public view returns (int128[] memory) {
+        int128[] memory buffer = new int128[](2 * initialBufferSize);
+        uint24 bufferSize = 0;
 
-        for (int16 i = fromTick; i <= toTick; i++) {
-            uint256 val = pool.tickBitmap(i);
-            if (val != 0 && id < result.length) {
-                result[id][0] = i;
-                result[id][1] = int256(val);
-                id++;
+        int24 tickSpacing = pool.tickSpacing();
+        int24 currentTick = MIN_TICK;
+        int128 liquidityNet;
+        bool initialized;
+
+        while (currentTick <= MAX_TICK) {
+            (currentTick, initialized) = nextInitializedTickWithinOneWord(
+                pool,
+                currentTick,
+                tickSpacing
+            );
+
+            if (initialized) {
+                (,liquidityNet,,,,,,) = pool.ticks(currentTick);
+                buffer[bufferSize++] = currentTick;
+                buffer[bufferSize++] = liquidityNet;
             }
         }
 
-        int256[2][] memory result2 = new int256[2][](id);
-        for (uint256 i = 0; i < result2.length; i++) {
-            result2[i][0] = result[i][0];
-            result2[i][1] = result[i][1];
-        }
-
-        return result2;
-    }
-
-    function getTicksForPool(IUniswapV3Pool pool, uint24 depth) external view returns (int256[2][] memory) {
-        int256[2][] memory result = new int256[2][](depth * 2 + 1);
-        (,int24 tick,,,,,) = pool.slot0();
-        int24 tickSpacing = pool.tickSpacing();
-        int24 tickStart = (tick / tickSpacing) * tickSpacing;
-
+        int128[] memory result = new int128[](bufferSize);
         for (uint24 i = 0; i < result.length; i++) {
-            int24 id = tickStart + (i % 2 == 0 ? int24(1) : int24(-1)) * ((int24(i + 1)) / 2) * tickSpacing;
-            (,int128 liquidityNet,,,,,,) = pool.ticks(id);
-            result[i][0] = id;
-            result[i][1] = liquidityNet;
+            result[i] = buffer[i];
         }
 
         return result;
@@ -53,72 +75,32 @@ contract MoneyPrinterQuery {
     struct StateForPool {
         uint160 sqrtPriceX96;
         int24 tick;
-        uint16 observationIndex;
-        uint16 observationCardinality;
-        uint16 observationCardinalityNext;
-        uint8 feeProtocol;
-        bool unlocked;
-        int24 tickSpacing;
-        uint256 feeGrowthGlobal0X128;
-        uint256 feeGrowthGlobal1X128;
         uint128 liquidity;
-        uint128 token0ProtocolFees;
-        uint128 token1ProtocolFees;
+        int128[] ticks;
     }
 
-    function getStateForPool(IUniswapV3Pool pool) external view returns (StateForPool memory) {
+    function getStateForPool(IUniswapV3Pool pool, uint24 initialBufferSize) public view returns (StateForPool memory) {
         StateForPool memory state;
 
-        (
-            state.sqrtPriceX96,
-            state.tick,
-            state.observationIndex,
-            state.observationCardinality,
-            state.observationCardinalityNext,
-            state.feeProtocol,
-            state.unlocked
-        ) = pool.slot0();
-
-        (
-            state.token0ProtocolFees,
-            state.token1ProtocolFees
-        ) = pool.protocolFees();
-
-        state.tickSpacing = pool.tickSpacing();
-        state.feeGrowthGlobal0X128 = pool.feeGrowthGlobal0X128();
-        state.feeGrowthGlobal1X128 = pool.feeGrowthGlobal1X128();
+        (state.sqrtPriceX96,state.tick,,,,,) = pool.slot0();
         state.liquidity = pool.liquidity();
+        state.ticks = getTicksForPool(pool, initialBufferSize);
 
         return state;
     }
 
-    function getPricesForPools(
-        IUniswapV3Pool[] calldata pools,
-        uint256[] calldata amounts
-    ) external returns (uint256[2][][] memory) {
-        uint256[2][][] memory result = new uint256[2][][](pools.length);
+    function getStatesForPools(IUniswapV3Pool[] calldata pools, uint24[] calldata initialBufferSizes) external view returns (StateForPool[] memory) {
+        StateForPool[] memory states = new StateForPool[](pools.length);
 
         for (uint i = 0; i < pools.length; i++) {
-            result[i] = new uint256[2][](amounts.length);
-            address token0 = pools[i].token0();
-            address token1 = pools[i].token1();
-            uint24 fee = pools[i].fee();
-
-            for (uint j = 0; j < amounts.length; j++) {
-                try quoter.quoteExactInputSingle(token0, token1, fee, amounts[j], 0) returns (uint256 amountOut) {
-                    result[i][j][0] = amountOut;
-                } catch {
-                    result[i][j][0] = 0;
-                }
-
-                try quoter.quoteExactInputSingle(token1, token0, fee, amounts[j], 0) returns (uint256 amountOut) {
-                    result[i][j][1] = amountOut;
-                } catch {
-                    result[i][j][1] = 0;
-                }
-            }
+            states[i] = getStateForPool(pools[i], initialBufferSizes[i]);
         }
 
-        return result;
+        return states;
+    }
+
+    //TODO: consider adding into response bundle
+    function blockNumber() external view returns (uint256) {
+        return block.number;
     }
 }

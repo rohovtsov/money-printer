@@ -153,6 +153,138 @@ export const MONEY_PRINTER_ABI = [
   },
 ];
 
+export const MONEY_PRINTER_QUERY_ABI = [
+  {
+    inputs: [],
+    name: 'blockNumber',
+    outputs: [
+      {
+        internalType: 'uint256',
+        name: '',
+        type: 'uint256',
+      },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [
+      {
+        internalType: 'contract IUniswapV3Pool',
+        name: 'pool',
+        type: 'address',
+      },
+      {
+        internalType: 'uint24',
+        name: 'initialBufferSize',
+        type: 'uint24',
+      },
+    ],
+    name: 'getStateForPool',
+    outputs: [
+      {
+        components: [
+          {
+            internalType: 'uint160',
+            name: 'sqrtPriceX96',
+            type: 'uint160',
+          },
+          {
+            internalType: 'int24',
+            name: 'tick',
+            type: 'int24',
+          },
+          {
+            internalType: 'uint128',
+            name: 'liquidity',
+            type: 'uint128',
+          },
+          {
+            internalType: 'int128[]',
+            name: 'ticks',
+            type: 'int128[]',
+          },
+        ],
+        internalType: 'struct MoneyPrinterQuery.StateForPool',
+        name: '',
+        type: 'tuple',
+      },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [
+      {
+        internalType: 'contract IUniswapV3Pool[]',
+        name: 'pools',
+        type: 'address[]',
+      },
+      {
+        internalType: 'uint24[]',
+        name: 'initialBufferSizes',
+        type: 'uint24[]',
+      },
+    ],
+    name: 'getStatesForPools',
+    outputs: [
+      {
+        components: [
+          {
+            internalType: 'uint160',
+            name: 'sqrtPriceX96',
+            type: 'uint160',
+          },
+          {
+            internalType: 'int24',
+            name: 'tick',
+            type: 'int24',
+          },
+          {
+            internalType: 'uint128',
+            name: 'liquidity',
+            type: 'uint128',
+          },
+          {
+            internalType: 'int128[]',
+            name: 'ticks',
+            type: 'int128[]',
+          },
+        ],
+        internalType: 'struct MoneyPrinterQuery.StateForPool[]',
+        name: '',
+        type: 'tuple[]',
+      },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [
+      {
+        internalType: 'contract IUniswapV3Pool',
+        name: 'pool',
+        type: 'address',
+      },
+      {
+        internalType: 'uint24',
+        name: 'initialBufferSize',
+        type: 'uint24',
+      },
+    ],
+    name: 'getTicksForPool',
+    outputs: [
+      {
+        internalType: 'int128[]',
+        name: '',
+        type: 'int128[]',
+      },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+];
+
 export const UNISWAP_V2_PAIR_ABI = [
   {
     inputs: [],

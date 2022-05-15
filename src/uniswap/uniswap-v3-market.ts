@@ -16,8 +16,6 @@ export class UniswapV3Market implements EthMarket {
   static uniswapInterface = new Contract(WETH_ADDRESS, UNISWAP_V3_POOL_ABI);
 
   readonly protocol = 'uniswapV3';
-  public sqrtPrice?: BigNumber;
-  public tick?: number;
   public pool?: AdvancedPool;
   private readonly poolToken0: Token;
   private readonly poolToken1: Token;
