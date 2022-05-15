@@ -1,12 +1,10 @@
-import { concat, Observable, reduce, Subject, Subscription, throwError } from "rxjs";
-import { catchError, map, retry, takeUntil } from "rxjs/operators";
+import { concat, Observable, reduce, Subject, Subscription, throwError } from 'rxjs';
+import { catchError, map, retry, takeUntil } from 'rxjs/operators';
 import { providers } from 'ethers';
-
 
 const isDefined = (value: any): boolean => {
   return value !== null && value !== undefined;
 };
-
 
 export interface Log {
   address: string;
@@ -19,13 +17,11 @@ export interface Log {
   blockNumber: number;
 }
 
-
 export interface LogsPack {
   fromId: number;
   toId: number;
   logs: Log[];
 }
-
 
 export interface LogsRequestOptions {
   fromBlock: number;
@@ -35,8 +31,7 @@ export interface LogsRequestOptions {
   reverseOrder?: boolean;
 }
 
-
-const parseBlockPointer = (pointer: number|string): string => {
+const parseBlockPointer = (pointer: number | string): string => {
   if (typeof pointer === 'number') {
     return '0x' + pointer.toString(16);
   } else {
@@ -47,14 +42,17 @@ const parseBlockPointer = (pointer: number|string): string => {
 export function mergeLogPacks() {
   return function (source: Observable<LogsPack>): Observable<LogsPack> {
     return source.pipe(
-      reduce((acc, pack) => {
-        acc.fromId = Math.min(pack.fromId, acc.fromId);
-        acc.toId = Math.max(pack.toId, acc.toId);
-        acc.logs.push(...pack.logs);
-        return acc;
-      }, { fromId: 0, toId: 0, logs: [] } as LogsPack),
+      reduce(
+        (acc, pack) => {
+          acc.fromId = Math.min(pack.fromId, acc.fromId);
+          acc.toId = Math.max(pack.toId, acc.toId);
+          acc.logs.push(...pack.logs);
+          return acc;
+        },
+        { fromId: 0, toId: 0, logs: [] } as LogsPack,
+      ),
     );
-  }
+  };
 }
 
 const getLogs = (
@@ -62,17 +60,18 @@ const getLogs = (
   fromBlock: string | number,
   toBlock: string | number = fromBlock,
   topics: string[] | undefined = undefined,
-  address: string | undefined = undefined
+  address: string | undefined = undefined,
 ): Observable<Log[]> => {
   return new Observable<Log[]>((subscriber) => {
     console.log('Logs request: ' + fromBlock + ' - ' + toBlock);
 
-    provider.getLogs({
-      fromBlock: parseBlockPointer(fromBlock),
-      toBlock: parseBlockPointer(toBlock),
-      topics: topics ?? undefined,
-      address: address ?? undefined
-    })
+    provider
+      .getLogs({
+        fromBlock: parseBlockPointer(fromBlock),
+        toBlock: parseBlockPointer(toBlock),
+        topics: topics ?? undefined,
+        address: address ?? undefined,
+      })
       .then((logs: Log[]) => {
         subscriber.next(logs);
         subscriber.complete();
@@ -80,8 +79,6 @@ const getLogs = (
       .catch(subscriber.error.bind(subscriber));
   });
 };
-
-
 
 const getAllLogsRegressive = (
   provider: providers.JsonRpcProvider,
@@ -98,17 +95,19 @@ const getAllLogsRegressive = (
       return {
         logs,
         fromId: fromBlock,
-        toId: toBlock
-      }
+        toId: toBlock,
+      };
     }),
-    catchError(err => {
+    catchError((err) => {
       //-32000 invalid from and to
       //-32602 out of range
-      const errorCode = JSON.parse(err?.body || '{}')?.error?.code;
+      const errorCode = JSON.parse(err?.body || err?.response || '{}')?.error?.code;
 
       if (!isDefined(errorCode)) {
         return throwError(err);
-      } else if (errorCode !== -32005) {
+      } else if (errorCode !== -32602 && errorCode !== -32005) {
+        //-32602 = alchemy
+        //-32005 = infura
         return throwError(err);
       }
 
@@ -121,37 +120,52 @@ const getAllLogsRegressive = (
       const toBlock2 = Math.min(fromBlock2 + newCount, toBlock);
 
       if (
-        (newCount < 0 || fromBlock2 > toBlock2 || fromBlock1 > toBlock1) ||
+        newCount < 0 ||
+        fromBlock2 > toBlock2 ||
+        fromBlock1 > toBlock1 ||
         (fromBlock1 === fromBlock && toBlock1 === toBlock) ||
         (fromBlock2 === fromBlock && toBlock2 === toBlock)
       ) {
         return throwError({
           code: -228,
-          message: 'Insufficient range requested'
+          message: 'Insufficient range requested',
         });
       }
 
-      const firstHalf$ = getAllLogsRegressive(provider, fromBlock1, toBlock1, topics, address, reverseOrder);
-      const secondHalf$ = getAllLogsRegressive(provider, fromBlock2, toBlock2, topics, address, reverseOrder);
+      const firstHalf$ = getAllLogsRegressive(
+        provider,
+        fromBlock1,
+        toBlock1,
+        topics,
+        address,
+        reverseOrder,
+      );
+      const secondHalf$ = getAllLogsRegressive(
+        provider,
+        fromBlock2,
+        toBlock2,
+        topics,
+        address,
+        reverseOrder,
+      );
       const request1$ = isReversedOrder ? secondHalf$ : firstHalf$;
       const request2$ = isReversedOrder ? firstHalf$ : secondHalf$;
 
-      return concat(
-        request1$,
-        request2$
-      );
+      return concat(request1$, request2$);
     }),
-    retry(5)
+    retry(5),
   );
 };
 
-
-export const getLogsRegressive = (provider: providers.JsonRpcProvider, options: LogsRequestOptions): Observable<LogsPack> => {
+export const getLogsRegressive = (
+  provider: providers.JsonRpcProvider,
+  options: LogsRequestOptions,
+): Observable<LogsPack> => {
   if (!isDefined(provider) || !isDefined(options.fromBlock) || !isDefined(options.toBlock)) {
     return throwError({ message: 'Not enough options' });
   }
 
-  return new Observable<LogsPack>(observer => {
+  return new Observable<LogsPack>((observer) => {
     let subscription: Subscription | null = null;
     let stopTaking = new Subject<void>();
 
@@ -160,20 +174,27 @@ export const getLogsRegressive = (provider: providers.JsonRpcProvider, options: 
       stopTaking.next();
     };
 
-    subscription = getAllLogsRegressive(provider, options.fromBlock, options.toBlock, options.topics, options.address, options.reverseOrder).pipe(
-      takeUntil(stopTaking)
-    ).subscribe({
-      next(logs) {
-        observer.next(logs);
-      },
-      complete() {
-        observer.complete();
-        stop();
-      },
-      error(err) {
-        observer.error(err);
-      }
-    });
+    subscription = getAllLogsRegressive(
+      provider,
+      options.fromBlock,
+      options.toBlock,
+      options.topics,
+      options.address,
+      options.reverseOrder,
+    )
+      .pipe(takeUntil(stopTaking))
+      .subscribe({
+        next(logs) {
+          observer.next(logs);
+        },
+        complete() {
+          observer.complete();
+          stop();
+        },
+        error(err) {
+          observer.error(err);
+        },
+      });
 
     return stop;
   });
