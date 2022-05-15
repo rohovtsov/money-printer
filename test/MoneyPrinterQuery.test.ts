@@ -29,7 +29,8 @@ describe('MoneyPrinterQuery', function () {
     const results = (
       await query.functions.getStatesForPools(
         requestAddresses,
-        requestAddresses.map(() => 1000),
+        //passing wrong bufferSize
+        requestAddresses.map(() => 1),
       )
     )[0];
     expect(results.length).equal(requestCount);

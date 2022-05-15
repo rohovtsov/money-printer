@@ -42,8 +42,9 @@ contract MoneyPrinterQuery {
     }
 
     function getTicksForPool(IUniswapV3Pool pool, uint24 initialBufferSize) public view returns (int128[] memory) {
-        int128[] memory buffer = new int128[](2 * initialBufferSize);
         uint24 bufferSize = 0;
+        uint24 maxBufferSize = 2 * initialBufferSize;
+        int128[] memory buffer = new int128[](maxBufferSize);
 
         int24 tickSpacing = pool.tickSpacing();
         int24 currentTick = MIN_TICK;
@@ -58,6 +59,11 @@ contract MoneyPrinterQuery {
             );
 
             if (initialized) {
+                //усли мы не угадали с размером буффера, то перезапускаемся с двойным размером буффера
+                if (bufferSize >= maxBufferSize) {
+                    return getTicksForPool(pool, initialBufferSize * 2);
+                }
+
                 (,liquidityNet,,,,,,) = pool.ticks(currentTick);
                 buffer[bufferSize++] = currentTick;
                 buffer[bufferSize++] = liquidityNet;

@@ -163,37 +163,6 @@ async function main() {
   console.log(`GRAPH TIME`, endTime());
 
   /*
-  let market = marketsV3[marketsV3.length - 1];
-  let ticks = market?.pool?.advancedTicks ?? [];
-  let tick = market?.pool?.tickCurrent ?? 0;
-  let sqrtRatioX96 = BigNumber.from(market?.pool?.sqrtRatioX96?.toString());
-  let liquidity = BigNumber.from(market?.pool?.liquidity?.toString());
-  let result: BigNumber | null;
-  let amount = ETHER.mul(10000000);
-
-  ticks = ticks.sort((a, b) => a.index - b.index);
-  market.setPoolState(tick, sqrtRatioX96, liquidity, ticks);
-  result = market.calcTokensOut('sell', amount);
-  console.log('Subgraph:', result?.toString());
-
-  market.setPoolState(tick, sqrtRatioX96, liquidity, ticks.filter(tick => JSBI.notEqual(tick.liquidityNet, JSBI.BigInt(0))));
-  result = market.calcTokensOut('sell', amount);
-  console.log('Non zero:', result?.toString());
-
-  market.setPoolState(tick, sqrtRatioX96, liquidity, ticks);
-  result = market.calcTokensOut('sell', amount);
-  console.log('Subgraph:', result?.toString());
-
-  market.setPoolState(tick, sqrtRatioX96, liquidity, ticks.filter(tick => JSBI.notEqual(tick.liquidityNet, JSBI.BigInt(0))));
-  result = market.calcTokensOut('sell', amount);
-  console.log('Non zero:', result?.toString());
-
-  const quoter = new Contract(UNISWAP_V3_QUOTER_ADDRESS, UNISWAP_V3_QUOTER_ABI, provider);
-  console.log(`Quoter  :`, (await quoter.callStatic
-    .quoteExactInputSingle(market.tokens[0], market.tokens[1], market.fee, amount.toString(), 0)
-    .catch(() => null))?.toString());*/
-
-  /*
   console.log(market1.calcTokensOut('sell', ETHER.mul(10000000))?.toString());
   console.log(market1.calcTokensOut('sell', ETHER.mul(10000000))?.toString());
   market1.setPoolState(
@@ -220,6 +189,52 @@ async function main() {
   console.log(`CONTRACT TIME`, endTime());
   await syncer1.syncPoolStates(marketsV3);
   console.log(`CONTRACT TIME`, endTime());
+
+  let market = marketsV3[marketsV3.length - 1];
+  let ticks = market?.pool?.advancedTicks ?? [];
+  let tick = market?.pool?.tickCurrent ?? 0;
+  x;
+  let sqrtRatioX96 = BigNumber.from(market?.pool?.sqrtRatioX96?.toString());
+  let liquidity = BigNumber.from(market?.pool?.liquidity?.toString());
+  let result: BigNumber | null;
+  let amount = ETHER.mul(10000000);
+
+  ticks = ticks.sort((a, b) => a.index - b.index);
+  market.setPoolState(tick, sqrtRatioX96, liquidity, ticks);
+  result = market.calcTokensOut('sell', amount);
+  console.log('Subgraph:', result?.toString());
+
+  market.setPoolState(
+    tick,
+    sqrtRatioX96,
+    liquidity,
+    ticks.filter((tick) => JSBI.notEqual(tick.liquidityNet, JSBI.BigInt(0))),
+  );
+  result = market.calcTokensOut('sell', amount);
+  console.log('Non zero:', result?.toString());
+
+  market.setPoolState(tick, sqrtRatioX96, liquidity, ticks);
+  result = market.calcTokensOut('sell', amount);
+  console.log('Subgraph:', result?.toString());
+
+  market.setPoolState(
+    tick,
+    sqrtRatioX96,
+    liquidity,
+    ticks.filter((tick) => JSBI.notEqual(tick.liquidityNet, JSBI.BigInt(0))),
+  );
+  result = market.calcTokensOut('sell', amount);
+  console.log('Non zero:', result?.toString());
+
+  const quoter = new Contract(UNISWAP_V3_QUOTER_ADDRESS, UNISWAP_V3_QUOTER_ABI, provider);
+  console.log(
+    `Quoter  :`,
+    (
+      await quoter.callStatic
+        .quoteExactInputSingle(market.tokens[0], market.tokens[1], market.fee, amount.toString(), 0)
+        .catch(() => null)
+    )?.toString(),
+  );
 
   //const lastMarket = marketsV3[marketsV3.length - 1];
 
