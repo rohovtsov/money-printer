@@ -1,6 +1,6 @@
 import { ChainId, JSBI } from '@uniswap/sdk';
 import { CurrencyAmount, Token } from '@uniswap/sdk-core';
-import { FeeAmount, Tick } from '@uniswap/v3-sdk';
+import { FeeAmount, Tick, TickMath } from '@uniswap/v3-sdk';
 import { BigNumber, Contract } from 'ethers';
 import {
   Address,
@@ -127,9 +127,30 @@ export class UniswapV3Market implements EthMarket {
         ticks,
       );
     } catch (e: any) {
-      if (!e?.message?.includes('PRICE_BOUNDS')) {
+      const isPriceBounds = !!e?.message?.includes('PRICE_BOUNDS');
+
+      if (
+        !isPriceBounds &&
+        e?.message?.includes('ZERO_NET') &&
+        this.pool?.advancedTicks?.[0]?.index === TickMath.MIN_TICK &&
+        ticks?.[0]?.index !== TickMath.MIN_TICK
+      ) {
+        //если не хватает первого тика под номером TickMath.MIN_TICK, и если он был раньше, то поставим его на место.
+        this.setPoolState(tick, sqrtPriceX96, liquidity, [
+          new Tick({
+            index: this.pool!.advancedTicks[0]!.index,
+            liquidityGross: this.pool!.advancedTicks[0]!.liquidityGross,
+            liquidityNet: this.pool!.advancedTicks[0]!.liquidityNet,
+          }),
+          ...ticks,
+        ]);
+        return;
+      }
+
+      if (!isPriceBounds) {
         console.error(e);
       }
+
       this.pool = undefined;
     }
   }

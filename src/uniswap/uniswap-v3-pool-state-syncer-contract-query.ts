@@ -38,6 +38,12 @@ export class UniswapV3PoolStateSyncerContractQuery {
   }
 
   async syncPoolStates(markets: UniswapV3Market[]): Promise<void> {
+    if (!markets.length) {
+      console.log(`Sync V3 skipped`);
+      return;
+    }
+
+    startTime('syncV3');
     const marketsByTickCount = markets.reduce((acc, market) => {
       const key = String(market?.pool?.advancedTicks?.length ?? 0);
       (acc[key] ?? (acc[key] = [])).push(market);
@@ -113,6 +119,8 @@ export class UniswapV3PoolStateSyncerContractQuery {
         }),
       ),
     );
+
+    console.log(`Sync V3 complete: ${markets.length} markets in ${endTime('syncV3')}ms`);
   }
 
   async requestStatesBatch(payload: PoolBatchPayload): Promise<PoolState[]> {

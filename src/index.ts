@@ -55,6 +55,9 @@ import { UniswapV3PoolStateSyncer } from './uniswap/uniswap-v3-pool-state-syncer
 import { UniswapV3Market } from './uniswap/uniswap-v3-market';
 import { UniswapV3PoolStateSyncerContractQuery } from './uniswap/uniswap-v3-pool-state-syncer-contract-query';
 import { JSBI } from '@uniswap/sdk';
+import fs from 'fs';
+import { UniswapV2ArbitrageStrategy } from './triangle/uniswap-v2-arbitrage-strategy';
+import { UniswapV2MarketFactory } from './uniswap/uniswap-v2-market-factory';
 
 const provider = new providers.AlchemyWebSocketProvider(
   NETWORK,
@@ -106,9 +109,9 @@ async function main() {
 
   const LAST_BLOCK = await getLastBlockNumber(provider);
   const factories: EthMarketFactory[] = [
-    /*...UNISWAP_V2_FACTORY_ADDRESSES.map(
+    ...UNISWAP_V2_FACTORY_ADDRESSES.map(
       (address) => new UniswapV2MarketFactory(provider, address, LAST_BLOCK),
-    ),*/
+    ),
     ...UNISWAP_V3_FACTORY_ADDRESSES.map(
       (address) => new UniswapV3MarketFactory(provider, address, LAST_BLOCK),
     ),
@@ -136,11 +139,11 @@ async function main() {
     [
       new TriangleArbitrageStrategy(
         {
-          [WETH_ADDRESS]: [ETHER.div(2)], //, ETHER.mul(10), ETHER]
+          [WETH_ADDRESS]: [ETHER.mul(13)], //, ETHER.mul(10), ETHER]
         },
         allowedMarkets,
       ),
-      //new UniswapV2ArbitrageStrategy({ startAddresses: [WETH_ADDRESS] }, allowedMarkets),
+      new UniswapV2ArbitrageStrategy({ startAddresses: [WETH_ADDRESS] }, allowedMarkets),
     ],
     new UniswapV2ReservesSyncer(provider, 5, 1000),
     new UniswapV3PoolStateSyncerContractQuery(provider, 10),
@@ -177,7 +180,18 @@ async function main() {
   console.log(market1.calcTokensOut('sell', ETHER.mul(10000000))?.toString());
   console.log(tickets1.length, 'vs', tickets2.length);*/
 
-  let ticksChecksum = marketsV3.reduce(
+  /*const ticksMap1 = marketsV3.reduce((acc, market) => {
+    acc[market.marketAddress] = (market?.pool?.advancedTicks ?? []).reduce((acc0, tick) => {
+      acc0.push({
+        index: tick.index,
+        liquidityNet: tick.liquidityNet.toString(),
+      });
+      return acc0;
+    }, [] as { index: number, liquidityNet: string }[]);
+    return acc;
+  }, {} as Record<string, { index: number, liquidityNet: string }[]>);
+
+  let ticksChecksum1 = marketsV3.reduce(
     (acc, market) => {
       const count = market?.pool?.advancedTicks?.length ?? 0;
       acc.sum = JSBI.add(
@@ -192,7 +206,12 @@ async function main() {
     },
     { sum: '0', count: 0 },
   );
-  console.log(ticksChecksum);
+
+/!*  marketsV3.forEach(market => {
+    if (market?.pool?.advancedTicks?.length) {
+      market!.pool!.advancedTicks = Array.from({ length: market?.pool?.advancedTicks?.length }) as any[];
+    }
+  });*!/
 
   const syncer1 = new UniswapV3PoolStateSyncerContractQuery(provider, 10);
   const syncer2 = new UniswapV3PoolStateSyncerContractQuery(provider2, 10);
@@ -202,14 +221,14 @@ async function main() {
   startTime();
   await syncer1.syncPoolStates(marketsV3);
   console.log(`CONTRACT TIME`, endTime());
-  await syncer2.syncPoolStates(marketsV3);
+  /!*await syncer2.syncPoolStates(marketsV3);
   console.log(`CONTRACT TIME`, endTime());
   await syncer3.syncPoolStates(marketsV3);
   console.log(`CONTRACT TIME`, endTime());
   await syncer4.syncPoolStates(marketsV3);
-  console.log(`CONTRACT TIME`, endTime());
+  console.log(`CONTRACT TIME`, endTime());*!/
 
-  ticksChecksum = marketsV3.reduce(
+  let ticksChecksum2 = marketsV3.reduce(
     (acc, market) => {
       const count = market?.pool?.advancedTicks?.length ?? 0;
       acc.sum = JSBI.add(
@@ -224,9 +243,45 @@ async function main() {
     },
     { sum: '0', count: 0 },
   );
-  console.log(ticksChecksum);
 
-  let market = marketsV3[marketsV3.length - 1];
+  const ticksMap2 = marketsV3.reduce((acc, market) => {
+    acc[market.marketAddress] = (market?.pool?.advancedTicks ?? []).reduce((acc0, tick) => {
+      acc0.push({
+        index: tick.index,
+        liquidityNet: tick.liquidityNet.toString(),
+      });
+      return acc0;
+    }, [] as { index: number, liquidityNet: string }[]);
+    return acc;
+  }, {} as Record<string, { index: number, liquidityNet: string }[]>);
+
+  console.log(ticksChecksum1);
+  console.log(ticksChecksum2);
+
+  for (const address in ticksMap1) {
+    if (ticksMap1[address].length !== ticksMap2[address].length) {
+      console.log(address);
+      console.log(ticksMap1[address].length);
+      console.log(ticksMap2[address].length);
+      fs.writeFileSync('1.json', JSON.stringify(ticksMap1[address], null, 2));
+      fs.writeFileSync('2.json', JSON.stringify(ticksMap2[address], null, 2));
+      continue;
+    }
+
+    for (let i = 0; i < ticksMap1[address].length; i++) {
+      if (
+        ticksMap1[address][i].index !== ticksMap2[address][i].index ||
+        ticksMap1[address][i].liquidityNet !== ticksMap2[address][i].liquidityNet
+      ) {
+        console.log(address);
+        console.log(ticksMap1[address]);
+        console.log(ticksMap2[address]);
+        break;
+      }
+    }
+  }*/
+
+  /*let market = marketsV3[marketsV3.length - 1];
   let ticks = market?.pool?.advancedTicks ?? [];
   let tick = market?.pool?.tickCurrent ?? 0;
   let sqrtRatioX96 = BigNumber.from(market?.pool?.sqrtRatioX96?.toString());
@@ -269,7 +324,7 @@ async function main() {
         .quoteExactInputSingle(market.tokens[0], market.tokens[1], market.fee, amount.toString(), 0)
         .catch(() => null)
     )?.toString(),
-  );
+  );*/
 
   //const lastMarket = marketsV3[marketsV3.length - 1];
 
@@ -353,7 +408,7 @@ async function main() {
   */
 
   const thisBlock$ = runner.currentBlockNumber$;
-  const concurrentSimulationCount = 10;
+  const concurrentSimulationCount = 20;
   const simulatedOpportunities$ = runner.start().pipe(
     concatMap((event) => {
       //TODO: if one opportunity will fail the simulation, the ones that were filtrated because of it - may not
@@ -433,7 +488,7 @@ async function main() {
     }),
   );
 
-  //executedOpportunities$.subscribe();
+  executedOpportunities$.subscribe();
 }
 
 main();

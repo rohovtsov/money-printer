@@ -23,6 +23,7 @@ interface PoolData {
   ticks: {
     tickIdx: string;
     liquidityNet: string;
+    liquidityGross: string;
   }[];
 }
 
@@ -64,9 +65,10 @@ export class UniswapV3PoolStateSyncer {
           sqrtPrice
           tick
           liquidity
-          ticks(first: 1000, skip: $offset, orderBy: tickIdx, where: { liquidityNet_not: 0 }) {
+          ticks(first: 1000, skip: $offset, orderBy: tickIdx) {
             tickIdx
             liquidityNet
+            liquidityGross
           }
         }
       }
@@ -84,9 +86,10 @@ export class UniswapV3PoolStateSyncer {
           sqrtPrice
           tick
           liquidity
-          ticks(first: 1000, orderBy: tickIdx, where: { liquidityNet_not: 0 }) {
+          ticks(first: 1000, orderBy: tickIdx) {
             tickIdx
             liquidityNet
+            liquidityGross
           }
         }
       }
@@ -121,15 +124,11 @@ export class UniswapV3PoolStateSyncer {
       return;
     }
 
-    startTime('syncV3');
-
     if (markets.length > 1000) {
       await this.syncMarketsBulk(markets, minBlockNumber);
     } else {
       await this.syncMarkets(markets, minBlockNumber);
     }
-
-    console.log(`Sync V3 complete: ${markets.length} markets in ${endTime('syncV3')}ms`);
   }
 
   private async syncMarketsBulk(markets: UniswapV3Market[], minBlockNumber: number): Promise<void> {
@@ -362,14 +361,20 @@ export class UniswapV3PoolStateSyncer {
       Number(pool.tick),
       BigNumber.from(pool.sqrtPrice),
       BigNumber.from(pool.liquidity),
-      pool.ticks.map(
-        (tick) =>
-          new Tick({
-            index: Number(tick.tickIdx),
-            liquidityGross: JSBI.BigInt(0),
-            liquidityNet: JSBI.BigInt(tick.liquidityNet.toString()),
-          }),
-      ),
+      pool.ticks
+        .filter(
+          (tick) =>
+            JSBI.notEqual(JSBI.BigInt(tick.liquidityNet), JSBI.BigInt(0)) ||
+            JSBI.notEqual(JSBI.BigInt(tick.liquidityGross), JSBI.BigInt(0)),
+        )
+        .map(
+          (tick) =>
+            new Tick({
+              index: Number(tick.tickIdx),
+              liquidityGross: JSBI.BigInt(0),
+              liquidityNet: JSBI.BigInt(tick.liquidityNet.toString()),
+            }),
+        ),
     );
   }
 }
