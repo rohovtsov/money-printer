@@ -1,5 +1,8 @@
 import { ETHER } from '../src/entities';
-import { SdkUniswapV2Calculator, SimpleUniswapV2Calculator } from '../src/uniswap/uniswap-v2-price-calculator';
+import {
+  SdkUniswapV2Calculator,
+  SimpleUniswapV2Calculator,
+} from '../src/uniswap/uniswap-v2-price-calculator';
 import { expect } from 'chai';
 
 describe('PriceCalculator', function () {
@@ -18,7 +21,23 @@ describe('PriceCalculator', function () {
     const outputSimple = uniswapV2Simple.getTokensOut(reserves1, reserves2, input);
     const outputSdk = uniswapV2Sdk.getTokensOut(reserves1, reserves2, input);
 
-    expect(inputSimple?.toString()).to.equal(inputSdk?.toString())
-    expect(outputSimple?.toString()).to.equal(outputSdk?.toString())
+    expect(inputSimple?.toString()).to.equal(inputSdk?.toString());
+    expect(outputSimple?.toString()).to.equal(outputSdk?.toString());
+  });
+
+  it('UniswapV2Sdk & UniswapV2Simple - give same errors', function () {
+    const reserves1 = ETHER;
+    const reserves2 = ETHER.mul(2);
+    const output = ETHER.mul(100);
+    const input = ETHER.mul(20);
+
+    const inputSimple = uniswapV2Simple.getTokensIn(reserves1, reserves2, output);
+    const inputSdk = uniswapV2Sdk.getTokensIn(reserves1, reserves2, output);
+
+    const outputSimple = uniswapV2Simple.getTokensOut(reserves1, reserves2, input);
+    const outputSdk = uniswapV2Sdk.getTokensOut(reserves1, reserves2, input);
+
+    expect(inputSimple?.toString()).to.equal(inputSdk?.toString());
+    expect(outputSimple?.toString()).to.equal(outputSdk?.toString());
   });
 });

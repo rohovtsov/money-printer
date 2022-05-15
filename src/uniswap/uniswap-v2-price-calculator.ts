@@ -1,12 +1,11 @@
 import { BigNumber } from 'ethers';
-import { ChainId, Pair, Route, Token, TokenAmount, TradeType, Trade } from '@uniswap/sdk'
+import { ChainId, Pair, Route, Token, TokenAmount, TradeType, Trade } from '@uniswap/sdk';
 import { PriceCalculator } from '../entities';
 
-
-
 export const SimpleUniswapV2Calculator: PriceCalculator = {
-  getTokensIn(reserveIn: BigNumber, reserveOut: BigNumber, amountOut: BigNumber): BigNumber| null {
-    if (amountOut.lte(0) || reserveIn.lte(0) || reserveOut.lte(0)) {
+  getTokensIn(reserveIn: BigNumber, reserveOut: BigNumber, amountOut: BigNumber): BigNumber | null {
+    if (reserveIn.lte(0) || reserveOut.lte(0) || amountOut.gte(reserveOut) || amountOut.lte(0)) {
+      //InsufficientReservesError
       return null;
     }
 
@@ -16,17 +15,24 @@ export const SimpleUniswapV2Calculator: PriceCalculator = {
   },
 
   getTokensOut(reserveIn: BigNumber, reserveOut: BigNumber, amountIn: BigNumber): BigNumber | null {
-    if (amountIn.lte(0) || reserveIn.lte(0) || reserveOut.lte(0)) {
+    if (reserveIn.lte(0) || reserveOut.lte(0) || amountIn.lte(0)) {
+      //InsufficientReservesError
       return null;
     }
 
     const amountInWithFee: BigNumber = amountIn.mul(997);
     const numerator = amountInWithFee.mul(reserveOut);
     const denominator = reserveIn.mul(1000).add(amountInWithFee);
-    return numerator.div(denominator);
-  }
-};
+    const outputAmount = numerator.div(denominator);
 
+    if (outputAmount.eq(0)) {
+      //InsufficientInputAmountError;
+      return null;
+    }
+
+    return outputAmount;
+  },
+};
 
 export const SdkUniswapV2Calculator: PriceCalculator = {
   getTokensIn(reserveIn: BigNumber, reserveOut: BigNumber, amountOut: BigNumber): BigNumber | null {
@@ -35,8 +41,18 @@ export const SdkUniswapV2Calculator: PriceCalculator = {
     }
 
     try {
-      const tokenIn = new Token(ChainId.MAINNET, "0x0000000000000000000000000000000000000001", 18, "1");
-      const tokenOut = new Token(ChainId.MAINNET, "0x0000000000000000000000000000000000000002", 18, "2");
+      const tokenIn = new Token(
+        ChainId.MAINNET,
+        '0x0000000000000000000000000000000000000001',
+        18,
+        '1',
+      );
+      const tokenOut = new Token(
+        ChainId.MAINNET,
+        '0x0000000000000000000000000000000000000002',
+        18,
+        '2',
+      );
 
       const pair = new Pair(
         new TokenAmount(tokenIn, reserveIn.toString()),
@@ -44,7 +60,11 @@ export const SdkUniswapV2Calculator: PriceCalculator = {
       );
 
       const route = new Route([pair], tokenIn, tokenOut);
-      const trade = new Trade(route, new TokenAmount(tokenOut, amountOut.toString()), TradeType.EXACT_OUTPUT);
+      const trade = new Trade(
+        route,
+        new TokenAmount(tokenOut, amountOut.toString()),
+        TradeType.EXACT_OUTPUT,
+      );
       return BigNumber.from(trade.inputAmount.raw.toString());
     } catch (e) {
       //console.error(e);
@@ -58,8 +78,18 @@ export const SdkUniswapV2Calculator: PriceCalculator = {
     }
 
     try {
-      const tokenIn = new Token(ChainId.MAINNET, "0x0000000000000000000000000000000000000001", 18, "1");
-      const tokenOut = new Token(ChainId.MAINNET, "0x0000000000000000000000000000000000000002", 18, "2");
+      const tokenIn = new Token(
+        ChainId.MAINNET,
+        '0x0000000000000000000000000000000000000001',
+        18,
+        '1',
+      );
+      const tokenOut = new Token(
+        ChainId.MAINNET,
+        '0x0000000000000000000000000000000000000002',
+        18,
+        '2',
+      );
 
       const pair = new Pair(
         new TokenAmount(tokenIn, reserveIn.toString()),
@@ -67,11 +97,15 @@ export const SdkUniswapV2Calculator: PriceCalculator = {
       );
 
       const route = new Route([pair], tokenIn, tokenOut);
-      const trade = new Trade(route, new TokenAmount(tokenIn, amountIn.toString()), TradeType.EXACT_INPUT);
+      const trade = new Trade(
+        route,
+        new TokenAmount(tokenIn, amountIn.toString()),
+        TradeType.EXACT_INPUT,
+      );
       return BigNumber.from(trade.outputAmount.raw.toString());
     } catch (e) {
       //console.error(e);
       return null;
     }
-  }
-}
+  },
+};
