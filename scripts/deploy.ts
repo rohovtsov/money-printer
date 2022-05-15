@@ -16,7 +16,7 @@ async function deployMoneyPrinterQuery() {
 
   // We get the contract to deploy
   const MoneyPrinterQuery = await ethers.getContractFactory('MoneyPrinterQuery');
-  const query = await MoneyPrinterQuery.deploy();
+  const query = await MoneyPrinterQuery.deploy({ gasPrice: ethers.utils.parseUnits('20', 'gwei') });
   await query.deployed();
   console.log('MoneyPrinterQuery deployed to:', query.address);
 }
