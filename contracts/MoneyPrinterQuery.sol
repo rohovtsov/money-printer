@@ -1,13 +1,57 @@
 pragma solidity ^0.8.0;
 
-//TODO: remove console.log
-import "hardhat/console.sol";
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
 import '@uniswap/v3-periphery/contracts/interfaces/IQuoter.sol';
 
-//TODO: recheck type casting
-//TODO: reuse uniswap libraries?
-import './libraries/BitMath.sol';
+library BitMath {
+    /// @notice Returns the index of the least significant bit of the number,
+    ///     where the least significant bit is at index 0 and the most significant bit is at index 255
+    /// @dev The function satisfies the property:
+    ///     (x & 2**leastSignificantBit(x)) != 0 and (x & (2**(leastSignificantBit(x)) - 1)) == 0)
+    /// @param x the value for which to compute the least significant bit, must be greater than 0
+    /// @return r the index of the least significant bit
+    function leastSignificantBit(uint256 x) internal pure returns (uint8 r) {
+        require(x > 0);
+
+        r = 255;
+        if (x & type(uint128).max > 0) {
+            r -= 128;
+        } else {
+            x >>= 128;
+        }
+        if (x & type(uint64).max > 0) {
+            r -= 64;
+        } else {
+            x >>= 64;
+        }
+        if (x & type(uint32).max > 0) {
+            r -= 32;
+        } else {
+            x >>= 32;
+        }
+        if (x & type(uint16).max > 0) {
+            r -= 16;
+        } else {
+            x >>= 16;
+        }
+        if (x & type(uint8).max > 0) {
+            r -= 8;
+        } else {
+            x >>= 8;
+        }
+        if (x & 0xf > 0) {
+            r -= 4;
+        } else {
+            x >>= 4;
+        }
+        if (x & 0x3 > 0) {
+            r -= 2;
+        } else {
+            x >>= 2;
+        }
+        if (x & 0x1 > 0) r -= 1;
+    }
+}
 
 contract MoneyPrinterQuery {
     int24 internal constant MIN_TICK = -887272;
@@ -41,15 +85,14 @@ contract MoneyPrinterQuery {
         : (compressed + int24(type(uint8).max - uint24(bitPos))) * tickSpacing;
     }
 
-    function getTicksForPool(IUniswapV3Pool pool, uint24 initialBufferSize) public view returns (int128[] memory) {
+    function getTicksForPool(IUniswapV3Pool pool, uint24 initialBufferSize) internal view returns (int128[] memory) {
+        bool initialized;
         uint24 bufferSize = 0;
         uint24 maxBufferSize = 2 * initialBufferSize;
-        int128[] memory buffer = new int128[](maxBufferSize);
-
         int24 tickSpacing = pool.tickSpacing();
         int24 currentTick = MIN_TICK;
         int128 liquidityNet;
-        bool initialized;
+        int128[] memory buffer = new int128[](maxBufferSize);
 
         while (currentTick <= MAX_TICK) {
             (currentTick, initialized) = nextInitializedTickWithinOneWord(
@@ -61,31 +104,30 @@ contract MoneyPrinterQuery {
             if (initialized) {
                 //усли мы не угадали с размером буффера, то перезапускаемся с двойным размером буффера
                 if (bufferSize >= maxBufferSize) {
-                    return getTicksForPool(pool, initialBufferSize * 2);
+                    //TODO: Внимание при изменении контракта! Разные по смыслу переменные. Для экономии газа initialBufferSize * 2 заменили на maxBufferSize!
+                    return getTicksForPool(pool, maxBufferSize);
                 }
 
                 (,liquidityNet,,,,,,) = pool.ticks(currentTick);
                 buffer[bufferSize++] = currentTick;
                 buffer[bufferSize++] = liquidityNet;
+
+                //TESTED on goerli - there are no ticks with liquidityNet === 0
+                //require(liquidityNet != 0, 'ZERO LIQUIDITY');
             }
         }
 
-        int128[] memory result = new int128[](bufferSize);
-        for (uint24 i = 0; i < result.length; i++) {
-            result[i] = buffer[i];
-        }
-
-        return result;
+        return buffer;
     }
 
     struct StateForPool {
-        uint160 sqrtPriceX96;
         int24 tick;
         uint128 liquidity;
+        uint160 sqrtPriceX96;
         int128[] ticks;
     }
 
-    function getStateForPool(IUniswapV3Pool pool, uint24 initialBufferSize) public view returns (StateForPool memory) {
+    function getStateForPool(IUniswapV3Pool pool, uint24 initialBufferSize) internal view returns (StateForPool memory) {
         StateForPool memory state;
 
         (state.sqrtPriceX96,state.tick,,,,,) = pool.slot0();
@@ -95,18 +137,12 @@ contract MoneyPrinterQuery {
         return state;
     }
 
-    function getStatesForPools(IUniswapV3Pool[] calldata pools, uint24[] calldata initialBufferSizes) external view returns (StateForPool[] memory) {
-        StateForPool[] memory states = new StateForPool[](pools.length);
+    function getStatesForPools(IUniswapV3Pool[] calldata pools, uint24[] calldata initialBufferSizes) external view returns (uint256 blockNumber, StateForPool[] memory states) {
+        blockNumber = block.number;
+        states = new StateForPool[](pools.length);
 
         for (uint i = 0; i < pools.length; i++) {
             states[i] = getStateForPool(pools[i], initialBufferSizes[i]);
         }
-
-        return states;
-    }
-
-    //TODO: consider adding into response bundle
-    function blockNumber() external view returns (uint256) {
-        return block.number;
     }
 }

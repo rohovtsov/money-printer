@@ -64,7 +64,7 @@ export class UniswapV3PoolStateSyncer {
           sqrtPrice
           tick
           liquidity
-          ticks(first: 1000, skip: $offset, orderBy: tickIdx) {
+          ticks(first: 1000, skip: $offset, orderBy: tickIdx, where: { liquidityNet_not: 0 }) {
             tickIdx
             liquidityNet
           }
@@ -84,7 +84,7 @@ export class UniswapV3PoolStateSyncer {
           sqrtPrice
           tick
           liquidity
-          ticks(first: 1000, orderBy: tickIdx) {
+          ticks(first: 1000, orderBy: tickIdx, where: { liquidityNet_not: 0 }) {
             tickIdx
             liquidityNet
           }

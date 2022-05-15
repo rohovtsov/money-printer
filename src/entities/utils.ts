@@ -1,6 +1,7 @@
 import { BigNumber, providers } from 'ethers';
 import { concatMap, delay, Observable, of, OperatorFunction } from 'rxjs';
 import { Listener } from '@ethersproject/providers';
+import { NETWORK } from './environmet';
 
 export const ETHER = BigNumber.from(10).pow(18);
 export const GWEI = BigNumber.from(10).pow(9);
@@ -91,4 +92,53 @@ export async function getLastBlockNumber(provider: providers.JsonRpcProvider): P
   const block = await provider.getBlock('latest');
 
   return block.number;
+}
+
+export function bigNumberMax(a: BigNumber, b: BigNumber): BigNumber {
+  if (a.gte(b)) {
+    return a;
+  } else {
+    return b;
+  }
+}
+
+export function canCalcBaseFeePerGas(blockNumber: number): boolean {
+  //London block number 12965000 for mainnet
+  return NETWORK === 'mainnet' && blockNumber >= 12965000;
+}
+
+export function calcBaseFeePerGas(
+  baseFeePerGas: BigNumber,
+  gasUsed: BigNumber,
+  gasLimit: BigNumber,
+): BigNumber {
+  const BASE_FEE_MAX_CHANGE_DENOMINATOR = 8;
+  const ELASTICITY_MULTIPLIER = 2;
+
+  const parentGasTarget = gasLimit.div(ELASTICITY_MULTIPLIER);
+  const parentGasTargetBig = parentGasTarget;
+  const baseFeeChangeDenominator = BigNumber.from(BASE_FEE_MAX_CHANGE_DENOMINATOR);
+
+  // If the parent gasUsed is the same as the target, the baseFee remains unchanged.
+  if (gasUsed.eq(parentGasTarget)) {
+    return baseFeePerGas;
+  }
+
+  if (gasUsed.gt(parentGasTarget)) {
+    // If the parent block used more gas than its target, the baseFee should increase.
+    const gasUsedDelta = gasUsed.sub(parentGasTarget);
+    const x = baseFeePerGas.mul(gasUsedDelta);
+    const y = x.div(parentGasTargetBig);
+    const baseFeeDelta = bigNumberMax(y.div(baseFeeChangeDenominator), BigNumber.from(1));
+
+    return baseFeePerGas.add(baseFeeDelta);
+  } else {
+    // Otherwise if the parent block used less gas than its target, the baseFee should decrease.
+    const gasUsedDelta = parentGasTarget.sub(gasUsed);
+    const x = baseFeePerGas.mul(gasUsedDelta);
+    const y = x.div(parentGasTargetBig);
+    const baseFeeDelta = y.div(baseFeeChangeDenominator);
+
+    return bigNumberMax(baseFeePerGas.sub(baseFeeDelta), BigNumber.from(0));
+  }
 }

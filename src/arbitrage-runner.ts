@@ -3,8 +3,9 @@ import {
   Address,
   ArbitrageOpportunity,
   ArbitrageStrategy,
+  calcBaseFeePerGas,
+  canCalcBaseFeePerGas,
   EthMarket,
-  fromProviderEvent,
   getBaseFeePerGas,
   startTime,
   UNISWAP_POOL_EVENT_TOPICS,
@@ -17,26 +18,28 @@ import {
   defer,
   distinctUntilChanged,
   EMPTY,
-  forkJoin,
   from,
   map,
-  merge,
   Observable,
   of,
   shareReplay,
   switchMap,
   take,
-  tap,
 } from 'rxjs';
-import { UniswapV3PoolStateSyncer } from './uniswap/uniswap-v3-pool-state-syncer';
 import { UniswapV3Market } from './uniswap/uniswap-v3-market';
 import { retry } from 'rxjs/operators';
+import { UniswapV3PoolStateSyncerContractQuery } from './uniswap/uniswap-v3-pool-state-syncer-contract-query';
 
 interface SyncEvent {
   changedMarkets: EthMarket[];
   baseFeePerGas: BigNumber;
   blockNumber: number;
   initial: boolean;
+}
+
+interface NewBlockEvent {
+  nextBaseFeePerGas: BigNumber;
+  blockNumber: number;
 }
 
 interface ArbitrageEvent {
@@ -48,67 +51,58 @@ interface ArbitrageEvent {
 export class ArbitrageRunner {
   private queuedOpportunities: ArbitrageOpportunity[] = [];
   readonly marketsByAddress: Record<Address, EthMarket>;
-  readonly currentBlock$: Observable<number>;
-  readonly thisBlock$: Observable<number>;
+  private newBlocks$: Observable<NewBlockEvent>;
+  readonly currentBlockNumber$: Observable<number>;
 
   constructor(
     readonly markets: EthMarket[],
     readonly strategies: ArbitrageStrategy[],
     readonly uniswapV2Syncer: UniswapV2ReservesSyncer,
-    readonly uniswapV3Syncer: UniswapV3PoolStateSyncer,
+    readonly uniswapV3Syncer: UniswapV3PoolStateSyncerContractQuery,
     readonly provider: providers.JsonRpcProvider,
+    readonly websocketProvider: providers.WebSocketProvider,
   ) {
     this.marketsByAddress = this.markets.reduce((acc, market) => {
       acc[market.marketAddress] = market;
       return acc;
     }, {} as Record<Address, EthMarket>);
 
-    let id = 0;
-    this.currentBlock$ = merge(
-      fromProviderEvent<number>(this.provider, 'block'),
-      from(this.provider.getBlockNumber()),
-    ).pipe(
-      distinctUntilChanged(),
-      tap((blockNumber) => {
-        console.log(`${id++ === 0 ? 'Initial block' : 'New block'}: ${blockNumber}`);
-      }),
+    this.newBlocks$ = fromNewBlockEvent(this.websocketProvider).pipe(
+      distinctUntilChanged((prev, current) => prev.blockNumber === current.blockNumber),
       shareReplay(1),
     );
-    this.thisBlock$ = this.currentBlock$.pipe(take(1));
+    this.currentBlockNumber$ = this.newBlocks$.pipe(
+      take(1),
+      map((block) => block.blockNumber),
+    );
   }
 
   private startSync(): Observable<SyncEvent> {
-    const currentBlock$ = this.currentBlock$;
-    const thisBlock$ = this.thisBlock$;
-
-    const changedMarkets$: Observable<SyncEvent> = currentBlock$.pipe(
-      concatMap((blockNumber: number, index): Observable<SyncEvent> => {
-        const gasPrice$ = defer(() => getBaseFeePerGas(this.provider, blockNumber)).pipe(retry(5));
-        const changedEthMarkets$ = defer(() =>
-          loadChangedEthMarkets(this.provider, blockNumber, this.marketsByAddress),
-        ).pipe(retry(5));
-
+    const changedMarkets$: Observable<SyncEvent> = this.newBlocks$.pipe(
+      concatMap((event: NewBlockEvent, index: number): Observable<SyncEvent> => {
         if (index === 0) {
-          return gasPrice$.pipe(
-            map((gasPrice) => {
+          return of({
+            changedMarkets: this.markets,
+            baseFeePerGas: event.nextBaseFeePerGas,
+            blockNumber: event.blockNumber,
+            initial: true,
+          });
+        }
+
+        return defer(() =>
+          loadChangedEthMarkets(this.provider, event.blockNumber, this.marketsByAddress),
+        )
+          .pipe(retry(5))
+          .pipe(
+            map((changedMarkets: EthMarket[]) => {
               return {
-                changedMarkets: this.markets,
-                baseFeePerGas: gasPrice,
-                initial: true,
-                blockNumber,
+                changedMarkets,
+                baseFeePerGas: event.nextBaseFeePerGas,
+                blockNumber: event.blockNumber,
+                initial: false,
               };
             }),
           );
-        }
-
-        return forkJoin([gasPrice$, changedEthMarkets$]).pipe(
-          map(([gasPrice, changedMarkets]) => ({
-            changedMarkets,
-            baseFeePerGas: gasPrice,
-            initial: false,
-            blockNumber,
-          })),
-        );
       }),
     );
 
@@ -126,7 +120,7 @@ export class ArbitrageRunner {
     const changedMarketsBuffer = new Set<EthMarket>();
     return syncedChangedMarkets$.pipe(
       switchMap((event) => {
-        return thisBlock$.pipe(
+        return this.currentBlockNumber$.pipe(
           switchMap((currentBlock) => {
             for (const market of event.changedMarkets) {
               changedMarketsBuffer.add(market);
@@ -195,7 +189,7 @@ export class ArbitrageRunner {
     ) as UniswapV3Market[];
     await Promise.all([
       this.uniswapV2Syncer.syncReserves(uniswapV2Markets),
-      this.uniswapV3Syncer.syncPoolStates(uniswapV3Markets, minBlockNumber),
+      this.uniswapV3Syncer.syncPoolStates(uniswapV3Markets),
     ]);
   }
 
@@ -238,6 +232,32 @@ function loadChangedEthMarkets(
         return acc;
       }, [] as EthMarket[]);
     });
+}
+
+function fromNewBlockEvent(provider: providers.WebSocketProvider): Observable<NewBlockEvent> {
+  let id = 0;
+
+  return new Observable<NewBlockEvent>((observer) => {
+    provider._subscribe('newHeads', ['newHeads'], (rawBlock: any) => {
+      const blockNumber = Number(rawBlock.number);
+      const logMessage = `${id++ === 0 ? 'Initial block' : 'New block'}: ${blockNumber}`;
+
+      if (canCalcBaseFeePerGas(blockNumber)) {
+        const baseFeePerGas = BigNumber.from(rawBlock.baseFeePerGas);
+        const gasUsed = BigNumber.from(rawBlock.gasUsed);
+        const gasLimit = BigNumber.from(rawBlock.gasLimit);
+        const nextBaseFeePerGas = calcBaseFeePerGas(baseFeePerGas, gasUsed, gasLimit);
+        console.log(`${logMessage}, next gas price: ${nextBaseFeePerGas.toString()}`);
+        observer.next({ blockNumber, nextBaseFeePerGas });
+      } else {
+        console.log(logMessage);
+        getBaseFeePerGas(provider, blockNumber).then((nextBaseFeePerGas) => {
+          console.log(`Next gas price: ${nextBaseFeePerGas}, for block ${blockNumber}`);
+          observer.next({ blockNumber, nextBaseFeePerGas });
+        });
+      }
+    });
+  });
 }
 
 export function filterCorrelatingOpportunities(

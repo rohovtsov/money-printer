@@ -56,9 +56,9 @@ export class UniswapV3PoolStateSyncerContractQuery {
 
     const batches: PoolBatchPayload[] = [];
     let nextBatch: PoolBatchPayload = { bufferSizes: [], addresses: [], totalBufferSize: 0 };
-    const maxMarketsInBatch = 300;
-    const maxTicksInBatch = 1500;
-    const extraTicksForBuffer = 6;
+    //TODO: потюнить
+    const maxMarketsInBatch = 120;
+    const maxTicksInBatch = 2000;
 
     for (const key in marketsByTickCount) {
       const ticksCount = Number(key);
@@ -76,6 +76,16 @@ export class UniswapV3PoolStateSyncerContractQuery {
           nextBatch = { bufferSizes: [], addresses: [], totalBufferSize: 0 };
         }
 
+        const extraTicksForBuffer =
+          ticksCount < 50
+            ? 0
+            : ticksCount < 100
+            ? 2
+            : ticksCount < 200
+            ? 4
+            : ticksCount < 500
+            ? 6
+            : 8;
         const estimatedTicksCount = ticksCount + extraTicksForBuffer;
         nextBatch.addresses.push(market.marketAddress);
         nextBatch.bufferSizes.push(estimatedTicksCount);
@@ -107,23 +117,35 @@ export class UniswapV3PoolStateSyncerContractQuery {
 
   async requestStatesBatch(payload: PoolBatchPayload): Promise<PoolState[]> {
     console.log(`Request v3 contract:`, payload.addresses.length, payload.totalBufferSize);
-    const outputContract = (
-      await this.queryContract.functions.getStatesForPools(payload.addresses, payload.bufferSizes)
-    )[0] as any[];
-    console.log(`Request v3 contract done:`, payload.addresses.length, payload.totalBufferSize);
+    const outputContract = await this.queryContract.functions.getStatesForPools(
+      payload.addresses,
+      payload.bufferSizes,
+    );
+    //const blockNumber = Number(outputContract[0]);
+    const states = outputContract[1] as any[];
 
-    return outputContract.map((state, index) => {
+    let totalTicks = 0;
+    const result = states.map((state, index) => {
       const ticks = [];
 
       for (let i = 0; i < state.ticks.length; i += 2) {
+        const index = state.ticks[i].toNumber();
+        const liquidityNet = state.ticks[i + 1].toString();
+
+        if (index === 0 && liquidityNet === '0') {
+          break;
+        }
+
         ticks.push(
           new Tick({
-            index: state.ticks[i].toNumber(),
+            index,
             liquidityGross: JSBI.BigInt(0),
-            liquidityNet: JSBI.BigInt(state.ticks[i + 1].toString()),
+            liquidityNet: JSBI.BigInt(liquidityNet),
           }),
         );
       }
+
+      totalTicks += ticks.length;
 
       return {
         address: payload.addresses[index],
@@ -133,5 +155,26 @@ export class UniswapV3PoolStateSyncerContractQuery {
         ticks: ticks,
       };
     });
+
+    console.log(
+      `Request v3 contract done:`,
+      payload.addresses.length,
+      payload.totalBufferSize,
+      totalTicks,
+    );
+
+    return result;
   }
 }
+
+/*
+[2022-05-15T17:22:08.862Z] Request v3 contract done: 2 1756 1086
+[2022-05-15T17:22:09.003Z] Request v3 contract done: 12 2511 918
+[2022-05-15T17:22:09.052Z] Request v3 contract done: 180 360 296
+[2022-05-15T17:22:09.113Z] Request v3 contract done: 180 360 244
+[2022-05-15T17:22:09.263Z] Request v3 contract done: 148 2065 1181
+[2022-05-15T17:22:09.309Z] Request v3 contract done: 180 360 310
+[2022-05-15T17:22:09.372Z] Request v3 contract done: 180 360 240
+[2022-05-15T17:22:09.445Z] Request v3 contract done: 180 635 447
+[2022-05-15T17:22:09.533Z] Request v3 contract done: 180 360 244
+*/

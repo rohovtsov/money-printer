@@ -7,6 +7,7 @@ export * from './logs-requester';
 export * from './blacklist';
 export * from './interfaces/eth-market';
 export * from './interfaces/eth-market-factory';
+export * from './interfaces/eth-market-syncer';
 export * from './interfaces/price-calculator';
 export * from './interfaces/arbitrage-strategy';
 export * from './interfaces/arbitrage-execution';

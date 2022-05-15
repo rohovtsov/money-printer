@@ -20,6 +20,7 @@ import { ArbitrageRunner } from './arbitrage-runner';
 import {
   BLACKLIST_MARKETS,
   BLACKLIST_TOKENS,
+  calcBaseFeePerGas,
   endTime,
   ETHER,
   EthMarket,
@@ -48,8 +49,6 @@ import {
 import { FlashbotsTransactionSender } from './sender/flashbots-transaction-sender';
 import { Web3TransactionSender } from './sender/web3-transaction-sender';
 import { TriangleArbitrageStrategy } from './triangle/triangle-arbitrage-strategy';
-import { UniswapV2ArbitrageStrategy } from './triangle/uniswap-v2-arbitrage-strategy';
-import { UniswapV2MarketFactory } from './uniswap/uniswap-v2-market-factory';
 import { UniswapV2ReservesSyncer } from './uniswap/uniswap-v2-reserves-syncer';
 import { UniswapV3MarketFactory } from './uniswap/uniswap-v3-market-factory';
 import { UniswapV3PoolStateSyncer } from './uniswap/uniswap-v3-pool-state-syncer';
@@ -57,23 +56,20 @@ import { UniswapV3Market } from './uniswap/uniswap-v3-market';
 import { UniswapV3PoolStateSyncerContractQuery } from './uniswap/uniswap-v3-pool-state-syncer-contract-query';
 import { JSBI } from '@uniswap/sdk';
 
-const provider = new providers.InfuraProvider(NETWORK, INFURA_API_KEY);
+const provider = new providers.AlchemyWebSocketProvider(
+  NETWORK,
+  `a0SpOFIBbxj6-0h4q8PyDjF1xKIqScxB`,
+);
 const provider2 = new providers.AlchemyProvider(NETWORK, 'a0SpOFIBbxj6-0h4q8PyDjF1xKIqScxB');
-const provider3 = new providers.WebSocketProvider(
-  'wss://goerli.infura.io/ws/v3/8ac04e84ff9e4fd19db5bfa857b90a92',
-  NETWORK,
-);
-const provider4 = new providers.WebSocketProvider(
-  'wss://eth-goerli.ws.alchemyapi.io/v2/a0SpOFIBbxj6-0h4q8PyDjF1xKIqScxB',
-  NETWORK,
-);
+const provider3 = new providers.InfuraWebSocketProvider(NETWORK, INFURA_API_KEY);
+const provider4 = new providers.InfuraProvider(NETWORK, INFURA_API_KEY);
 
 async function testSpeed() {
   const test = [
-    [provider, 'Infura'],
+    [provider, 'WS Alchemy'],
     [provider2, 'Alchemy'],
     [provider3, 'WS Infura'],
-    [provider4, 'WS Alchemy'],
+    [provider4, 'Infura'],
   ];
 
   const blocks: Record<string, any[]> = {};
@@ -95,8 +91,6 @@ async function testSpeed() {
     });
   }
 }
-
-//testSpeed();
 
 async function main() {
   //TODO: filter markets by reserves after retrieval
@@ -130,23 +124,31 @@ async function main() {
   const executor = new ArbitrageExecutor(sender, provider, PRIVATE_KEY);
   const allowedMarkets = blacklist.filterMarkets(markets);
 
+  const syncerV3 = new UniswapV3PoolStateSyncer(provider, 3);
+  let marketsV3 = markets.filter((market) => market.protocol === 'uniswapV3') as UniswapV3Market[];
+  startTime('presyncV3');
+  console.log(`Pre-Sync v3 markets: ${marketsV3.length} ...`);
+  await syncerV3.syncPoolStates(marketsV3, 0);
+  console.log(`Pre-Sync v3 markets: ${marketsV3.length} finished in ${endTime('presyncV3')}ms`);
+
   const runner = new ArbitrageRunner(
     allowedMarkets,
     [
       new TriangleArbitrageStrategy(
         {
-          [WETH_ADDRESS]: [ETHER.mul(13)], //, ETHER.mul(10), ETHER]
+          [WETH_ADDRESS]: [ETHER.div(2)], //, ETHER.mul(10), ETHER]
         },
         allowedMarkets,
       ),
       //new UniswapV2ArbitrageStrategy({ startAddresses: [WETH_ADDRESS] }, allowedMarkets),
     ],
     new UniswapV2ReservesSyncer(provider, 5, 1000),
-    new UniswapV3PoolStateSyncer(provider, 3),
+    new UniswapV3PoolStateSyncerContractQuery(provider, 10),
+    provider,
     provider,
   );
 
-  let marketsV3 = markets as UniswapV3Market[];
+  /*marketsV3 = markets as UniswapV3Market[];
   const syncer = new UniswapV3PoolStateSyncer(provider, 10);
   await syncer.syncPoolStates(marketsV3);
 
@@ -160,7 +162,7 @@ async function main() {
 
   startTime();
   await syncer.syncPoolStates(marketsV3);
-  console.log(`GRAPH TIME`, endTime());
+  console.log(`GRAPH TIME`, endTime());*/
 
   /*
   console.log(market1.calcTokensOut('sell', ETHER.mul(10000000))?.toString());
@@ -175,20 +177,54 @@ async function main() {
   console.log(market1.calcTokensOut('sell', ETHER.mul(10000000))?.toString());
   console.log(tickets1.length, 'vs', tickets2.length);*/
 
+  let ticksChecksum = marketsV3.reduce(
+    (acc, market) => {
+      const count = market?.pool?.advancedTicks?.length ?? 0;
+      acc.sum = JSBI.add(
+        JSBI.BigInt(acc.sum),
+        (market?.pool?.advancedTicks ?? []).reduce(
+          (acc0, m) => JSBI.add(acc0, m.liquidityNet),
+          JSBI.BigInt(0),
+        ),
+      ).toString();
+      acc.count += count;
+      return acc;
+    },
+    { sum: '0', count: 0 },
+  );
+  console.log(ticksChecksum);
+
   const syncer1 = new UniswapV3PoolStateSyncerContractQuery(provider, 10);
   const syncer2 = new UniswapV3PoolStateSyncerContractQuery(provider2, 10);
   const syncer3 = new UniswapV3PoolStateSyncerContractQuery(provider3, 10);
   const syncer4 = new UniswapV3PoolStateSyncerContractQuery(provider4, 10);
 
   startTime();
-  await syncer4.syncPoolStates(marketsV3);
-  console.log(`CONTRACT TIME`, endTime());
-  await syncer3.syncPoolStates(marketsV3);
+  await syncer1.syncPoolStates(marketsV3);
   console.log(`CONTRACT TIME`, endTime());
   await syncer2.syncPoolStates(marketsV3);
   console.log(`CONTRACT TIME`, endTime());
-  await syncer1.syncPoolStates(marketsV3);
+  await syncer3.syncPoolStates(marketsV3);
   console.log(`CONTRACT TIME`, endTime());
+  await syncer4.syncPoolStates(marketsV3);
+  console.log(`CONTRACT TIME`, endTime());
+
+  ticksChecksum = marketsV3.reduce(
+    (acc, market) => {
+      const count = market?.pool?.advancedTicks?.length ?? 0;
+      acc.sum = JSBI.add(
+        JSBI.BigInt(acc.sum),
+        (market?.pool?.advancedTicks ?? []).reduce(
+          (acc0, m) => JSBI.add(acc0, m.liquidityNet),
+          JSBI.BigInt(0),
+        ),
+      ).toString();
+      acc.count += count;
+      return acc;
+    },
+    { sum: '0', count: 0 },
+  );
+  console.log(ticksChecksum);
 
   let market = marketsV3[marketsV3.length - 1];
   let ticks = market?.pool?.advancedTicks ?? [];
@@ -316,8 +352,8 @@ async function main() {
   await requestStates(requestAddresses, 1200);
   */
 
-  const thisBlock$ = runner.thisBlock$;
-  const concurrentSimulationCount = 20;
+  const thisBlock$ = runner.currentBlockNumber$;
+  const concurrentSimulationCount = 10;
   const simulatedOpportunities$ = runner.start().pipe(
     concatMap((event) => {
       //TODO: if one opportunity will fail the simulation, the ones that were filtrated because of it - may not
@@ -328,8 +364,6 @@ async function main() {
           opportunities.length
         } in ${endTime('render')}ms\n`,
       );
-
-      console.log(`Gas price: ${event.baseFeePerGas.toString()} at ${event.blockNumber}`);
 
       return merge(
         ...opportunities.map((opportunity) =>
@@ -343,6 +377,8 @@ async function main() {
                 runner.queueOpportunity(opportunity);
                 return EMPTY;
               }
+
+              console.log(`Simulation started. On ${blockNumber}`);
 
               return defer(() =>
                 executor.simulateOpportunity(opportunity, event.baseFeePerGas),
@@ -373,7 +409,7 @@ async function main() {
     }),
   );
 
-  simulatedOpportunities$.pipe(
+  const executedOpportunities$ = simulatedOpportunities$.pipe(
     mergeMap((opportunity) => {
       return thisBlock$.pipe(
         concatMap((blockNumber) => {
@@ -390,12 +426,30 @@ async function main() {
           printOpportunity(opportunity);
           return defer(() => executor.executeOpportunity(opportunity)).pipe(
             catchError(() => EMPTY),
+            map(() => opportunity),
           );
         }),
       );
     }),
   );
-  //.subscribe();
+
+  //executedOpportunities$.subscribe();
 }
 
 main();
+//testSpeed();
+
+//16:09:06.934
+//16:09:09.54
+//16:09:10.63
+//16:09:23.211Z
+
+//16:13:21.69
+//16:13:24.47
+//16:13:26.78
+//16:13:27.182Z
+
+//16:16:51.317Z
+//16:16:54.257Z
+//16:16:54.748
+//16:16:55.126Z

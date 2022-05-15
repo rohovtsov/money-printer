@@ -26,17 +26,18 @@ describe('MoneyPrinterQuery', function () {
     const requestCount = 5;
     const requestAddresses = Array.from({ length: requestCount }).map(() => poolMock.address);
 
-    const results = (
-      await query.functions.getStatesForPools(
-        requestAddresses,
-        //passing wrong bufferSize
-        requestAddresses.map(() => 1),
-      )
-    )[0];
+    const result = await query.functions.getStatesForPools(
+      requestAddresses,
+      //passing wrong bufferSize
+      requestAddresses.map(() => 1),
+    );
+    const results = (result as any[])[1];
     expect(results.length).equal(requestCount);
 
     for (const res of results) {
       console.log(res.ticks.length);
     }
+
+    console.log(result[0]);
   });
 });
