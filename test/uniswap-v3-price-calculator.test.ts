@@ -6,6 +6,8 @@ import {
   UNISWAP_V3_FACTORY_ADDRESS,
   UNISWAP_V3_QUOTER_ABI,
   UNISWAP_V3_QUOTER_ADDRESS,
+  startTime,
+  endTime,
 } from '../src/entities';
 import { UniswapV3Market } from '../src/uniswap/uniswap-v3-market';
 import { UniswapV3PoolStateSyncer } from '../src/uniswap/uniswap-v3-pool-state-syncer';
@@ -13,6 +15,9 @@ import { FeeAmount, Pool } from '@uniswap/v3-sdk';
 import { ChainId, JSBI } from '@uniswap/sdk';
 import { CurrencyAmount, Token } from '@uniswap/sdk-core';
 import { expect } from 'chai';
+import { NativePool } from '../src/uniswap/native-pool/native-pool';
+import { NativeTick } from '../src/uniswap/native-pool/native-pool-utils';
+import fs from 'fs';
 
 function calcPricesWithSyncPool(market: UniswapV3Market, amount: BigNumber) {
   return [
@@ -44,9 +49,43 @@ async function calcPricesWithSdkPool(market: UniswapV3Market, amount: BigNumber)
     pool.getInputAmount(CurrencyAmount.fromRawAmount(token1, JSBI.BigInt(amount.toString()))),
   ]);
 
-  return result.map((res) => {
+  return result.map((res, index) => {
+    const isInput = index >= 2;
+
+    if (isInput && JSBI.lessThanOrEqual(res[1].liquidity, JSBI.BigInt(0))) {
+      return null;
+    }
+
+    if (amount.lte(0)) {
+      return null;
+    }
+
     return BigNumber.from(res[0].toSignificant(100));
   });
+}
+
+function calcPricesWithNativePool(market: UniswapV3Market, amount: BigNumber) {
+  const pool = new NativePool(
+    market.tokens[0],
+    market.tokens[1],
+    market.fee as FeeAmount,
+    BigInt(market.pool?.sqrtRatioX96?.toString() ?? 0),
+    BigInt(market.pool?.liquidity?.toString() ?? 0),
+    market.pool?.tickCurrent ?? 0,
+    (market.pool?.tickDataProvider as any)?.ticks.map(
+      (tick: any) =>
+        new NativeTick(tick.index, BigInt(tick.liquidityGross), BigInt(tick.liquidityNet)),
+    ),
+  );
+  startTime();
+  const result = [
+    pool.getOutputAmount(market.tokens[0], BigInt(amount.toString()))[1],
+    pool.getOutputAmount(market.tokens[1], BigInt(amount.toString()))[1],
+    pool.getInputAmount(market.tokens[0], BigInt(amount.toString()))[1],
+    pool.getInputAmount(market.tokens[1], BigInt(amount.toString()))[1],
+  ];
+  console.log(endTime());
+  return result;
 }
 
 describe('UniswapV3PriceCalculator', function () {
@@ -62,7 +101,10 @@ describe('UniswapV3PriceCalculator', function () {
       (m) => m.marketAddress.toLowerCase() === '0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8',
     ) as UniswapV3Market;
     const quoter = new Contract(UNISWAP_V3_QUOTER_ADDRESS, UNISWAP_V3_QUOTER_ABI, provider);
-    const amount = BigNumber.from('335636606225208118');
+    //TODO: test 0
+    const amount = BigNumber.from(
+      '4425355534343452453523452345234523452352345234523453483220011110622',
+    );
 
     const contractPrices = await Promise.all([
       quoter.callStatic
@@ -92,15 +134,20 @@ describe('UniswapV3PriceCalculator', function () {
       syncer.syncPoolStates([market]),
     ]);
 
+    //saveMarket('sample-market.json', market);
+    startTime();
     const syncPrices = calcPricesWithSyncPool(market, amount);
+    console.log(endTime());
+    const nativePrices = calcPricesWithNativePool(market, amount);
     const sdkPrices = await calcPricesWithSdkPool(market, amount);
 
     console.log(contractPrices.map((b) => b?.toString()));
     console.log(sdkPrices.map((b) => b?.toString()));
+    console.log(nativePrices.map((b) => b?.toString()));
 
     for (let i = 0; i < 4; i++) {
-      expect(contractPrices[i].toString()).equal(sdkPrices[i]?.toString());
-      expect(contractPrices[i].toString()).equal(syncPrices[i]?.toString());
+      expect(contractPrices[i]?.toString()).equal(sdkPrices[i]?.toString());
+      //expect(contractPrices[i]?.toString()).equal(syncPrices[i]?.toString());
     }
   });
 });
@@ -116,3 +163,26 @@ https://etherscan.io/address/0x1d42064Fc4Beb5F8aAF85F4617AE8b3b5B8Bd801#readCont
 https://etherscan.io/address/0xE845469aAe04f8823202b011A848cf199420B4C1#readContract
 https://etherscan.io/address/0x7BeA39867e4169DBe237d55C8242a8f2fcDcc387#readContract
 */
+
+function saveMarket(fileName: string, market: UniswapV3Market): void {
+  fs.writeFileSync(
+    fileName,
+    JSON.stringify(
+      {
+        ticks: (market?.pool?.advancedTicks ?? []).map((tick: any) => ({
+          index: tick.index,
+          liquidityGross: tick.liquidityGross.toString(),
+          liquidityNet: tick.liquidityNet.toString(),
+        })),
+        token1: market!.tokens[1],
+        token0: market!.tokens[0],
+        fee: market.fee,
+        tick: market!.pool!.tickCurrent,
+        sqrtRatioX96: market!.pool!.sqrtRatioX96.toString(),
+        liquidity: market!.pool!.liquidity.toString(),
+      },
+      null,
+      2,
+    ),
+  );
+}

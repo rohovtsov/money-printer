@@ -115,6 +115,7 @@ export class UniswapV3Market implements EthMarket {
   }
 
   setPoolState(tick: number, sqrtPriceX96: BigNumber, liquidity: BigNumber, ticks: Tick[]) {
+    //TODO: ticks.length === 0 - still valid?
     this.cacheOut = {};
     try {
       this.pool = new AdvancedPool(
