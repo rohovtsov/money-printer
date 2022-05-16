@@ -32,19 +32,19 @@ import { UniswapV3PoolStateSyncerContractQuery } from './uniswap/uniswap-v3-pool
 
 interface SyncEvent {
   changedMarkets: EthMarket[];
-  baseFeePerGas: BigNumber;
+  baseFeePerGas: bigint;
   blockNumber: number;
   initial: boolean;
 }
 
 interface NewBlockEvent {
-  nextBaseFeePerGas: BigNumber;
+  nextBaseFeePerGas: bigint;
   blockNumber: number;
 }
 
 interface ArbitrageEvent {
   opportunities: ArbitrageOpportunity[];
-  baseFeePerGas: BigNumber;
+  baseFeePerGas: bigint;
   blockNumber: number;
 }
 
@@ -204,7 +204,7 @@ export class ArbitrageRunner {
         acc.push(...opportunities);
         return acc;
       }, [] as ArbitrageOpportunity[])
-      .sort((a, b) => (a.profit.lt(b.profit) ? 1 : a.profit.gt(b.profit) ? -1 : 0));
+      .sort((a, b) => (a.profit < b.profit ? 1 : a.profit > b.profit ? -1 : 0));
   }
 }
 
@@ -243,9 +243,9 @@ function fromNewBlockEvent(provider: providers.WebSocketProvider): Observable<Ne
       const logMessage = `${id++ === 0 ? 'Initial block' : 'New block'}: ${blockNumber}`;
 
       if (canCalcBaseFeePerGas(blockNumber)) {
-        const baseFeePerGas = BigNumber.from(rawBlock.baseFeePerGas);
-        const gasUsed = BigNumber.from(rawBlock.gasUsed);
-        const gasLimit = BigNumber.from(rawBlock.gasLimit);
+        const baseFeePerGas = BigInt(rawBlock.baseFeePerGas);
+        const gasUsed = BigInt(rawBlock.gasUsed);
+        const gasLimit = BigInt(rawBlock.gasLimit);
         const nextBaseFeePerGas = calcBaseFeePerGas(baseFeePerGas, gasUsed, gasLimit);
         console.log(`${logMessage}, next gas price: ${nextBaseFeePerGas.toString()}`);
         observer.next({ blockNumber, nextBaseFeePerGas });

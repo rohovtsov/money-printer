@@ -3,7 +3,7 @@ import {
   FlashbotsBundleProvider,
   FlashbotsBundleResolution,
 } from '@flashbots/ethers-provider-bundle';
-import { BigNumber, providers } from 'ethers';
+import { providers } from 'ethers';
 import { readFileSync } from 'fs';
 import fs from 'fs/promises';
 import { concatMap, Subject } from 'rxjs';
@@ -75,7 +75,7 @@ export class FlashbotsTransactionSender implements TransactionSender {
       }
 
       const hash = transaction?.bundleTransactions?.[0].hash;
-      console.log(`Flashbots transaction. Sent: ${hash}`);
+      console.log(`Flashbots transaction. Sent: ${hash} at ${blockNumber}`);
       const result = await transaction.wait();
       const receipt = ((await transaction.receipts()) ?? [])?.[0] ?? null;
       await this.logResultReport(hash, signedBundle, result, receipt, blockNumber);
@@ -95,12 +95,7 @@ export class FlashbotsTransactionSender implements TransactionSender {
     }
   }
 
-  async simulateTransaction(data: TransactionData): Promise<BigNumber> {
-    const delay = this.getRateLimitDelay();
-    if (delay > 0) {
-      await sleep(delay);
-    }
-
+  async simulateTransaction(data: TransactionData): Promise<bigint> {
     const { signer, transactionData, blockNumber } = data;
 
     const signedBundle = await this.flashbotsProvider.signBundle([
@@ -120,11 +115,11 @@ export class FlashbotsTransactionSender implements TransactionSender {
 
       this.opportunityResults$.next({ opportunity: data.opportunity, result: true });
 
-      return BigNumber.from(simulation.totalGasUsed);
+      return BigInt(simulation.totalGasUsed);
     } catch (err: any) {
       if (this.handleRateLimitError(err)) {
         console.log(`Simulation rate limited. Wake up in ${this.rateLimitedTill - Date.now()}ms`);
-        return this.simulateTransaction(data);
+        throw err;
       } else {
         throw err;
       }

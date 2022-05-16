@@ -6,12 +6,10 @@ import {
   GroupedEthMarkets,
   groupEthMarkets,
   MarketAction,
-  printOpportunity,
   WETH_ADDRESS,
 } from '../entities';
-import { BigNumber } from 'ethers';
 
-export type TriangleStartOptions = Record<Address, BigNumber[]>;
+export type TriangleStartOptions = Record<Address, bigint[]>;
 
 type TrianglesByMarketAddress = Record<Address, Triangle[]>;
 
@@ -54,7 +52,7 @@ export class TriangleArbitrageStrategy implements ArbitrageStrategy {
     return this.options[triangle.startToken].reduce((acc, startAmount) => {
       const opportunity = this.calculateOpportunityForAmount(triangle, startAmount, blockNumber);
 
-      if (opportunity && (!acc || opportunity.profit.gt(acc.profit))) {
+      if (opportunity && (!acc || opportunity.profit > acc.profit)) {
         acc = opportunity;
       }
 
@@ -64,11 +62,11 @@ export class TriangleArbitrageStrategy implements ArbitrageStrategy {
 
   calculateOpportunityForAmount(
     triangle: Triangle,
-    startAmount: BigNumber,
+    startAmount: bigint,
     blockNumber: number,
   ): ArbitrageOpportunity | null {
-    const amounts: BigNumber[] = [startAmount];
-    let amount: BigNumber = startAmount;
+    const amounts: bigint[] = [startAmount];
+    let amount = startAmount;
 
     //console.log(triangle.actions, startAmount?.toString());
 
@@ -97,7 +95,7 @@ export class TriangleArbitrageStrategy implements ArbitrageStrategy {
       startToken: triangle.startToken,
     });*/
 
-    if (!amount.gt(startAmount)) {
+    if (amount <= startAmount) {
       return null;
     }
 
@@ -120,7 +118,7 @@ export class TriangleArbitrageStrategy implements ArbitrageStrategy {
           action: triangle.actions[id],
         };
       }),
-      profit: amount.sub(startAmount),
+      profit: amount - startAmount,
       startToken: triangle.startToken,
     };
   }

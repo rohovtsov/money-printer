@@ -1,6 +1,6 @@
 import {
   ArbitrageOpportunity,
-  bigNumberToDecimal,
+  bigIntToDecimal,
   ERC20_ABI,
   EthMarket,
   MIN_PROFIT_NET,
@@ -12,7 +12,7 @@ import {
   TransactionSender,
   WETH_ADDRESS,
 } from './entities';
-import { BigNumber, Contract, PopulatedTransaction, providers, utils, Wallet } from 'ethers';
+import { Contract, PopulatedTransaction, providers, utils, Wallet } from 'ethers';
 import { SimulationResponseSuccess } from '@flashbots/ethers-provider-bundle/src';
 import { RelayResponseError } from '@flashbots/ethers-provider-bundle';
 
@@ -32,8 +32,8 @@ export class ArbitrageExecutor {
   async createRegularSwap(
     callData: MultipleCallData,
     printMoneyContract: Contract,
-    ethAmountToCoinbase: BigNumber,
-    gasPrice: BigNumber,
+    ethAmountToCoinbase: bigint,
+    gasPrice: bigint,
   ): Promise<PopulatedTransaction> {
     return await printMoneyContract.populateTransaction.printMoney(
       ethAmountToCoinbase,
@@ -41,15 +41,15 @@ export class ArbitrageExecutor {
       callData.data,
       {
         gasPrice,
-        gasLimit: BigNumber.from(600000),
+        gasLimit: 600000n,
       },
     );
   }
 
   private async createOpportunityTransactionData(
     opportunity: ArbitrageOpportunity,
-    ethAmountToCoinbase: BigNumber,
-    gasPrice: BigNumber,
+    ethAmountToCoinbase: bigint,
+    gasPrice: bigint,
   ): Promise<PopulatedTransaction> {
     const callData: MultipleCallData = { data: [], targets: [] };
 
@@ -163,24 +163,24 @@ export class ArbitrageExecutor {
 
   private async createSimulatedOpportunity(
     opportunity: ArbitrageOpportunity,
-    gasPrice: BigNumber,
-    estimatedGas: BigNumber,
+    gasPrice: bigint,
+    estimatedGas: bigint,
   ): Promise<SimulatedArbitrageOpportunity> {
-    const gasFees = estimatedGas.mul(gasPrice);
+    const gasFees = estimatedGas * gasPrice;
+    const profitWithoutGasFees = opportunity.profit - gasFees;
 
-    if (gasFees.gte(opportunity.profit)) {
+    if (gasFees >= opportunity.profit) {
       throw {
         gasFees,
-        profitNet: opportunity.profit.sub(gasFees),
+        profitNet: profitWithoutGasFees,
         profit: opportunity.profit,
       };
     }
 
-    const profitWithoutGasFees = opportunity.profit.sub(gasFees);
-    const amountToCoinbase = profitWithoutGasFees.mul(MINER_REWORD_PERCENT).div(100);
-    const profitNet = profitWithoutGasFees.sub(amountToCoinbase);
+    const amountToCoinbase = (profitWithoutGasFees * BigInt(MINER_REWORD_PERCENT)) / 100n;
+    const profitNet = profitWithoutGasFees - amountToCoinbase;
 
-    if (profitNet.lte(MIN_PROFIT_NET)) {
+    if (profitNet <= MIN_PROFIT_NET) {
       throw {
         gasFees,
         amountToCoinbase,
@@ -206,14 +206,10 @@ export class ArbitrageExecutor {
 
   async simulateOpportunity(
     opportunity: ArbitrageOpportunity,
-    gasPrice: BigNumber,
+    gasPrice: bigint,
   ): Promise<SimulatedArbitrageOpportunity> {
-    const transactionData = await this.createOpportunityTransactionData(
-      opportunity,
-      BigNumber.from(0),
-      gasPrice,
-    );
-    let gasUsed: BigNumber;
+    const transactionData = await this.createOpportunityTransactionData(opportunity, 0n, gasPrice);
+    let gasUsed: bigint;
     let simOpp: SimulatedArbitrageOpportunity;
 
     try {
@@ -226,7 +222,12 @@ export class ArbitrageExecutor {
     } catch (err: SimulationResponseSuccess | RelayResponseError | any) {
       const revert = err?.firstRevert?.revert ?? err?.firstRevert?.error;
       const error = err?.error ?? (!revert ? err : undefined);
-      console.log(`Simulation ${revert ? 'reverted' : 'error'}.`, revert, error);
+
+      if (error?.body?.startsWith('Too many requests')) {
+        throw { queue: true };
+      } else {
+        console.log(`Simulation ${revert ? 'reverted' : 'error'}.`, revert, error);
+      }
 
       if (error?.message?.startsWith('err: max fee per gas less')) {
         throw { queue: true };
@@ -244,10 +245,10 @@ export class ArbitrageExecutor {
     } catch (err: any) {
       console.log(
         `Simulation unprofitable. ` +
-          `profitNet: ${bigNumberToDecimal(err?.profitNet ?? BigNumber.from(0), 18)} ` +
-          `profitGross: ${bigNumberToDecimal(err?.profit ?? BigNumber.from(0), 18)}, ` +
-          `gasFees: ${bigNumberToDecimal(err?.gasFees ?? BigNumber.from(0), 18)}, ` +
-          `coinbase: ${bigNumberToDecimal(err?.amountToCoinbase ?? BigNumber.from(0), 18)}, ` +
+          `profitNet: ${bigIntToDecimal(err?.profitNet ?? 0n, 18)} ` +
+          `profitGross: ${bigIntToDecimal(err?.profit ?? 0n, 18)}, ` +
+          `gasFees: ${bigIntToDecimal(err?.gasFees ?? 0n, 18)}, ` +
+          `coinbase: ${bigIntToDecimal(err?.amountToCoinbase ?? 0n, 18)}, ` +
           `- at block: ${opportunity.blockNumber}`,
       );
       throw { queue: true };
@@ -255,10 +256,10 @@ export class ArbitrageExecutor {
 
     console.log(
       `Simulation successful. ` +
-        `profitNet: ${bigNumberToDecimal(simOpp.profitNet, 18)} ` +
-        `profitGross: ${bigNumberToDecimal(simOpp.profit, 18)}, ` +
-        `gasFees: ${bigNumberToDecimal(simOpp.gasFees, 18)}, ` +
-        `coinbase: ${bigNumberToDecimal(simOpp.amountToCoinbase, 18)}, ` +
+        `profitNet: ${bigIntToDecimal(simOpp.profitNet, 18)} ` +
+        `profitGross: ${bigIntToDecimal(simOpp.profit, 18)}, ` +
+        `gasFees: ${bigIntToDecimal(simOpp.gasFees, 18)}, ` +
+        `coinbase: ${bigIntToDecimal(simOpp.amountToCoinbase, 18)}, ` +
         `- at block: ${simOpp.blockNumber}`,
     );
 

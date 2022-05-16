@@ -1,5 +1,3 @@
-import { BigNumber } from 'ethers';
-
 export function getAllPossibleCombinations<T = any>(
   values: T[],
   maxCount: number,

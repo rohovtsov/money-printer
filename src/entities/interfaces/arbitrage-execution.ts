@@ -3,7 +3,7 @@ import { BigNumber, PopulatedTransaction } from 'ethers';
 
 export interface SimulatedArbitrageOpportunity extends ArbitrageOpportunity {
   transactionData: PopulatedTransaction;
-  amountToCoinbase: BigNumber;
-  profitNet: BigNumber;
-  gasFees: BigNumber;
+  amountToCoinbase: bigint;
+  profitNet: bigint;
+  gasFees: bigint;
 }

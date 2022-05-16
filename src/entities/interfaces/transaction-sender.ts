@@ -1,4 +1,4 @@
-import { BigNumber, PopulatedTransaction, Wallet } from 'ethers';
+import { PopulatedTransaction, Wallet } from 'ethers';
 import { TransactionReceipt } from '@ethersproject/abstract-provider/src.ts';
 import { ArbitrageOpportunity } from './arbitrage-strategy';
 
@@ -12,5 +12,5 @@ export interface TransactionData {
 export interface TransactionSender {
   sendTransaction(data: TransactionData): Promise<TransactionReceipt | null>;
 
-  simulateTransaction(data: TransactionData): Promise<BigNumber>;
+  simulateTransaction(data: TransactionData): Promise<bigint>;
 }

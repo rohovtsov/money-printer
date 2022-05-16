@@ -1,7 +1,7 @@
 import * as _ from 'lodash';
 import { BigNumber, Contract, Wallet } from 'ethers';
 import { FlashbotsBundleProvider } from '@flashbots/ethers-provider-bundle';
-import { WETH_ADDRESS, ETHER, bigNumberToDecimal } from '../entities';
+import { WETH_ADDRESS, ETHER, bigIntToDecimal } from '../entities';
 import { EthMarket } from './EthMarket';
 
 export interface CrossedMarketDetails {
@@ -99,7 +99,7 @@ export class Arbitrage2 {
     const buyTokens = crossedMarket.buyFromMarket.tokens;
     const sellTokens = crossedMarket.sellToMarket.tokens;
     console.log(
-      `Profit: ${bigNumberToDecimal(crossedMarket.profit)} Volume: ${bigNumberToDecimal(
+      `Profit: ${bigIntToDecimal(crossedMarket.profit)} Volume: ${bigIntToDecimal(
         crossedMarket.volume,
       )} for token ${crossedMarket.tokenAddress}\n` +
         `${crossedMarket.buyFromMarket.protocol} (${crossedMarket.buyFromMarket.marketAddress})\n` +
@@ -217,9 +217,9 @@ export class Arbitrage2 {
         continue;
       }
       console.log(
-        `Submitting bundle, profit sent to miner: ${bigNumberToDecimal(
+        `Submitting bundle, profit sent to miner: ${bigIntToDecimal(
           simulation.coinbaseDiff,
-        )}, effective gas price: ${bigNumberToDecimal(
+        )}, effective gas price: ${bigIntToDecimal(
           simulation.coinbaseDiff.div(simulation.totalGasUsed),
           9,
         )} GWEI`,

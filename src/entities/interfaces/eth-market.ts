@@ -31,14 +31,12 @@ export interface EthMarket {
   marketAddress: Address;
   protocol: Protocol;
 
-  hasEnoughReserves(tokenAddress: string, minReserve: BigNumber): boolean;
+  calcTokensOut(action: MarketAction, amountIn: bigint): bigint | null;
 
-  calcTokensOut(action: MarketAction, amountIn: BigNumber): BigNumber | null;
-
-  calcTokensIn(action: MarketAction, amountOut: BigNumber): BigNumber | null;
+  calcTokensIn(action: MarketAction, amountOut: bigint): bigint | null;
 
   performSwap(
-    amountIn: BigNumber,
+    amountIn: bigint,
     action: MarketAction,
     recipient: string | EthMarket,
     data: string | [],

@@ -7,9 +7,7 @@ export const NETWORK = process.env.NETWORK || 'goerli';
 export const INFURA_API_KEY = process.env.INFURA_API_KEY || '8ac04e84ff9e4fd19db5bfa857b90a92';
 export const PRIVATE_KEY =
   process.env.PRIVATE_KEY || '0xe287672c1f7b7a8a38449626b3303a2ad4430672977b8a6f741a9ca35b6ca10c';
-export const MIN_PROFIT_NET = BigNumber.from(
-  String(Number(process.env.MIN_PROFIT_NET ?? 0) * 10 ** 18),
-);
+export const MIN_PROFIT_NET = BigInt(String(Number(process.env.MIN_PROFIT_NET ?? 0) * 10 ** 18));
 
 export const USE_FLASHBOTS = Boolean(process.env.USE_FLASHBOTS ?? true);
 export const FLASHBOTS_RELAY_SIGNING_KEY = process.env.FLASHBOTS_RELAY_SIGNING_KEY;

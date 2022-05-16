@@ -8,42 +8,39 @@ import {
   UNISWAP_V2_PAIR_ABI,
   WETH_ADDRESS,
 } from '../entities';
-import { SimpleUniswapV2Calculator } from './uniswap-v2-price-calculator';
+import { NativeUniswapV2Calculator } from './uniswap-v2-price-calculator';
 
 export class UniswapV2Market implements EthMarket {
   static uniswapInterface = new Contract(WETH_ADDRESS, UNISWAP_V2_PAIR_ABI);
 
   readonly protocol = 'uniswapV2';
-  readonly calculator: PriceCalculator;
-  private reserves?: [BigNumber, BigNumber];
-  private cacheOut: Record<string, BigNumber | null> = {};
+  private reserves?: [bigint, bigint];
+  private cacheOut: Record<string, bigint | null> = {};
 
-  public hasEnoughReserves(tokenAddress: string, minReserve: BigNumber): boolean {
+  public hasEnoughReserves(tokenAddress: string, minReserve: bigint): boolean {
     if (!this.reserves) {
       return false;
     }
-    return this.reserves[this.tokens.indexOf(tokenAddress)].gt(minReserve);
+    return this.reserves[this.tokens.indexOf(tokenAddress)] > minReserve;
   }
 
-  constructor(readonly marketAddress: Address, readonly tokens: [Address, Address]) {
-    this.calculator = SimpleUniswapV2Calculator;
-  }
+  constructor(readonly marketAddress: Address, readonly tokens: [Address, Address]) {}
 
-  public getReserve0(): BigNumber {
+  public getReserve0(): bigint {
     if (!this.reserves) {
       throw new Error('no reserves is set');
     }
     return this.reserves[0];
   }
 
-  public getReserve1(): BigNumber {
+  public getReserve1(): bigint {
     if (!this.reserves) {
       throw new Error('no reserves is set');
     }
     return this.reserves[1];
   }
 
-  calcTokensOut(action: MarketAction, amountIn: BigNumber): BigNumber | null {
+  calcTokensOut(action: MarketAction, amountIn: bigint): bigint | null {
     if (!this.reserves) {
       console.log(this.marketAddress);
       throw new Error('Reserves not supplied');
@@ -57,13 +54,13 @@ export class UniswapV2Market implements EthMarket {
       this.cacheOut[cacheKey] =
         reservesIn < amountIn
           ? null
-          : this.calculator.getTokensOut(reservesIn, reservesOut, amountIn);
+          : NativeUniswapV2Calculator.getTokensOut(reservesIn, reservesOut, amountIn);
     }
 
     return this.cacheOut[cacheKey];
   }
 
-  calcTokensIn(action: MarketAction, amountOut: BigNumber): BigNumber | null {
+  calcTokensIn(action: MarketAction, amountOut: bigint): bigint | null {
     if (!this.reserves) {
       throw new Error('Reserves not supplied');
     }
@@ -73,11 +70,11 @@ export class UniswapV2Market implements EthMarket {
 
     return reservesOut > amountOut
       ? null
-      : this.calculator.getTokensIn(reservesIn, reservesOut, amountOut);
+      : NativeUniswapV2Calculator.getTokensIn(reservesIn, reservesOut, amountOut);
   }
 
   async performSwap(
-    amountIn: BigNumber,
+    amountIn: bigint,
     action: MarketAction,
     recipient: string | EthMarket,
     data: string | [] = [],
@@ -102,7 +99,7 @@ export class UniswapV2Market implements EthMarket {
     };
   }
 
-  setTokenReserves(reserves1: BigNumber, reserves2: BigNumber): void {
+  setTokenReserves(reserves1: bigint, reserves2: bigint): void {
     this.reserves = [reserves1, reserves2];
     this.cacheOut = {};
   }

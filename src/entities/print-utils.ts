@@ -2,7 +2,7 @@ import { NETWORK } from './environmet';
 import { ArbitrageOpportunity } from './interfaces/arbitrage-strategy';
 import { Address } from './interfaces/eth-market';
 import { WETH_ADDRESS } from './addresses';
-import { bigNumberToDecimal } from './utils';
+import { bigIntToDecimal } from './utils';
 import { SimulatedArbitrageOpportunity } from './interfaces/arbitrage-execution';
 
 const tokenShortNames: Record<Address, string> = {
@@ -37,10 +37,10 @@ export function printOpportunity(opp: ArbitrageOpportunity): void {
 
   console.log(
     `Opportunity of type: ${opp.strategyName} at ${opp.blockNumber}\n` +
-      `Profit: ${bigNumberToDecimal(opp.profit, 18)} of ${tokenShortName(opp.startToken)}\n` +
+      `Profit: ${bigIntToDecimal(opp.profit, 18)} of ${tokenShortName(opp.startToken)}\n` +
       `${
         simOpp?.profitNet
-          ? `Profit Net: ${bigNumberToDecimal(simOpp.profitNet, 18)} of ${tokenShortName(
+          ? `Profit Net: ${bigIntToDecimal(simOpp.profitNet, 18)} of ${tokenShortName(
               opp.startToken,
             )}\n`
           : ``

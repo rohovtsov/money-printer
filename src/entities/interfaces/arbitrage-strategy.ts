@@ -5,19 +5,19 @@ export type ArbitrageStrategyName = 'triangle';
 
 export interface ArbitrageOperation {
   market: EthMarket;
-  amountIn: BigNumber;
-  amountOut: BigNumber;
+  amountIn: bigint;
+  amountOut: bigint;
   action: MarketAction;
   tokenIn: Address;
   tokenOut: Address;
 }
 
 export interface ArbitrageOpportunity {
-  blockNumber: number,
+  blockNumber: number;
   strategyName: ArbitrageStrategyName;
   operations: ArbitrageOperation[];
   startToken: Address;
-  profit: BigNumber;
+  profit: bigint;
 }
 
 export interface ArbitrageStrategy {

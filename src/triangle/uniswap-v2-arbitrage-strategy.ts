@@ -1,4 +1,3 @@
-import { BigNumber } from 'ethers';
 import {
   Address,
   ArbitrageOpportunity,
@@ -20,8 +19,8 @@ interface Nangle {
   startToken: Address;
 }
 
-const d1000 = BigNumber.from(1000);
-const d997 = BigNumber.from(997);
+const d1000 = BigInt(1000);
+const d997 = BigInt(997);
 
 export class UniswapV2ArbitrageStrategy implements ArbitrageStrategy {
   nangles: Nangle[];
@@ -62,11 +61,11 @@ export class UniswapV2ArbitrageStrategy implements ArbitrageStrategy {
 
   calculateOpportunityForAmount(
     triangle: Nangle,
-    startAmount: BigNumber,
+    startAmount: bigint,
     blockNumber: number,
   ): ArbitrageOpportunity | null {
-    const amounts: BigNumber[] = [startAmount];
-    let amount: BigNumber = startAmount;
+    const amounts: bigint[] = [startAmount];
+    let amount = startAmount;
 
     //console.log(triangle.actions, startAmount?.toString());
 
@@ -85,7 +84,7 @@ export class UniswapV2ArbitrageStrategy implements ArbitrageStrategy {
       }
     }
 
-    if (!amount.gt(startAmount)) {
+    if (amount <= startAmount) {
       return null;
     }
 
@@ -108,14 +107,14 @@ export class UniswapV2ArbitrageStrategy implements ArbitrageStrategy {
           action: triangle.actions[id],
         };
       }),
-      profit: amount.sub(startAmount),
+      profit: amount - startAmount,
       startToken: triangle.startToken,
     };
   }
 
-  private getEaEb(tokenIn: Address, markets: UniswapV2Market[]): [BigNumber, BigNumber] {
-    let Ea: BigNumber | null = null;
-    let Eb: BigNumber | null = null;
+  private getEaEb(tokenIn: Address, markets: UniswapV2Market[]): [bigint, bigint] {
+    let Ea: bigint | null = null;
+    let Eb: bigint | null = null;
     let tokenOut = tokenIn;
     for (let idx = 0; idx < markets.length; idx++) {
       let pair = markets[idx];
@@ -129,8 +128,8 @@ export class UniswapV2ArbitrageStrategy implements ArbitrageStrategy {
       if (idx == 1) {
         let Ra = markets[0].getReserve0();
         let Rb = markets[0].getReserve1();
-        if (Ra.eq(0) || Rb.eq(0)) {
-          return [BigNumber.from(0), BigNumber.from(0)];
+        if (Ra === 0n || Rb === 0n) {
+          return [0n, 0n];
         }
         if (tokenIn == markets[0].tokens[0]) {
           let temp = Ra;
@@ -139,8 +138,8 @@ export class UniswapV2ArbitrageStrategy implements ArbitrageStrategy {
         }
         let Rb1 = pair.getReserve0();
         let Rc = pair.getReserve1();
-        if (Rb1.eq(0) || Rc.eq(0)) {
-          return [BigNumber.from(0), BigNumber.from(0)];
+        if (Rb1 === 0n || Rc === 0n) {
+          return [0n, 0n];
         }
         if (tokenOut == pair.tokens[1]) {
           let temp = Rb1;
@@ -150,22 +149,18 @@ export class UniswapV2ArbitrageStrategy implements ArbitrageStrategy {
         } else {
           tokenOut = pair.tokens[1];
         }
-        Ea = d1000
-          .mul(Ra)
-          .mul(Rb1)
-          .div(d1000.mul(Rb1).add(d997.mul(Rb))); // toInt((d1000 * Ra * Rb1) / (d1000 * Rb1 + d997 * Rb));
-        Eb = d997
-          .mul(Rb)
-          .mul(Rc)
-          .div(d1000.mul(Rb1).add(d997.mul(Rb))); // toInt((d997 * Rb * Rc) / (d1000 * Rb1 + d997 * Rb));
+        // toInt((d1000 * Ra * Rb1) / (d1000 * Rb1 + d997 * Rb));
+        Ea = (d1000 * Ra * Rb1) / (d1000 * Rb1 + d997 * Rb);
+        // toInt((d997 * Rb * Rc) / (d1000 * Rb1 + d997 * Rb));
+        Eb = (d997 * Rb * Rc) / (d1000 * Rb1 + d997 * Rb);
       }
       if (idx > 1) {
-        let Ra: BigNumber | null = Ea;
-        let Rb: BigNumber | null = Eb;
+        let Ra: bigint | null = Ea;
+        let Rb: bigint | null = Eb;
         let Rb1 = pair.getReserve0();
         let Rc = pair.getReserve1();
-        if (Rb1.eq(0) || Rc.eq(0)) {
-          return [BigNumber.from(0), BigNumber.from(0)];
+        if (Rb1 === 0n || Rc === 0n) {
+          return [0n, 0n];
         }
         if (tokenOut == pair.tokens[1]) {
           let temp = Rb1;
@@ -175,34 +170,31 @@ export class UniswapV2ArbitrageStrategy implements ArbitrageStrategy {
         } else {
           tokenOut = pair.tokens[1];
         }
-        Ea = d1000
-          .mul(Ra!)
-          .mul(Rb1)
-          .div(d1000.mul(Rb1).add(d997.mul(Rb!))); // toInt((d1000 * Ra * Rb1) / (d1000 * Rb1 + d997 * Rb));
-        Eb = d997
-          .mul(Rb!)
-          .mul(Rc)
-          .div(d1000.mul(Rb1).add(d997.mul(Rb!))); // toInt((d997 * Rb * Rc) / (d1000 * Rb1 + d997 * Rb));
+        // toInt((d1000 * Ra * Rb1) / (d1000 * Rb1 + d997 * Rb));
+        Ea = (d1000 * Ra! * Rb1) / (d1000 * Rb1 + d997 * Rb!);
+        // toInt((d997 * Rb * Rc) / (d1000 * Rb1 + d997 * Rb));
+        Eb = (d997 * Rb! * Rc) / (d1000 * Rb1 + d997 * Rb!);
       }
     }
     return [Ea!, Eb!];
   }
 
-  private getOptimalAmount(Ea: BigNumber, Eb: BigNumber): BigNumber | null {
+  private getOptimalAmount(Ea: bigint, Eb: bigint): bigint | null {
     if (Ea > Eb) {
       return null;
     }
-    return this.sqrt(Ea.mul(Eb).mul(d997).mul(d1000)).sub(Ea.mul(d1000)).div(d997); // Decimal(int((Decimal.sqrt(Ea*Eb*d997*d1000)-Ea*d1000)/d997))
+    // Decimal(int((Decimal.sqrt(Ea*Eb*d997*d1000)-Ea*d1000)/d997))
+    return (this.sqrt(Ea * Eb * d997 * d1000) - Ea * d1000) / d997;
   }
 
-  private sqrt(x: BigNumber): BigNumber {
-    const ONE = BigNumber.from(1);
-    const TWO = BigNumber.from(2);
-    let z = x.add(ONE).div(TWO);
+  private sqrt(x: bigint): bigint {
+    const ONE = 1n;
+    const TWO = 2n;
+    let z = (x + ONE) / TWO;
     let y = x;
-    while (z.sub(y).isNegative()) {
+    while (z - y < 0) {
       y = z;
-      z = x.div(z).add(z).div(TWO);
+      z = (x / z + z) / TWO;
     }
     return y;
   }

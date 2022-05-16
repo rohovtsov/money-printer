@@ -1,19 +1,12 @@
-import { BigNumber, providers } from 'ethers';
-import {
-  Address,
-  endTime,
-  splitIntoBatches,
-  startTime,
-  UNISWAP_V3_GRAPH_ENDPOINT,
-} from '../entities';
+import { providers } from 'ethers';
+import { Address, splitIntoBatches, UNISWAP_V3_GRAPH_ENDPOINT } from '../entities';
 import { UniswapV3Market } from './uniswap-v3-market';
 const fetch = require('node-fetch');
 import gql from 'graphql-tag';
 import ApolloClient from 'apollo-boost';
-import { Tick } from '@uniswap/v3-sdk';
-import { JSBI } from '@uniswap/sdk';
-import { defer, from, lastValueFrom, map, mergeMap, reduce } from 'rxjs';
+import { defer, from, lastValueFrom, mergeMap, reduce } from 'rxjs';
 import { retry } from 'rxjs/operators';
+import { NativeTick } from './native-pool/native-pool-utils';
 
 interface PoolData {
   id: string;
@@ -359,22 +352,18 @@ export class UniswapV3PoolStateSyncer {
   private setPoolState(market: UniswapV3Market, pool: PoolData): void {
     market.setPoolState(
       Number(pool.tick),
-      BigNumber.from(pool.sqrtPrice),
-      BigNumber.from(pool.liquidity),
+      BigInt(pool.sqrtPrice),
+      BigInt(pool.liquidity),
       pool.ticks
-        .filter(
-          (tick) =>
-            JSBI.notEqual(JSBI.BigInt(tick.liquidityNet), JSBI.BigInt(0)) ||
-            JSBI.notEqual(JSBI.BigInt(tick.liquidityGross), JSBI.BigInt(0)),
-        )
         .map(
           (tick) =>
-            new Tick({
-              index: Number(tick.tickIdx),
-              liquidityGross: JSBI.BigInt(0),
-              liquidityNet: JSBI.BigInt(tick.liquidityNet.toString()),
-            }),
-        ),
+            new NativeTick(
+              Number(tick.tickIdx),
+              BigInt(tick.liquidityGross),
+              BigInt(tick.liquidityNet),
+            ),
+        )
+        .filter((tick) => tick.liquidityNet !== 0n || tick.liquidityGross !== 0n),
     );
   }
 }

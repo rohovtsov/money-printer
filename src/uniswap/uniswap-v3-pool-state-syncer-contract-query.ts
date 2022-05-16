@@ -1,4 +1,4 @@
-import { BigNumber, Contract, providers } from 'ethers';
+import { Contract, providers } from 'ethers';
 import {
   Address,
   endTime,
@@ -7,17 +7,16 @@ import {
   startTime,
 } from '../entities';
 import { UniswapV3Market } from './uniswap-v3-market';
-import { Tick } from '@uniswap/v3-sdk';
-import { JSBI } from '@uniswap/sdk';
 import { defer, lastValueFrom, merge, tap } from 'rxjs';
 import { retry } from 'rxjs/operators';
+import { NativeTick } from './native-pool/native-pool-utils';
 
 interface PoolState {
   tick: number;
   address: Address;
-  liquidity: BigNumber;
-  sqrtPriceX96: BigNumber;
-  ticks: Tick[];
+  liquidity: bigint;
+  sqrtPriceX96: bigint;
+  ticks: NativeTick[];
 }
 
 interface PoolBatchPayload {
@@ -45,7 +44,7 @@ export class UniswapV3PoolStateSyncerContractQuery {
 
     startTime('syncV3');
     const marketsByTickCount = markets.reduce((acc, market) => {
-      const key = String(market?.pool?.advancedTicks?.length ?? 0);
+      const key = String(market?.pool?.ticks?.length ?? 0);
       (acc[key] ?? (acc[key] = [])).push(market);
       return acc;
     }, {} as Record<string, UniswapV3Market[]>);
@@ -63,8 +62,8 @@ export class UniswapV3PoolStateSyncerContractQuery {
     const batches: PoolBatchPayload[] = [];
     let nextBatch: PoolBatchPayload = { bufferSizes: [], addresses: [], totalBufferSize: 0 };
     //TODO: потюнить
-    const maxMarketsInBatch = 120;
-    const maxTicksInBatch = 2000;
+    const maxMarketsInBatch = 100;
+    const maxTicksInBatch = 1500;
 
     for (const key in marketsByTickCount) {
       const ticksCount = Number(key);
@@ -144,21 +143,15 @@ export class UniswapV3PoolStateSyncerContractQuery {
           break;
         }
 
-        ticks.push(
-          new Tick({
-            index,
-            liquidityGross: JSBI.BigInt(0),
-            liquidityNet: JSBI.BigInt(liquidityNet),
-          }),
-        );
+        ticks.push(new NativeTick(index, BigInt(0), BigInt(liquidityNet)));
       }
 
       totalTicks += ticks.length;
 
       return {
         address: payload.addresses[index],
-        sqrtPriceX96: state.sqrtPriceX96,
-        liquidity: state.liquidity,
+        sqrtPriceX96: state.sqrtPriceX96.toBigInt(),
+        liquidity: state.liquidity.toBigInt(),
         tick: state.tick,
         ticks: ticks,
       };
