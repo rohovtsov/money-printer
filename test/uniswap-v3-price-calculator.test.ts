@@ -28,6 +28,56 @@ function calcPricesWithSyncPool(market: UniswapV3Market, amount: BigNumber) {
   ];
 }
 
+function performanceTestPricesWithSyncPool(market: UniswapV3Market, amount: BigNumber) {
+  startTime();
+  calcPricesWithSyncPool(market, amount);
+  amount = amount.mul(Number(91));
+  calcPricesWithSyncPool(market, amount);
+  amount = amount.mul(Number(12));
+  calcPricesWithSyncPool(market, amount);
+  amount = amount.mul(Number(54));
+  calcPricesWithSyncPool(market, amount);
+  amount = amount.mul(Number(879));
+  calcPricesWithSyncPool(market, amount);
+  amount = amount.mul(Number(543));
+  calcPricesWithSyncPool(market, amount);
+  amount = amount.div(Number(191));
+  calcPricesWithSyncPool(market, amount);
+  amount = amount.div(Number(12));
+  calcPricesWithSyncPool(market, amount);
+  amount = amount.div(Number(54));
+  calcPricesWithSyncPool(market, amount);
+  amount = amount.div(Number(879));
+  calcPricesWithSyncPool(market, amount);
+  amount = amount.div(Number(543));
+  console.log(endTime());
+}
+
+function performanceTestPricesWithNativePool(pool: NativePool, amount: BigNumber) {
+  startTime();
+  calcPricesWithNativePool(pool, amount);
+  amount = amount.mul(Number(91));
+  calcPricesWithNativePool(pool, amount);
+  amount = amount.mul(Number(12));
+  calcPricesWithNativePool(pool, amount);
+  amount = amount.mul(Number(54));
+  calcPricesWithNativePool(pool, amount);
+  amount = amount.mul(Number(879));
+  calcPricesWithNativePool(pool, amount);
+  amount = amount.mul(Number(543));
+  calcPricesWithNativePool(pool, amount);
+  amount = amount.div(Number(191));
+  calcPricesWithNativePool(pool, amount);
+  amount = amount.div(Number(12));
+  calcPricesWithNativePool(pool, amount);
+  amount = amount.div(Number(54));
+  calcPricesWithNativePool(pool, amount);
+  amount = amount.div(Number(879));
+  calcPricesWithNativePool(pool, amount);
+  amount = amount.div(Number(543));
+  console.log(endTime());
+}
+
 async function calcPricesWithSdkPool(market: UniswapV3Market, amount: BigNumber) {
   const token0 = new Token(ChainId.MAINNET, market.tokens[0], 0);
   const token1 = new Token(ChainId.MAINNET, market.tokens[1], 0);
@@ -64,8 +114,8 @@ async function calcPricesWithSdkPool(market: UniswapV3Market, amount: BigNumber)
   });
 }
 
-function calcPricesWithNativePool(market: UniswapV3Market, amount: BigNumber) {
-  const pool = new NativePool(
+function createNativePool(market: UniswapV3Market): NativePool {
+  return new NativePool(
     market.tokens[0],
     market.tokens[1],
     market.fee as FeeAmount,
@@ -77,14 +127,15 @@ function calcPricesWithNativePool(market: UniswapV3Market, amount: BigNumber) {
         new NativeTick(tick.index, BigInt(tick.liquidityGross), BigInt(tick.liquidityNet)),
     ),
   );
-  startTime();
+}
+
+function calcPricesWithNativePool(pool: NativePool, amount: BigNumber) {
   const result = [
-    pool.getOutputAmount(market.tokens[0], BigInt(amount.toString()))[1],
-    pool.getOutputAmount(market.tokens[1], BigInt(amount.toString()))[1],
-    pool.getInputAmount(market.tokens[0], BigInt(amount.toString()))[1],
-    pool.getInputAmount(market.tokens[1], BigInt(amount.toString()))[1],
+    pool.getOutputAmount(pool.token0, BigInt(amount.toString()))[1],
+    pool.getOutputAmount(pool.token1, BigInt(amount.toString()))[1],
+    pool.getInputAmount(pool.token0, BigInt(amount.toString()))[1],
+    pool.getInputAmount(pool.token1, BigInt(amount.toString()))[1],
   ];
-  console.log(endTime());
   return result;
 }
 
@@ -102,9 +153,7 @@ describe('UniswapV3PriceCalculator', function () {
     ) as UniswapV3Market;
     const quoter = new Contract(UNISWAP_V3_QUOTER_ADDRESS, UNISWAP_V3_QUOTER_ABI, provider);
     //TODO: test 0
-    const amount = BigNumber.from(
-      '4425355534343452453523452345234523452352345234523453483220011110622',
-    );
+    const amount = BigNumber.from('4425355534');
 
     const contractPrices = await Promise.all([
       quoter.callStatic
@@ -135,11 +184,13 @@ describe('UniswapV3PriceCalculator', function () {
     ]);
 
     //saveMarket('sample-market.json', market);
-    startTime();
+    const nativePool = createNativePool(market);
     const syncPrices = calcPricesWithSyncPool(market, amount);
-    console.log(endTime());
-    const nativePrices = calcPricesWithNativePool(market, amount);
+    const nativePrices = calcPricesWithNativePool(nativePool, amount);
     const sdkPrices = await calcPricesWithSdkPool(market, amount);
+
+    performanceTestPricesWithNativePool(nativePool, amount);
+    performanceTestPricesWithSyncPool(market, amount);
 
     console.log(contractPrices.map((b) => b?.toString()));
     console.log(sdkPrices.map((b) => b?.toString()));

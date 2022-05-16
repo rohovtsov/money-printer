@@ -1,6 +1,11 @@
 import invariant from 'tiny-invariant';
 import JSBI from 'jsbi';
-import { endTime, startTime } from '../../entities';
+
+function currentTimeMicroSec(): number {
+  const hrTime = process.hrtime() as any[];
+  return hrTime[0] * 1000000 + parseInt(String(hrTime[1] / 1000));
+}
+let totalMicroSec = 0;
 
 /**
  * The default factory enabled fee amounts, denominated in hundredths of bips.
@@ -80,11 +85,17 @@ export abstract class TickMath {
     '1461446703485210103287273052203988822378723970342',
   );
 
+  private static cache_getSqrtRatioAtTick: Record<number, bigint> = [];
+
   /**
    * Returns the sqrt ratio as a Q64.96 for the given tick. The sqrt ratio is computed as sqrt(1.0001)^tick
    * @param tick the tick for which to compute the sqrt ratio
    */
   public static getSqrtRatioAtTick(tick: number): bigint {
+    if (TickMath.cache_getSqrtRatioAtTick[tick] !== undefined) {
+      return TickMath.cache_getSqrtRatioAtTick[tick];
+    }
+
     invariant(
       tick >= TickMath.MIN_TICK && tick <= TickMath.MAX_TICK && Number.isInteger(tick),
       'TICK',
@@ -118,7 +129,10 @@ export abstract class TickMath {
     if (tick > 0) ratio = MaxUint256 / ratio;
 
     // back to Q96
-    return ratio % Q32 > 0n ? ratio / Q32 + 1n : ratio / Q32;
+    const result = ratio % Q32 > 0n ? ratio / Q32 + 1n : ratio / Q32;
+    TickMath.cache_getSqrtRatioAtTick[tick] = result;
+
+    return result;
   }
 
   /**
@@ -541,6 +555,15 @@ export abstract class TickList {
    * @private
    */
   private static binarySearch(ticks: readonly NativeTick[], tick: number): number {
+    //120 <= 125 < 180
+    //-180 <= -125 < -120
+    //tick = 179;
+    /*let remaining = tick % tickSpacing0;
+    const tryId =
+      remaining === 0 ? tick :
+      tick >= 0 ?
+        (tick - remaining) :
+        (tick - remaining - tickSpacing0);*/
     invariant(!this.isBelowSmallest(ticks, tick), 'BELOW_SMALLEST');
 
     let l = 0;
