@@ -5,7 +5,7 @@ describe('Rate limiter', function () {
   this.timeout(5000);
 
   it('Rate limit', async function () {
-    const emitsPeerSecond = 8;
+    const emitsPeerSecond = 2;
     const rateLimit = new RateLimiter(emitsPeerSecond);
     const maxSpeed = 1000 / emitsPeerSecond;
 

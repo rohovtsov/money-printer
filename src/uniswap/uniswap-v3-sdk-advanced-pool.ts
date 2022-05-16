@@ -174,6 +174,8 @@ export class AdvancedPool extends Pool {
     amountSpecified: JSBI,
     sqrtPriceLimitX96?: JSBI,
   ): { amountCalculated: JSBI; sqrtRatioX96: JSBI; liquidity: JSBI; tickCurrent: number } {
+    invariant(JSBI.notEqual(amountSpecified, ZERO), 'ZERO_AMOUNT_SPECIFIED');
+
     if (!sqrtPriceLimitX96)
       sqrtPriceLimitX96 = zeroForOne
         ? JSBI.add(TickMath.MIN_SQRT_RATIO, ONE)
@@ -265,6 +267,7 @@ export class AdvancedPool extends Pool {
           if (zeroForOne) liquidityNet = JSBI.multiply(liquidityNet, NEGATIVE_ONE);
 
           state.liquidity = LiquidityMath.addDelta(state.liquidity, liquidityNet);
+          invariant(exactInput || JSBI.notEqual(state.liquidity, ZERO), 'LIQUIDITY_ZERO');
         }
 
         state.tick = zeroForOne ? step.tickNext - 1 : step.tickNext;

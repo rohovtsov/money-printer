@@ -611,7 +611,7 @@ export abstract class TickList {
     tick: number,
     lte: boolean,
     tickSpacing: number,
-  ): [number, boolean] {
+  ): [number, NativeTick | null] {
     const compressed = Math.floor(tick / tickSpacing); // matches rounding in the code
 
     if (lte) {
@@ -619,23 +619,23 @@ export abstract class TickList {
       const minimum = (wordPos << 8) * tickSpacing;
 
       if (TickList.isBelowSmallest(ticks, tick)) {
-        return [minimum, false];
+        return [minimum, null];
       }
 
-      const index = TickList.nextInitializedTick(ticks, tick, lte).index;
-      const nextInitializedTick = Math.max(minimum, index);
-      return [nextInitializedTick, nextInitializedTick === index];
+      const tickObject = TickList.nextInitializedTick(ticks, tick, lte);
+      const nextInitializedTick = Math.max(minimum, tickObject.index);
+      return [nextInitializedTick, nextInitializedTick === tickObject.index ? tickObject : null];
     } else {
       const wordPos = (compressed + 1) >> 8;
       const maximum = (((wordPos + 1) << 8) - 1) * tickSpacing;
 
       if (this.isAtOrAboveLargest(ticks, tick)) {
-        return [maximum, false];
+        return [maximum, null];
       }
 
-      const index = this.nextInitializedTick(ticks, tick, lte).index;
-      const nextInitializedTick = Math.min(maximum, index);
-      return [nextInitializedTick, nextInitializedTick === index];
+      const tickObject = this.nextInitializedTick(ticks, tick, lte);
+      const nextInitializedTick = Math.min(maximum, tickObject.index);
+      return [nextInitializedTick, nextInitializedTick === tickObject.index ? tickObject : null];
     }
   }
 }
@@ -656,7 +656,7 @@ export class NativeTickDataProvider {
     tick: number,
     lte: boolean,
     tickSpacing: number,
-  ): [number, boolean] {
+  ): [number, NativeTick | null] {
     return TickList.nextInitializedTickWithinOneWord(this.ticks, tick, lte, tickSpacing);
   }
 }

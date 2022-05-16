@@ -10,6 +10,7 @@ describe('PriceCalculator', function () {
   let uniswapV2Simple = SimpleUniswapV2Calculator;
   let uniswapV2Sdk = SdkUniswapV2Calculator;
   let native = NativeUniswapV2Calculator;
+  this.timeout(5000);
 
   it('UniswapV2Sdk & UniswapV2Simple - calculate same results', function () {
     const reserves1 = ETHER;
@@ -91,35 +92,33 @@ describe('PriceCalculator', function () {
     expect(outputSimple?.toString()).to.equal(outputSdk?.toString());
   });
 
-  it('NativeUniswapV2Calculator speedtest', function () {
-    let reserves1 = BigInt(ETHER.toString());
-    const reserves2 = BigInt(ETHER.mul(2).toString());
-    const output = BigInt(ETHER.div(100).toString());
-    const input = BigInt(ETHER.div(20).toString());
+  it('Speedtest', function () {
+    let reserves1Big = BigInt(ETHER.toString());
+    const reserves2Big = BigInt(ETHER.mul(2).toString());
+    const inputBig = BigInt(ETHER.div(20).toString());
+    let outputBig;
 
     startTime();
 
     for (let i = 0; i < 100000; i++) {
-      reserves1 += BigInt(i);
-      const outputSimple = native.getTokensIn(reserves1, reserves2, input);
+      reserves1Big += BigInt(i);
+      outputBig = native.getTokensIn(reserves1Big, reserves2Big, inputBig);
     }
 
-    console.log(endTime());
-  });
+    console.log('native swap', outputBig?.toString(), endTime());
 
-  it('uniswapV2Simple speedtest', function () {
     let reserves1 = ETHER;
     const reserves2 = ETHER.mul(2);
-    const output = ETHER.div(100);
     const input = ETHER.div(20);
+    let output;
 
     startTime();
 
     for (let i = 0; i < 100000; i++) {
       reserves1 = reserves1.add(i);
-      const outputSimple = uniswapV2Simple.getTokensIn(reserves1, reserves2, input);
+      output = uniswapV2Simple.getTokensIn(reserves1, reserves2, input);
     }
 
-    console.log(endTime());
+    console.log('simple swap', output?.toString(), endTime());
   });
 });

@@ -13,7 +13,7 @@ import invariant from 'tiny-invariant';
 interface StepComputations {
   sqrtPriceStartX96: bigint;
   tickNext: number;
-  initialized: boolean;
+  tickNextInitialized: NativeTick | null;
   sqrtPriceNextX96: bigint;
   amountIn: bigint;
   amountOut: bigint;
@@ -70,7 +70,7 @@ export class NativePool {
     inputToken: string,
     inputAmount: bigint,
     sqrtPriceLimitX96?: bigint,
-  ): [string, bigint] {
+  ): bigint {
     invariant(this.involvesToken(inputToken), 'TOKEN');
 
     const zeroForOne = inputToken === this.token0;
@@ -80,9 +80,8 @@ export class NativePool {
       inputAmount,
       sqrtPriceLimitX96,
     );
-    const outputToken = zeroForOne ? this.token1 : this.token0;
 
-    return [outputToken, outputAmount * -1n];
+    return outputAmount * -1n;
   }
 
   /**
@@ -95,7 +94,7 @@ export class NativePool {
     outputToken: string,
     outputAmount: bigint,
     sqrtPriceLimitX96?: bigint,
-  ): [string, bigint] {
+  ): bigint {
     invariant(this.involvesToken(outputToken), 'TOKEN');
 
     const zeroForOne = outputToken === this.token1;
@@ -105,9 +104,8 @@ export class NativePool {
       outputAmount * -1n,
       sqrtPriceLimitX96,
     );
-    const inputToken = zeroForOne ? this.token0 : this.token1;
 
-    return [inputToken, inputAmount];
+    return inputAmount;
   }
 
   private swap(
@@ -115,6 +113,8 @@ export class NativePool {
     amountSpecified: bigint,
     sqrtPriceLimitX96?: bigint,
   ): { amountCalculated: bigint; sqrtRatioX96: bigint; liquidity: bigint; tickCurrent: number } {
+    invariant(amountSpecified !== 0n, 'ZERO_AMOUNT_SPECIFIED');
+
     if (sqrtPriceLimitX96 === undefined || sqrtPriceLimitX96 === null) {
       sqrtPriceLimitX96 = zeroForOne ? TickMath.MIN_SQRT_RATIO + 1n : TickMath.MAX_SQRT_RATIO - 1n;
     }
@@ -147,11 +147,12 @@ export class NativePool {
       // because each iteration of the while loop rounds, we can't optimize this code (relative to the smart contract)
       // by simply traversing to the next available tick, we instead need to exactly replicate
       // tickBitmap.nextInitializedTickWithinOneWord
-      [step.tickNext, step.initialized] = this.tickDataProvider.nextInitializedTickWithinOneWord(
-        state.tick,
-        zeroForOne,
-        this.tickSpacing,
-      );
+      [step.tickNext, step.tickNextInitialized] =
+        this.tickDataProvider.nextInitializedTickWithinOneWord(
+          state.tick,
+          zeroForOne,
+          this.tickSpacing,
+        );
 
       step.tickNext = clamp(step.tickNext, TickMath.MIN_TICK, TickMath.MAX_TICK);
       step.sqrtPriceNextX96 = TickMath.getSqrtRatioAtTick(step.tickNext);
@@ -182,8 +183,8 @@ export class NativePool {
       // TODO
       if (state.sqrtPriceX96 === step.sqrtPriceNextX96) {
         // if the tick is initialized, run the tick transition
-        if (step.initialized) {
-          let liquidityNet = this.tickDataProvider.getTick(step.tickNext).liquidityNet;
+        if (step.tickNextInitialized) {
+          let liquidityNet = step.tickNextInitialized.liquidityNet;
           // if we're moving leftward, we interpret liquidityNet as the opposite sign
           // safe because liquidityNet cannot be type(int128).min
           if (zeroForOne) {
@@ -191,6 +192,7 @@ export class NativePool {
           }
 
           state.liquidity = LiquidityMath.addDelta(state.liquidity, liquidityNet);
+          invariant(exactInput || state.liquidity !== 0n, 'LIQUIDITY_ZERO');
         }
 
         state.tick = zeroForOne ? step.tickNext - 1 : step.tickNext;
