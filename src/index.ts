@@ -531,14 +531,12 @@ async function main() {
   const concurrentSimulationCount = 20;
   const simulatedOpportunities$ = runner.start().pipe(
     switchMap((event) => {
-      const trash = event.opportunities;
       const opportunities = event.opportunities.filter((op) => op.profit > MIN_PROFIT_NET);
       console.log(
-        `Found trash opportunities: ${trash.length} in ${endTime('render')}ms at ${
+        `Found opportunities: ${opportunities.length} in ${endTime('render')}ms at ${
           event.blockNumber
         }\n`,
       );
-      console.log(`Found opportunities: ${opportunities.length} at ${event.blockNumber}\n`);
 
       return from(
         opportunities.map((op) => [op, event.baseFeePerGas] as [ArbitrageOpportunity, bigint]),

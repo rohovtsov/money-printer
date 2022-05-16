@@ -50,11 +50,11 @@ export class UniswapV2Market implements EthMarket {
     if (!this.cacheOut.hasOwnProperty(cacheKey)) {
       const reservesIn = action === 'sell' ? this.reserves[0] : this.reserves[1];
       const reservesOut = action === 'sell' ? this.reserves[1] : this.reserves[0];
-
-      this.cacheOut[cacheKey] =
-        reservesIn < amountIn
-          ? null
-          : NativeUniswapV2Calculator.getTokensOut(reservesIn, reservesOut, amountIn);
+      this.cacheOut[cacheKey] = NativeUniswapV2Calculator.getTokensOut(
+        reservesIn,
+        reservesOut,
+        amountIn,
+      );
     }
 
     return this.cacheOut[cacheKey];
@@ -68,9 +68,7 @@ export class UniswapV2Market implements EthMarket {
     const reservesIn = action === 'sell' ? this.reserves[0] : this.reserves[1];
     const reservesOut = action === 'sell' ? this.reserves[1] : this.reserves[0];
 
-    return reservesOut > amountOut
-      ? null
-      : NativeUniswapV2Calculator.getTokensIn(reservesIn, reservesOut, amountOut);
+    return NativeUniswapV2Calculator.getTokensIn(reservesIn, reservesOut, amountOut);
   }
 
   async performSwap(
