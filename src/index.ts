@@ -3,6 +3,7 @@ import { BigNumber, Contract, providers } from 'ethers';
 import {
   concatMap,
   defer,
+  delay,
   EMPTY,
   filter,
   from,
@@ -529,7 +530,7 @@ async function main() {
 
   const thisBlock$ = runner.currentBlockNumber$;
   const concurrentSimulationCount = 20;
-  const simulatedOpportunities$ = runner.start().pipe(
+  const opportunities$ = runner.start().pipe(
     switchMap((event) => {
       const opportunities = event.opportunities.filter((op) => op.profit > MIN_PROFIT_NET);
       console.log(
@@ -542,6 +543,10 @@ async function main() {
         opportunities.map((op) => [op, event.baseFeePerGas] as [ArbitrageOpportunity, bigint]),
       );
     }),
+  );
+
+  const simulatedOpportunities$ = opportunities$.pipe(
+    delay(5),
     mergeMap(([opportunity, baseFeePerGas]) => {
       return thisBlock$.pipe(
         //TODO: add timeout 60 sec for simulation
