@@ -43,62 +43,36 @@ export class UniswapV3PoolStateSyncerContractQuery {
     }
 
     startTime('syncV3');
+    const marketsNonZeroTicks: UniswapV3Market[] = [];
     const marketsByTickCount = markets.reduce((acc, market) => {
-      const key = String(market?.pool?.ticks?.length ?? 0);
-      (acc[key] ?? (acc[key] = [])).push(market);
+      const ticksCount = market?.pool?.ticks?.length ?? 0;
+
+      if (ticksCount) {
+        const key = String(ticksCount);
+        (acc[key] ?? (acc[key] = [])).push(market);
+        marketsNonZeroTicks.push(market);
+      }
+
       return acc;
     }, {} as Record<string, UniswapV3Market[]>);
-    const marketsByAddress = markets.reduce((acc, market) => {
+    const marketsByAddress = marketsNonZeroTicks.reduce((acc, market) => {
       acc[market.marketAddress] = market;
       return acc;
     }, {} as Record<string, UniswapV3Market>);
 
-    const marketsToSkip = marketsByTickCount['0']?.length ?? 0;
+    const marketsToSkip = markets.length - marketsNonZeroTicks.length;
 
     if (marketsToSkip) {
       console.log(`Request v3 skipping zero tick markets:`, marketsToSkip);
     }
 
-    const batches: PoolBatchPayload[] = [];
-    let nextBatch: PoolBatchPayload = { bufferSizes: [], addresses: [], totalBufferSize: 0 };
-    //TODO: потюнить
-    const maxMarketsInBatch = 100;
-    const maxTicksInBatch = 1500;
+    const batches = this.createBatches(marketsByTickCount);
 
-    for (const key in marketsByTickCount) {
-      const ticksCount = Number(key);
-
-      if (ticksCount <= 0) {
-        continue;
-      }
-
-      for (const market of marketsByTickCount[key]) {
-        if (
-          nextBatch.addresses.length >= maxMarketsInBatch ||
-          nextBatch.totalBufferSize >= maxTicksInBatch
-        ) {
-          batches.push(nextBatch);
-          nextBatch = { bufferSizes: [], addresses: [], totalBufferSize: 0 };
-        }
-
-        const extraTicksForBuffer =
-          ticksCount < 50
-            ? 0
-            : ticksCount < 100
-            ? 2
-            : ticksCount < 200
-            ? 4
-            : ticksCount < 500
-            ? 6
-            : 8;
-        const estimatedTicksCount = ticksCount + extraTicksForBuffer;
-        nextBatch.addresses.push(market.marketAddress);
-        nextBatch.bufferSizes.push(estimatedTicksCount);
-        nextBatch.totalBufferSize += estimatedTicksCount;
-      }
+    if (!batches.length) {
+      console.log(`Sync V3 skipped: no batches`);
+      return;
     }
 
-    batches.push(nextBatch);
     console.log(`Request v3 batches:`, batches.length);
 
     await lastValueFrom(
@@ -165,6 +139,85 @@ export class UniswapV3PoolStateSyncerContractQuery {
     );
 
     return result;
+  }
+
+  private createBatches(marketsByTickCount: Record<string, UniswapV3Market[]>): PoolBatchPayload[] {
+    const maxMarkets = 100;
+    const maxTicks = 1500;
+    const minMarkets = Math.ceil(maxMarkets / 10);
+    const minTicks = Math.ceil(maxTicks / 10);
+
+    let batches = this.createBatchesOfSize(marketsByTickCount, maxMarkets, maxTicks);
+
+    let ticksInBatch = maxTicks;
+    let marketsInBatch = maxMarkets;
+    let smallerBatches: PoolBatchPayload[] = batches;
+    let wasReduced = false;
+
+    while (
+      ticksInBatch > minTicks &&
+      marketsInBatch > minMarkets &&
+      smallerBatches.length < this.parallelCount
+    ) {
+      marketsInBatch = Math.max(Math.ceil(marketsInBatch / 2), minMarkets);
+      ticksInBatch = Math.max(Math.ceil(ticksInBatch / 2), minTicks);
+      smallerBatches = this.createBatchesOfSize(marketsByTickCount, marketsInBatch, ticksInBatch);
+
+      if (smallerBatches.length < this.parallelCount) {
+        batches = smallerBatches;
+        wasReduced = true;
+      }
+    }
+
+    if (wasReduced) {
+      console.log(`Request v3 reduced batch size. ${marketsInBatch} / ${ticksInBatch}`);
+    }
+
+    return batches;
+  }
+
+  private createBatchesOfSize(
+    marketsByTickCount: Record<string, UniswapV3Market[]>,
+    maxMarketsInBatch: number,
+    maxTicksInBatch: number,
+  ): PoolBatchPayload[] {
+    const batches: PoolBatchPayload[] = [];
+    let nextBatch: PoolBatchPayload = { bufferSizes: [], addresses: [], totalBufferSize: 0 };
+
+    for (const key in marketsByTickCount) {
+      const ticksCount = Number(key);
+
+      for (const market of marketsByTickCount[key]) {
+        if (
+          nextBatch.addresses.length >= maxMarketsInBatch ||
+          nextBatch.totalBufferSize >= maxTicksInBatch
+        ) {
+          batches.push(nextBatch);
+          nextBatch = { bufferSizes: [], addresses: [], totalBufferSize: 0 };
+        }
+
+        const extraTicksForBuffer =
+          ticksCount < 50
+            ? 0
+            : ticksCount < 100
+            ? 2
+            : ticksCount < 200
+            ? 4
+            : ticksCount < 500
+            ? 6
+            : 8;
+        const estimatedTicksCount = ticksCount + extraTicksForBuffer;
+        nextBatch.addresses.push(market.marketAddress);
+        nextBatch.bufferSizes.push(estimatedTicksCount);
+        nextBatch.totalBufferSize += estimatedTicksCount;
+      }
+    }
+
+    if (nextBatch.addresses.length) {
+      batches.push(nextBatch);
+    }
+
+    return batches;
   }
 }
 
