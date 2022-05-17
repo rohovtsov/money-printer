@@ -1,52 +1,30 @@
 import 'log-timestamp';
-import { BigNumber, Contract, providers } from 'ethers';
-import {
-  concatMap,
-  defer,
-  delay,
-  EMPTY,
-  filter,
-  from,
-  map,
-  merge,
-  mergeMap,
-  shareReplay,
-  switchMap,
-  take,
-  tap,
-} from 'rxjs';
+import { providers } from 'ethers';
+import { concatMap, defer, delay, EMPTY, from, map, mergeMap, switchMap, tap } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { ArbitrageBlacklist } from './arbitrage-blacklist';
 import { ArbitrageExecutor } from './arbitrage-executor';
 import { ArbitrageRunner } from './arbitrage-runner';
 import {
+  ALCHEMY_API_KEY,
   ArbitrageOpportunity,
   BLACKLIST_MARKETS,
   BLACKLIST_TOKENS,
-  calcBaseFeePerGas,
   endTime,
   ETHER,
   EthMarket,
   EthMarketFactory,
   FLASHBOTS_RELAY_SIGNING_KEY,
-  getBaseFeePerGas,
   getLastBlockNumber,
-  getLogsRegressive,
   INFURA_API_KEY,
-  mergeLogPacks,
   MIN_PROFIT_NET,
   NETWORK,
   printOpportunity,
   PRIVATE_KEY,
   SimulatedArbitrageOpportunity,
   startTime,
-  UNISWAP_POOL_BURN_EVENT_TOPIC,
-  UNISWAP_POOL_MINT_EVENT_TOPIC,
   UNISWAP_V2_FACTORY_ADDRESSES,
   UNISWAP_V3_FACTORY_ADDRESSES,
-  UNISWAP_V3_POOL_ABI,
-  UNISWAP_V3_QUOTER_ABI,
-  UNISWAP_V3_QUOTER_ADDRESS,
   USE_FLASHBOTS,
   WETH_ADDRESS,
 } from './entities';
@@ -60,16 +38,15 @@ import { UniswapV3Market } from './uniswap/uniswap-v3-market';
 import { UniswapV3PoolStateSyncerContractQuery } from './uniswap/uniswap-v3-pool-state-syncer-contract-query';
 import { UniswapV2ArbitrageStrategy } from './triangle/uniswap-v2-arbitrage-strategy';
 import { UniswapV2MarketFactory } from './uniswap/uniswap-v2-market-factory';
-import { util } from 'prettier';
 
 const PROVIDERS = [
-  new providers.AlchemyWebSocketProvider(NETWORK, `a0SpOFIBbxj6-0h4q8PyDjF1xKIqScxB`),
-  new providers.AlchemyProvider(NETWORK, 'a0SpOFIBbxj6-0h4q8PyDjF1xKIqScxB'),
+  new providers.AlchemyWebSocketProvider(NETWORK, ALCHEMY_API_KEY),
+  new providers.AlchemyProvider(NETWORK, ALCHEMY_API_KEY),
   new providers.InfuraWebSocketProvider(NETWORK, INFURA_API_KEY),
   new providers.InfuraProvider(NETWORK, INFURA_API_KEY),
 ];
-const provider = PROVIDERS[0];
-const wssProvider = PROVIDERS[0] as providers.WebSocketProvider;
+const provider = PROVIDERS[0] as providers.WebSocketProvider;
+const providersForRace = PROVIDERS.filter((p) => p !== provider);
 
 async function testSpeed() {
   const test = [
@@ -106,6 +83,7 @@ async function main() {
   //12369800 = 2 marketsV3
 
   console.log(`Launching on ${NETWORK} ${USE_FLASHBOTS ? 'using flashbots ' : ''}...`);
+  console.log(`Using ${providersForRace.length} providers for race requests...`);
 
   const sender = USE_FLASHBOTS
     ? await FlashbotsTransactionSender.create(provider, NETWORK, FLASHBOTS_RELAY_SIGNING_KEY)
@@ -152,7 +130,7 @@ async function main() {
     new UniswapV2ReservesSyncer(provider, 10, 1000),
     new UniswapV3PoolStateSyncerContractQuery(provider, 10),
     provider,
-    wssProvider,
+    providersForRace,
   );
 
   /*marketsV3 = markets as UniswapV3Market[];
@@ -531,6 +509,8 @@ async function main() {
   const thisBlock$ = runner.currentBlockNumber$;
   const concurrentSimulationCount = 20;
   const opportunities$ = runner.start().pipe(
+    //pause a bit, to let eventLoop deliver the new blocks
+    delay(1),
     switchMap((event) => {
       const opportunities = event.opportunities.filter((op) => op.profit > MIN_PROFIT_NET);
       console.log(
@@ -546,7 +526,6 @@ async function main() {
   );
 
   const simulatedOpportunities$ = opportunities$.pipe(
-    delay(5),
     mergeMap(([opportunity, baseFeePerGas]) => {
       return thisBlock$.pipe(
         //TODO: add timeout 60 sec for simulation

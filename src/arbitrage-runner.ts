@@ -1,12 +1,14 @@
-import { BigNumber, providers } from 'ethers';
+import { providers } from 'ethers';
 import {
   Address,
   ArbitrageOpportunity,
   ArbitrageStrategy,
   calcBaseFeePerGas,
   canCalcBaseFeePerGas,
+  endTime,
   EthMarket,
   getBaseFeePerGas,
+  raceGetLogs,
   startTime,
   UNISWAP_POOL_EVENT_TOPICS,
   UNISWAP_SYNC_EVENT_TOPIC,
@@ -59,15 +61,15 @@ export class ArbitrageRunner {
     readonly strategies: ArbitrageStrategy[],
     readonly uniswapV2Syncer: UniswapV2ReservesSyncer,
     readonly uniswapV3Syncer: UniswapV3PoolStateSyncerContractQuery,
-    readonly provider: providers.JsonRpcProvider,
-    readonly websocketProvider: providers.WebSocketProvider,
+    readonly hostProvider: providers.WebSocketProvider,
+    readonly providersForRace: providers.JsonRpcProvider[] = [],
   ) {
     this.marketsByAddress = this.markets.reduce((acc, market) => {
       acc[market.marketAddress] = market;
       return acc;
     }, {} as Record<Address, EthMarket>);
 
-    this.newBlocks$ = fromNewBlockEvent(this.websocketProvider).pipe(
+    this.newBlocks$ = fromNewBlockEvent(this.hostProvider).pipe(
       distinctUntilChanged((prev, current) => prev.blockNumber === current.blockNumber),
       shareReplay(1),
     );
@@ -89,12 +91,23 @@ export class ArbitrageRunner {
           });
         }
 
+        startTime('changedMarkets');
         return defer(() =>
-          loadChangedEthMarkets(this.provider, event.blockNumber, this.marketsByAddress),
+          loadChangedEthMarkets(
+            this.hostProvider,
+            this.providersForRace,
+            event.blockNumber,
+            this.marketsByAddress,
+          ),
         )
           .pipe(retry(5))
           .pipe(
             map((changedMarkets: EthMarket[]) => {
+              console.log(
+                `Loaded ${changedMarkets.length} changed markets in ${endTime(
+                  'changedMarkets',
+                )}ms at ${event.blockNumber}`,
+              );
               return {
                 changedMarkets,
                 baseFeePerGas: event.nextBaseFeePerGas,
@@ -208,30 +221,29 @@ export class ArbitrageRunner {
   }
 }
 
-function loadChangedEthMarkets(
+export function loadChangedEthMarkets(
   provider: providers.JsonRpcProvider,
+  providersForRace: providers.JsonRpcProvider[],
   blockNumber: number,
   marketsByAddress: Record<Address, EthMarket>,
 ): Promise<EthMarket[]> {
   const indicatorTopics = new Set<string>([...UNISWAP_POOL_EVENT_TOPICS, UNISWAP_SYNC_EVENT_TOPIC]);
 
-  return provider
-    .getLogs({
-      fromBlock: blockNumber,
-      toBlock: blockNumber,
-    })
-    .then((logs) => {
-      const changedAddresses = logs
-        .filter((log) => log.topics.some((topic) => indicatorTopics.has(topic)))
-        .map((log) => log.address);
+  return raceGetLogs(provider, providersForRace, {
+    fromBlock: blockNumber,
+    toBlock: blockNumber,
+  }).then((logs) => {
+    const changedAddresses = logs
+      .filter((log) => log.topics.some((topic) => indicatorTopics.has(topic)))
+      .map((log) => log.address);
 
-      return changedAddresses.reduce((acc, address) => {
-        if (marketsByAddress[address]) {
-          acc.push(marketsByAddress[address]);
-        }
-        return acc;
-      }, [] as EthMarket[]);
-    });
+    return changedAddresses.reduce((acc, address) => {
+      if (marketsByAddress[address]) {
+        acc.push(marketsByAddress[address]);
+      }
+      return acc;
+    }, [] as EthMarket[]);
+  });
 }
 
 function fromNewBlockEvent(provider: providers.WebSocketProvider): Observable<NewBlockEvent> {
@@ -242,6 +254,7 @@ function fromNewBlockEvent(provider: providers.WebSocketProvider): Observable<Ne
       const blockNumber = Number(rawBlock.number);
       const logMessage = `${id++ === 0 ? 'Initial block' : 'New block'}: ${blockNumber}`;
 
+      console.log();
       if (canCalcBaseFeePerGas(blockNumber)) {
         const baseFeePerGas = BigInt(rawBlock.baseFeePerGas);
         const gasUsed = BigInt(rawBlock.gasUsed);

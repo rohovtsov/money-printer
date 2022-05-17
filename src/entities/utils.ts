@@ -1,7 +1,8 @@
-import { BigNumber, providers } from 'ethers';
+import { providers } from 'ethers';
 import { concatMap, delay, Observable, of, OperatorFunction } from 'rxjs';
 import { Listener } from '@ethersproject/providers';
 import { NETWORK } from './environmet';
+import { Log, Filter } from '@ethersproject/abstract-provider';
 
 export const ETHER = 10n ** 18n;
 export const GWEI = 10n ** 9n;
@@ -133,7 +134,7 @@ export function calcBaseFeePerGas(
 
   if (gasUsed > parentGasTarget) {
     // If the parent block used more gas than its target, the baseFee should increase.
-    const gasUsedDelta = gasUsed / parentGasTarget;
+    const gasUsedDelta = gasUsed - parentGasTarget;
     const x = baseFeePerGas * gasUsedDelta;
     const y = x / parentGasTargetBig;
     const baseFeeDelta = bigNumberMax(y / baseFeeChangeDenominator, 1n);
@@ -148,4 +149,30 @@ export function calcBaseFeePerGas(
 
     return bigNumberMax(baseFeePerGas - baseFeeDelta, 0n);
   }
+}
+
+async function getNonEmptyLogsRecursive(
+  provider: providers.JsonRpcProvider,
+  payload: Filter,
+  maxRetries: number,
+  retryNumber = 0,
+): Promise<Log[]> {
+  let logs = await provider.getLogs(payload).catch(() => []);
+
+  if (logs.length <= 0 && retryNumber < maxRetries) {
+    return getNonEmptyLogsRecursive(provider, payload, maxRetries, retryNumber + 1);
+  } else {
+    return logs;
+  }
+}
+
+export async function raceGetLogs(
+  provider: providers.JsonRpcProvider,
+  otherProviders: providers.JsonRpcProvider[],
+  payload: Filter,
+): Promise<Log[]> {
+  return Promise.race([
+    provider.getLogs(payload),
+    ...otherProviders.map((otherProvider) => getNonEmptyLogsRecursive(otherProvider, payload, 100)),
+  ]);
 }
