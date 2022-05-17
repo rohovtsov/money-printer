@@ -36,18 +36,21 @@ interface SyncEvent {
   changedMarkets: EthMarket[];
   baseFeePerGas: bigint;
   blockNumber: number;
+  blockReceivedAt: number;
   initial: boolean;
 }
 
 interface NewBlockEvent {
   nextBaseFeePerGas: bigint;
   blockNumber: number;
+  blockReceivedAt: number;
 }
 
 interface ArbitrageEvent {
   opportunities: ArbitrageOpportunity[];
   baseFeePerGas: bigint;
   blockNumber: number;
+  blockReceivedAt: number;
 }
 
 export class ArbitrageRunner {
@@ -86,6 +89,7 @@ export class ArbitrageRunner {
           return of({
             changedMarkets: this.markets,
             baseFeePerGas: event.nextBaseFeePerGas,
+            blockReceivedAt: event.blockReceivedAt,
             blockNumber: event.blockNumber,
             initial: true,
           });
@@ -111,6 +115,7 @@ export class ArbitrageRunner {
               return {
                 changedMarkets,
                 baseFeePerGas: event.nextBaseFeePerGas,
+                blockReceivedAt: event.blockReceivedAt,
                 blockNumber: event.blockNumber,
                 initial: false,
               };
@@ -166,6 +171,7 @@ export class ArbitrageRunner {
         return {
           opportunities: this.runStrategies(event.changedMarkets, event.blockNumber),
           baseFeePerGas: event.baseFeePerGas,
+          blockReceivedAt: event.blockReceivedAt,
           blockNumber: event.blockNumber,
         };
       }),
@@ -251,6 +257,7 @@ function fromNewBlockEvent(provider: providers.WebSocketProvider): Observable<Ne
 
   return new Observable<NewBlockEvent>((observer) => {
     provider._subscribe('newHeads', ['newHeads'], (rawBlock: any) => {
+      const blockReceivedAt = Date.now();
       const blockNumber = Number(rawBlock.number);
       const logMessage = `${id++ === 0 ? 'Initial block' : 'New block'}: ${blockNumber}`;
 
@@ -261,12 +268,12 @@ function fromNewBlockEvent(provider: providers.WebSocketProvider): Observable<Ne
         const gasLimit = BigInt(rawBlock.gasLimit);
         const nextBaseFeePerGas = calcBaseFeePerGas(baseFeePerGas, gasUsed, gasLimit);
         console.log(`${logMessage}, next gas price: ${nextBaseFeePerGas.toString()}`);
-        observer.next({ blockNumber, nextBaseFeePerGas });
+        observer.next({ blockReceivedAt, blockNumber, nextBaseFeePerGas });
       } else {
         console.log(logMessage);
         getBaseFeePerGas(provider, blockNumber).then((nextBaseFeePerGas) => {
           console.log(`Next gas price: ${nextBaseFeePerGas}, for block ${blockNumber}`);
-          observer.next({ blockNumber, nextBaseFeePerGas });
+          observer.next({ blockReceivedAt, blockNumber, nextBaseFeePerGas });
         });
       }
     });
