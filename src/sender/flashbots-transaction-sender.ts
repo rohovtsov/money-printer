@@ -76,7 +76,11 @@ export class FlashbotsTransactionSender implements TransactionSender {
       }
 
       const hash = transaction?.bundleHash;
-      console.log(`Flashbots transaction. Sent: ${hash} at ${blockNumber}`);
+      console.log(
+        `Flashbots transaction. Sent: ${hash} at ${blockNumber} - since block was received: ${
+          Date.now() - data.opportunity.blockReceivedAt!
+        }ms`,
+      );
       const result = await transaction.wait();
       const receipt = ((await transaction.receipts()) ?? [])?.[0] ?? null;
       await this.logResultReport(
@@ -104,8 +108,8 @@ export class FlashbotsTransactionSender implements TransactionSender {
   }
 
   async simulateTransaction(data: TransactionData): Promise<bigint> {
-    //return 200000n;
-    const { signer, transactionData, blockNumber } = data;
+    return 320000n;
+    /*const { signer, transactionData, blockNumber } = data;
 
     const signedBundle = await this.flashbotsProvider.signBundle([
       {
@@ -132,7 +136,7 @@ export class FlashbotsTransactionSender implements TransactionSender {
       } else {
         throw err;
       }
-    }
+    }*/
   }
 
   private async logResultReport(
