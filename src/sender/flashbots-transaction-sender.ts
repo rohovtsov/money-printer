@@ -74,7 +74,7 @@ export class FlashbotsTransactionSender implements TransactionSender {
         throw new Error('Relay Error');
       }
 
-      const hash = transaction?.bundleTransactions?.[0].hash;
+      const hash = transaction?.bundleHash;
       console.log(`Flashbots transaction. Sent: ${hash} at ${blockNumber}`);
       const result = await transaction.wait();
       const receipt = ((await transaction.receipts()) ?? [])?.[0] ?? null;

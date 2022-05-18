@@ -252,7 +252,9 @@ export function loadChangedEthMarkets(
   });
 }
 
-function fromNewBlockEvent(provider: providers.WebSocketProvider): Observable<NewBlockEvent> {
+export function fromNewBlockEvent(
+  provider: providers.WebSocketProvider,
+): Observable<NewBlockEvent> {
   let id = 0;
 
   return new Observable<NewBlockEvent>((observer) => {
