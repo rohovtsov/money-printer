@@ -14,6 +14,7 @@ export interface ArbitrageOperation {
 
 export interface ArbitrageOpportunity {
   blockNumber: number;
+  blockReceivedAt?: number;
   strategyName: ArbitrageStrategyName;
   operations: ArbitrageOperation[];
   startToken: Address;

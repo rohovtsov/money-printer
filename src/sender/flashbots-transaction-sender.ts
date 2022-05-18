@@ -16,6 +16,7 @@ import {
   TransactionData,
   TransactionSender,
 } from '../entities';
+import { GetBundleStatsResponseSuccess } from '@flashbots/ethers-provider-bundle/src';
 
 const storePath = `simulations/${NETWORK}.json`;
 
@@ -78,7 +79,14 @@ export class FlashbotsTransactionSender implements TransactionSender {
       console.log(`Flashbots transaction. Sent: ${hash} at ${blockNumber}`);
       const result = await transaction.wait();
       const receipt = ((await transaction.receipts()) ?? [])?.[0] ?? null;
-      await this.logResultReport(hash, signedBundle, result, receipt, blockNumber);
+      await this.logResultReport(
+        hash,
+        data.opportunity,
+        signedBundle,
+        result,
+        receipt,
+        blockNumber,
+      );
 
       return receipt;
     } catch (err: any) {
@@ -96,6 +104,7 @@ export class FlashbotsTransactionSender implements TransactionSender {
   }
 
   async simulateTransaction(data: TransactionData): Promise<bigint> {
+    //return 200000n;
     const { signer, transactionData, blockNumber } = data;
 
     const signedBundle = await this.flashbotsProvider.signBundle([
@@ -128,6 +137,7 @@ export class FlashbotsTransactionSender implements TransactionSender {
 
   private async logResultReport(
     hash: string,
+    opportunity: ArbitrageOpportunity,
     signedBundle: Array<string>,
     resolution: FlashbotsBundleResolution,
     receipt: TransactionReceipt | null,
@@ -138,10 +148,25 @@ export class FlashbotsTransactionSender implements TransactionSender {
 
     if (receipt === null) {
       try {
-        console.log(
-          `Flashbots ${hash}. Bundle stats:`,
-          await this.flashbotsProvider.getBundleStats(hash, blocKNumber),
-        );
+        const bundleStats = (await this.flashbotsProvider.getBundleStats(
+          hash,
+          blocKNumber,
+        )) as GetBundleStatsResponseSuccess;
+        const simulatedAt = bundleStats?.simulatedAt
+          ? new Date(bundleStats!.simulatedAt).getTime()
+          : opportunity.blockReceivedAt!;
+        const submittedAt = bundleStats?.submittedAt
+          ? new Date(bundleStats!.submittedAt).getTime()
+          : opportunity.blockReceivedAt!;
+        const sentToMinersAt = bundleStats?.sentToMinersAt
+          ? new Date(bundleStats!.sentToMinersAt).getTime()
+          : opportunity.blockReceivedAt!;
+
+        console.log(`Flashbots ${hash}. Bundle stats:`, bundleStats, {
+          simulatedIn: simulatedAt - opportunity.blockReceivedAt!,
+          submittedIn: submittedAt - opportunity.blockReceivedAt!,
+          sentToMinersIn: sentToMinersAt - opportunity.blockReceivedAt!,
+        });
         //TODO: this call affects reputation https://docs.flashbots.net/flashbots-auction/searchers/advanced/troubleshooting#detecting
         console.log(
           `Flashbots ${hash}. Conflicting bundles:`,

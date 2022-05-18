@@ -169,7 +169,11 @@ export class ArbitrageRunner {
         startTime('render');
         console.log(`Changed markets: ${event.changedMarkets.length} in ${event.blockNumber}`);
         return {
-          opportunities: this.runStrategies(event.changedMarkets, event.blockNumber),
+          opportunities: this.runStrategies(
+            event.changedMarkets,
+            event.blockNumber,
+            event.blockReceivedAt,
+          ),
           baseFeePerGas: event.baseFeePerGas,
           blockReceivedAt: event.blockReceivedAt,
           blockNumber: event.blockNumber,
@@ -212,7 +216,11 @@ export class ArbitrageRunner {
     ]);
   }
 
-  private runStrategies(changedMarkets: EthMarket[], blockNumber: number): ArbitrageOpportunity[] {
+  private runStrategies(
+    changedMarkets: EthMarket[],
+    blockNumber: number,
+    blockReceivedAt: number,
+  ): ArbitrageOpportunity[] {
     return this.strategies
       .reduce((acc, strategy) => {
         const opportunities = strategy.getArbitrageOpportunities(
@@ -220,7 +228,9 @@ export class ArbitrageRunner {
           this.markets,
           blockNumber,
         );
-        acc.push(...opportunities);
+        for (const op of opportunities) {
+          acc.push({ ...op, blockReceivedAt });
+        }
         return acc;
       }, [] as ArbitrageOpportunity[])
       .sort((a, b) => (a.profit < b.profit ? 1 : a.profit > b.profit ? -1 : 0));
