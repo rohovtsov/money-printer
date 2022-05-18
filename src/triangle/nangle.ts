@@ -71,9 +71,12 @@ export function createNangles<T extends EthMarket>(
       }
 
       if (maxSize === 6) {
-        nangles.push(...createTriangles([startToken], group));
+        createTriangles([startToken], group).forEach((n) => nangles.push(n));
       } else {
-        nangles.push(...createNanglesRecursive(startNode, startNode, finishNode, maxSize));
+        //TODO: fix memory issues
+        createNanglesRecursive(startNode, startNode, finishNode, maxSize).forEach((n) =>
+          nangles.push(n),
+        );
       }
     }
   }
@@ -101,11 +104,10 @@ function createNanglesRecursive(
         continue;
       }
 
-      const moreResults = createNanglesRecursive(childNode, startNode, finishNode, pathSize, [
+      createNanglesRecursive(childNode, startNode, finishNode, pathSize, [
         ...path,
         childNode,
-      ]);
-      result.push(...moreResults);
+      ]).forEach((r) => result.push(r));
     }
   } else if (!currentNode.market && (path.length !== pathSize - 1 || currentNode !== finishNode)) {
     for (const childNode of currentNode.connections) {
@@ -117,11 +119,10 @@ function createNanglesRecursive(
         continue;
       }
 
-      const moreResults = createNanglesRecursive(childNode, startNode, finishNode, pathSize, [
+      createNanglesRecursive(childNode, startNode, finishNode, pathSize, [
         ...path,
         childNode,
-      ]);
-      result.push(...moreResults);
+      ]).forEach((r) => result.push(r));
     }
   }
 
