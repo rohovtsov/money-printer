@@ -3,39 +3,25 @@ import {
   ArbitrageOpportunity,
   ArbitrageStrategy,
   EthMarket,
-  GroupedEthMarkets,
   groupEthMarkets,
-  MarketAction,
 } from '../entities';
 import { UniswapV2Market } from '../uniswap/uniswap-v2-market';
+import { createNangles, filterNanglesByMarkets, groupNanglesByMarkets, Nangle } from './nangle';
 
 export type NangleStartOptions = { startAddresses: Address[] };
-
-type NanglesByMarketAddress = Record<Address, Nangle[]>;
-
-interface Nangle {
-  markets: UniswapV2Market[];
-  actions: MarketAction[];
-  startToken: Address;
-}
 
 const d1000 = BigInt(1000);
 const d997 = BigInt(997);
 
 export class UniswapV2ArbitrageStrategy implements ArbitrageStrategy {
   nangles: Nangle[];
-  nanglesByMarket: NanglesByMarketAddress;
+  nanglesByMarket: Record<Address, Nangle[]>;
 
   constructor(options: NangleStartOptions, markets: EthMarket[]) {
     const v2Markets = markets.filter((m) => m.protocol === 'uniswapV2');
     const group = groupEthMarkets(v2Markets);
-    this.nangles = createNangles(options.startAddresses, group, 3, 3);
-    this.nanglesByMarket = this.nangles.reduce((acc, triangle) => {
-      for (const market of triangle.markets) {
-        (acc[market.marketAddress] ?? (acc[market.marketAddress] = [])).push(triangle);
-      }
-      return acc;
-    }, {} as NanglesByMarketAddress);
+    this.nangles = createNangles<UniswapV2Market>(options.startAddresses, [3], group);
+    this.nanglesByMarket = groupNanglesByMarkets(this.nangles);
   }
 
   getArbitrageOpportunities(
@@ -43,7 +29,7 @@ export class UniswapV2ArbitrageStrategy implements ArbitrageStrategy {
     allMarkets: EthMarket[],
     blockNumber: number,
   ): ArbitrageOpportunity[] {
-    const changedTriangles = filterChangedNangles(changedMarkets, this.nanglesByMarket);
+    const changedTriangles = filterNanglesByMarkets(this.nanglesByMarket, changedMarkets);
     console.log(`Changed triangles ${changedTriangles.length}`);
     return changedTriangles
       .map((triangle) => this.calculateOpportunity(triangle, blockNumber))
@@ -51,7 +37,7 @@ export class UniswapV2ArbitrageStrategy implements ArbitrageStrategy {
   }
 
   calculateOpportunity(triangle: Nangle, blockNumber: number): ArbitrageOpportunity | null {
-    const [Ea, Eb] = this.getEaEb(triangle.startToken, triangle.markets);
+    const [Ea, Eb] = this.getEaEb(triangle.startToken, triangle.markets as UniswapV2Market[]);
     const optimalAmount = this.getOptimalAmount(Ea, Eb);
     if (!optimalAmount) {
       return null;
@@ -198,84 +184,4 @@ export class UniswapV2ArbitrageStrategy implements ArbitrageStrategy {
     }
     return y;
   }
-}
-
-function filterChangedNangles(
-  changedMarkets: EthMarket[],
-  trianglesByMarket: NanglesByMarketAddress,
-): Nangle[] {
-  const changedTriangles: Set<Nangle> = new Set<Nangle>();
-
-  for (const market of changedMarkets) {
-    const triangles = trianglesByMarket[market.marketAddress] ?? [];
-
-    for (const triangle of triangles) {
-      changedTriangles.add(triangle);
-    }
-  }
-
-  return Array.from(changedTriangles);
-}
-
-/**
- m1, m2, m3 = markets
- group1 = group of markets with firstToken
- group2 = group of markets without firstToken
-
- Triangle Schema:
- tokenA => m1 => tokenB => m2 => tokenC => m3 => tokenA
-
- m1 e group1 (with start)
- m2 e group2 (without start)
- m3 e group1, but m3 !== m1
- */
-function createNangles(
-  startingTokens: Address[],
-  group: GroupedEthMarkets,
-  min = 2,
-  max = 4,
-): Nangle[] {
-  const triangles: Nangle[] = [];
-
-  // TODO rohovtsov: нагенерировать не только пары по 3, но так же по 2 и по 4
-  for (const tokenA of startingTokens) {
-    const group1 = groupEthMarkets(group.marketsByToken[tokenA]);
-    const group2 = groupEthMarkets(
-      group.markets.filter((market) => market.tokens[0] !== tokenA && market.tokens[1] !== tokenA),
-    );
-
-    for (const market1 of group1.markets) {
-      const tokenB = market1.tokens[0] !== tokenA ? market1.tokens[0] : market1.tokens[1];
-
-      if (!group2.marketsByToken[tokenB]) {
-        continue;
-      }
-
-      for (const market2 of group2.marketsByToken[tokenB]) {
-        const tokenC = market2.tokens[0] !== tokenB ? market2.tokens[0] : market2.tokens[1];
-
-        if (!group1.marketsByToken[tokenC]) {
-          continue;
-        }
-
-        for (const market3 of group1.marketsByToken[tokenC]) {
-          if (market3 === market1) {
-            continue;
-          }
-
-          triangles.push({
-            startToken: tokenA,
-            markets: [market1, market2, market3] as UniswapV2Market[],
-            actions: [
-              market1.tokens[0] === tokenA ? 'sell' : 'buy',
-              market2.tokens[0] === tokenB ? 'sell' : 'buy',
-              market3.tokens[0] === tokenC ? 'sell' : 'buy',
-            ],
-          });
-        }
-      }
-    }
-  }
-
-  return triangles;
 }
