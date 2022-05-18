@@ -139,7 +139,9 @@ async function main() {
     //pause a bit, to let eventLoop deliver the new blocks
     delay(1),
     switchMap((event) => {
-      const opportunities = event.opportunities.filter((op) => op.profit > MIN_PROFIT_NET);
+      const opportunities = event.opportunities.filter(
+        (op) => op.profit - 200000n * event.baseFeePerGas >= MIN_PROFIT_NET,
+      );
       console.log(
         `Found opportunities: ${opportunities.length} in ${endTime('render')}ms at ${
           event.blockNumber
