@@ -11,7 +11,7 @@ export interface Nangle<T extends EthMarket = EthMarket> {
 interface GraphNode {
   id: Address;
   market?: EthMarket;
-  connections: Set<GraphNode>;
+  connections: GraphNode[];
 }
 
 type Graph = Record<Address, GraphNode>;
@@ -28,14 +28,14 @@ function createGraph(group: GroupedEthMarkets): Graph {
   const graph: Graph = {};
 
   for (const token of allTokens) {
-    graph[token] = { id: token, connections: new Set<GraphNode>() };
+    graph[token] = { id: token, connections: [] };
   }
 
   for (const market of allMarkets) {
     graph[market.marketAddress] = {
       id: market.marketAddress,
       market,
-      connections: new Set<GraphNode>(),
+      connections: [],
     };
   }
 
@@ -43,10 +43,15 @@ function createGraph(group: GroupedEthMarkets): Graph {
     const M = graph[market.marketAddress];
     const T0 = graph[market.tokens[0]];
     const T1 = graph[market.tokens[1]];
-    M.connections.add(T0);
-    M.connections.add(T1);
-    T0.connections.add(M);
-    T1.connections.add(M);
+    M.connections.push(T0);
+    M.connections.push(T1);
+    T0.connections.push(M);
+    T1.connections.push(M);
+  }
+
+  const nodes = Object.values(graph);
+  for (const node of nodes) {
+    node.connections = Array.from(new Set<GraphNode>(node.connections));
   }
 
   return graph;
@@ -70,18 +75,113 @@ export function createNangles<T extends EthMarket>(
         throw new Error('Wrong N provided');
       }
 
+      //if (maxSize === 6) {
+      //createTriangles([startToken], group).forEach((n) => nangles.push(n));
+      /*} else {
+        //TODO: fix memory issues
+
+      }*/
+      /*createNanglesRecursive(startNode, startNode, finishNode, maxSize).forEach((n) =>
+        nangles.push(n),
+      );*/
+      createNanglesRecursiveOpti(
+        graph,
+        startNode,
+        startNode,
+        finishNode,
+        maxSize,
+        [startNode],
+        nangles as Nangle[],
+      );
+    }
+  }
+
+  return nangles as Nangle<T>[];
+}
+
+export function createNanglesOpti<T extends EthMarket>(
+  startTokens: Address[],
+  Ns: number[],
+  group: GroupedEthMarkets,
+): Nangle<T>[] {
+  const graph = createGraph(group);
+  const nangles: Nangle[] = [];
+
+  for (const startToken of startTokens) {
+    for (const N of Ns) {
+      const startNode = graph[startToken];
+      const finishNode = graph[startToken];
+      const maxSize = N * 2;
+
+      if (!isInteger(maxSize) || maxSize < 4) {
+        throw new Error('Wrong N provided');
+      }
+
       if (maxSize === 6) {
         createTriangles([startToken], group).forEach((n) => nangles.push(n));
       } else {
         //TODO: fix memory issues
-        createNanglesRecursive(startNode, startNode, finishNode, maxSize).forEach((n) =>
-          nangles.push(n),
+        createNanglesRecursiveOpti(
+          graph,
+          startNode,
+          startNode,
+          finishNode,
+          maxSize,
+          [startNode],
+          nangles,
         );
       }
     }
   }
 
   return nangles as Nangle<T>[];
+}
+
+function createNanglesRecursiveOpti(
+  graph: Graph,
+  currentNode: GraphNode,
+  startNode: GraphNode,
+  finishNode: GraphNode,
+  pathSize: number,
+  path: GraphNode[] = [startNode],
+  result: Nangle[] = [],
+): void {
+  if (!currentNode.market && (path.length !== pathSize - 1 || currentNode !== finishNode)) {
+    for (const childNode of currentNode.connections) {
+      if (
+        path.includes(childNode) ||
+        (path.length === pathSize - 1 && !childNode.connections.includes(finishNode))
+      ) {
+        continue;
+      }
+
+      path.push(childNode);
+      let nextNode = childNode;
+      let deleteMore = false;
+
+      if (path.length < pathSize - 1) {
+        const token =
+          childNode.market!.tokens[0] === currentNode.id
+            ? childNode.market!.tokens[1]
+            : childNode.market!.tokens[0];
+        nextNode = graph[token];
+        path.push(nextNode);
+        deleteMore = true;
+      } else {
+        //console.log(path.map(p => p.id).join(', '));
+        result.push(pathToNangle(startNode.id, [...path]));
+        path.pop();
+        continue;
+      }
+
+      createNanglesRecursiveOpti(graph, nextNode, startNode, finishNode, pathSize, path, result);
+      path.pop();
+
+      if (deleteMore) {
+        path.pop();
+      }
+    }
+  }
 }
 
 function createNanglesRecursive(
@@ -115,7 +215,7 @@ function createNanglesRecursive(
         continue;
       }
 
-      if (path.length === pathSize - 1 && !childNode.connections.has(finishNode)) {
+      if (path.length === pathSize - 1 && !childNode.connections.includes(finishNode)) {
         continue;
       }
 
@@ -214,7 +314,7 @@ export function createNanglesInefficient(
           continue;
         }
 
-        if (currentSize === pathSize - 1 && !childNode.connections.has(finishNode)) {
+        if (currentSize === pathSize - 1 && !childNode.connections.includes(finishNode)) {
           continue;
         }
 

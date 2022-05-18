@@ -1,4 +1,4 @@
-import { createNangles, createTriangles, Nangle } from '../src/triangle/nangle';
+import { createNangles, createNanglesOpti, createTriangles, Nangle } from '../src/triangle/nangle';
 import { Address, endTime, EthMarket, groupEthMarkets, startTime } from '../src/entities';
 import { createDummyMarkets } from './entities/dummy-market';
 import { expect } from 'chai';
@@ -38,15 +38,20 @@ describe('NangleTest', function () {
       ...Array.from({ length: 100 }).map(() => ['A', 'C']),
     ] as [string, string][]);
 
-    startTime();
+    startTime('nangles');
     const triangles = createTriangles(['A'], groupEthMarkets(markets));
-    console.log(endTime());
+    console.log(endTime('nangles'));
+    startTime('nangles');
     const nangles = createNangles(['A'], [3], groupEthMarkets(markets));
-    console.log(endTime());
+    console.log(endTime('nangles'));
+    startTime('nangles');
+    const nanglesOpti = createNanglesOpti(['A'], [3], groupEthMarkets(markets));
+    console.log(endTime('nangles'));
     console.log('----');
     /*printNangles(triangles);
     printNangles(nangles);*/
     expect(triangles.length).equal(nangles.length);
+    expect(nanglesOpti.length).equal(nangles.length);
   });
 
   it('Test creation of nangles 2', function () {
