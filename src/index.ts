@@ -206,9 +206,8 @@ async function main() {
     }, concurrentSimulationCount),
   );
 
+  let lastExecutedAtBlock = 0;
   const executedOpportunities$ = simulatedOpportunities$.pipe(
-    //Test single execution
-    //take(1),
     mergeMap((opportunity) => {
       return thisBlock$.pipe(
         concatMap((blockNumber) => {
@@ -221,8 +220,19 @@ async function main() {
             return EMPTY;
           }
 
+          if (lastExecutedAtBlock >= opportunity.blockNumber) {
+            console.log(
+              `Execution postponed. Opportunity already sent at this block ${lastExecutedAtBlock}`,
+            );
+            //если уже на этом блоке отправляли, не будем усугублять так сказать
+            runner.queueOpportunity(opportunity);
+            return EMPTY;
+          }
+
           console.log(`Executing opportunity...`);
           printOpportunity(opportunity);
+          lastExecutedAtBlock = opportunity.blockNumber;
+
           return defer(() => executor.executeOpportunity(opportunity)).pipe(
             catchError(() => EMPTY),
             map(() => opportunity),

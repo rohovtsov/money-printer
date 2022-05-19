@@ -225,7 +225,6 @@ export class ArbitrageExecutor {
 
       if (err?.code === 429) {
         //Too many requests, alchemy
-        console.log(`Simulation error`, err?.message);
         throw { queue: true };
       } else if (error?.body?.startsWith('Too many requests')) {
         throw { queue: true };

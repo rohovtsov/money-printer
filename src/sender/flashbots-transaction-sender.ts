@@ -153,8 +153,19 @@ export class FlashbotsTransactionSender implements TransactionSender {
         })
       ).toBigInt();
 
+      this.opportunityResults$.next({ opportunity: data.opportunity, result: true });
       return (estimatedGas * nominator) / denominator + 1n;
-    } catch (e) {
+    } catch (e: any) {
+      if (e?.code === 429) {
+        console.log(`Simulation error.`, e?.message);
+        await sleep(250);
+        return this.simulateWithEstimate(data);
+      }
+
+      if (e?.message?.includes('execution reverted')) {
+        this.opportunityResults$.next({ opportunity: data.opportunity, result: false });
+      }
+
       throw e;
     }
   }
