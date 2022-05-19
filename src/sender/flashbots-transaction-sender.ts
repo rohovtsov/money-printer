@@ -87,14 +87,7 @@ export class FlashbotsTransactionSender implements TransactionSender {
       );
       const result = await transaction.wait();
       const receipt = ((await transaction.receipts()) ?? [])?.[0] ?? null;
-      await this.logResultReport(
-        hash,
-        data.opportunity,
-        signedBundle,
-        result,
-        receipt,
-        blockNumber,
-      );
+      await this.logResultReport(hash, data.opportunity, result, receipt, blockNumber);
 
       return receipt;
     } catch (err: any) {
@@ -112,6 +105,11 @@ export class FlashbotsTransactionSender implements TransactionSender {
   }
 
   async simulateTransaction(data: TransactionData): Promise<bigint> {
+    //this.simulateWithFlashbots(data);
+    return this.simulateWithEstimate(data);
+  }
+
+  private async simulateWithFlashbots(data: TransactionData): Promise<bigint> {
     const { signer, transactionData, blockNumber } = data;
 
     const signedBundle = await this.flashbotsProvider.signBundle([
@@ -123,26 +121,14 @@ export class FlashbotsTransactionSender implements TransactionSender {
 
     try {
       const simulation = await this.flashbotsProvider.simulate(signedBundle, blockNumber);
-      let estimatedGas;
-      let estimatedGasErr;
-
-      try {
-        estimatedGas = (await this.provider.estimateGas(transactionData))?.toString();
-      } catch (e0) {
-        estimatedGasErr = e0;
-      }
 
       if ('error' in simulation || simulation.firstRevert !== undefined) {
         this.opportunityResults$.next({ opportunity: data.opportunity, result: false });
-        console.log(`Estimate gas`, estimatedGas, estimatedGasErr);
-        printOpportunity(data.opportunity);
         throw simulation;
       }
 
       this.opportunityResults$.next({ opportunity: data.opportunity, result: true });
 
-      console.log(`Estimate gas`, estimatedGas, estimatedGasErr);
-      printOpportunity(data.opportunity);
       return BigInt(simulation.totalGasUsed);
     } catch (err: any) {
       if (this.handleRateLimitError(err)) {
@@ -154,16 +140,35 @@ export class FlashbotsTransactionSender implements TransactionSender {
     }
   }
 
+  private async simulateWithEstimate(data: TransactionData): Promise<bigint> {
+    try {
+      //множитель кароче 1.25
+      const nominator = 100n;
+      const denominator = 125n;
+
+      const estimatedGas = (
+        await this.provider.estimateGas({
+          ...data.transactionData,
+          from: data.signer.address,
+        })
+      ).toBigInt();
+
+      return (estimatedGas * nominator) / denominator + 1n;
+    } catch (e) {
+      throw e;
+    }
+  }
+
   private async logResultReport(
     hash: string,
     opportunity: ArbitrageOpportunity,
-    signedBundle: Array<string>,
     resolution: FlashbotsBundleResolution,
     receipt: TransactionReceipt | null,
     blocKNumber: number,
   ): Promise<void> {
     console.log(`Flashbots ${hash}. Resolution: ${resolutionsMap[resolution]}`);
     console.log(`Flashbots ${hash}. Receipt:`, receipt);
+    console.log(`Flashbots ${hash}. User stats:`, await this.flashbotsProvider.getUserStats());
 
     if (receipt === null) {
       try {
@@ -186,11 +191,11 @@ export class FlashbotsTransactionSender implements TransactionSender {
           submittedIn: submittedAt - opportunity.blockReceivedAt!,
           sentToMinersIn: sentToMinersAt - opportunity.blockReceivedAt!,
         });
-        //TODO: this call affects reputation https://docs.flashbots.net/flashbots-auction/searchers/advanced/troubleshooting#detecting
+        /*//TODO: this call affects reputation https://docs.flashbots.net/flashbots-auction/searchers/advanced/troubleshooting#detecting
         console.log(
           `Flashbots ${hash}. Conflicting bundles:`,
           await this.flashbotsProvider.getConflictingBundle(signedBundle, blocKNumber),
-        );
+        );*/
       } catch (err) {
         console.log(`Flashbots ${hash} Error while getting stats.`, err);
       }

@@ -1,6 +1,18 @@
 import 'log-timestamp';
 import { providers } from 'ethers';
-import { concatMap, defer, delay, EMPTY, from, map, mergeMap, switchMap, tap } from 'rxjs';
+import {
+  concatMap,
+  defer,
+  delay,
+  EMPTY,
+  from,
+  map,
+  mergeMap,
+  skip,
+  switchMap,
+  take,
+  tap,
+} from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { ArbitrageBlacklist } from './arbitrage-blacklist';
 import { ArbitrageExecutor } from './arbitrage-executor';
@@ -113,6 +125,7 @@ async function main() {
   await new UniswapV3PreSyncer(
     new UniswapV3PoolStateSyncer(provider, 3),
     markets.filter((market) => market.protocol === 'uniswapV3') as UniswapV3Market[],
+    false,
   ).presync();
 
   const runner = new ArbitrageRunner(
@@ -120,7 +133,7 @@ async function main() {
     [
       new TriangleArbitrageStrategy(
         {
-          [WETH_ADDRESS]: [ETHER * 13n], //, ETHER.mul(10), ETHER]
+          [WETH_ADDRESS]: [ETHER * 5n], //, ETHER.mul(10), ETHER]
         },
         allowedMarkets,
       ),
@@ -133,7 +146,7 @@ async function main() {
   );
 
   const thisBlock$ = runner.currentBlockNumber$;
-  const concurrentSimulationCount = 20;
+  const concurrentSimulationCount = 10;
   const opportunities$ = runner.start().pipe(
     //pause a bit, to let eventLoop deliver the new blocks
     delay(1),
@@ -157,7 +170,6 @@ async function main() {
   const simulatedOpportunities$ = opportunities$.pipe(
     mergeMap(([opportunity, baseFeePerGas]) => {
       return thisBlock$.pipe(
-        //TODO: add timeout 60 sec for simulation
         concatMap((blockNumber) => {
           if (blockNumber > opportunity.blockNumber) {
             //если блок уже неактуальный, откладываем все до лучших времен.
@@ -195,6 +207,8 @@ async function main() {
   );
 
   const executedOpportunities$ = simulatedOpportunities$.pipe(
+    //Test single execution
+    //take(1),
     mergeMap((opportunity) => {
       return thisBlock$.pipe(
         concatMap((blockNumber) => {

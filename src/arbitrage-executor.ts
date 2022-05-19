@@ -46,7 +46,7 @@ export class ArbitrageExecutor {
     );
   }
 
-  private async createOpportunityTransactionData(
+  public async createOpportunityTransactionData(
     opportunity: ArbitrageOpportunity,
     ethAmountToCoinbase: bigint,
     gasPrice: bigint,
@@ -223,7 +223,11 @@ export class ArbitrageExecutor {
       const revert = err?.firstRevert?.revert ?? err?.firstRevert?.error;
       const error = err?.error ?? (!revert ? err : undefined);
 
-      if (error?.body?.startsWith('Too many requests')) {
+      if (err?.code === 429) {
+        //Too many requests, alchemy
+        console.log(`Simulation error`, err?.message);
+        throw { queue: true };
+      } else if (error?.body?.startsWith('Too many requests')) {
         throw { queue: true };
       } else {
         console.log(`Simulation ${revert ? 'reverted' : 'error'}.`, revert, error);

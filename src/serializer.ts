@@ -51,8 +51,8 @@ function serializeV2Market(market: UniswapV2Market): any {
     marketAddress: market!.marketAddress,
     token0: market!.tokens[0],
     token1: market!.tokens[1],
-    reserves0: market!.getReserve0(),
-    reserves1: market!.getReserve1(),
+    reserves0: market!.getReserve0()!.toString(),
+    reserves1: market!.getReserve1()!.toString(),
   };
 }
 

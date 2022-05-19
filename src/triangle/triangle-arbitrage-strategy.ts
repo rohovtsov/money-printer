@@ -7,6 +7,7 @@ import {
   MarketAction,
 } from '../entities';
 import { createNangles, filterNanglesByMarkets, groupNanglesByMarkets } from './nangle';
+import { saveNangle } from '../serializer';
 
 export type TriangleStartOptions = Record<Address, bigint[]>;
 
@@ -41,7 +42,12 @@ export class TriangleArbitrageStrategy implements ArbitrageStrategy {
     ) as Triangle[];
     console.log(`Changed triangles ${changedTriangles.length}`);
     return changedTriangles
-      .map((triangle) => this.calculateOpportunity(triangle, blockNumber))
+      .map((triangle) => {
+        /*if (opportunity?.operations?.reduce((acc, op) => acc + (op.market.protocol === 'uniswapV3' ? 1 : 0), 0) === 1) {
+          saveNangle('nangle.json', triangle);
+        }*/
+        return this.calculateOpportunity(triangle, blockNumber);
+      })
       .filter(Boolean) as ArbitrageOpportunity[];
   }
 

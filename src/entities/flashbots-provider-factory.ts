@@ -2,12 +2,10 @@ import { FlashbotsBundleProvider } from '@flashbots/ethers-provider-bundle';
 import { providers, Wallet } from 'ethers';
 import { Address } from './interfaces/eth-market';
 
-
-
 export async function createFlashbotsBundleProvider(
   provider: providers.JsonRpcProvider,
   network?: string,
-  flashbotsRelaySigningPrivateKey?: Address | null | undefined
+  flashbotsRelaySigningPrivateKey?: Address | null | undefined,
 ): Promise<FlashbotsBundleProvider> {
   let privateKey: Address;
 
@@ -16,16 +14,17 @@ export async function createFlashbotsBundleProvider(
     console.log(`Flashbots: using signing key ${privateKey}`);
   } else {
     privateKey = Wallet.createRandom().privateKey;
-    console.log(`Flashbots: creating random signing key, this flashbots searcher will not be building a reputation for next run`);
+    console.log(
+      `Flashbots: creating random signing key, this flashbots searcher will not be building a reputation for next run`,
+    );
   }
 
+  const rpcUrl =
+    network !== 'mainnet'
+      ? `https://relay-${network}.flashbots.net`
+      : `https://relay.flashbots.net`;
   const wallet = new Wallet(privateKey);
-  const rpcUrl = network !== 'mainnet' ? `https://relay-${network}.flashbots.net` : `https://relay.flashbots.net`;
+  console.log(`Flashbots reputation key: ${privateKey}`);
 
-  return FlashbotsBundleProvider.create(
-    provider,
-    wallet,
-    rpcUrl,
-    network
-  );
+  return FlashbotsBundleProvider.create(provider, wallet, rpcUrl, network);
 }
