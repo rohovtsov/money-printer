@@ -1,5 +1,5 @@
 import 'log-timestamp';
-import { providers } from 'ethers';
+import { Contract, providers } from 'ethers';
 import {
   concatMap,
   defer,
@@ -23,6 +23,7 @@ import {
   BLACKLIST_MARKETS,
   BLACKLIST_TOKENS,
   endTime,
+  ERC20_ABI,
   ETHER,
   EthMarket,
   EthMarketFactory,
@@ -30,6 +31,8 @@ import {
   getLastBlockNumber,
   INFURA_API_KEY,
   MIN_PROFIT_NET,
+  MONEY_PRINTER_QUERY_ABI,
+  MONEY_PRINTER_QUERY_ADDRESS,
   NETWORK,
   printOpportunity,
   PRIVATE_KEY,
@@ -60,34 +63,6 @@ const PROVIDERS = [
 ];
 const provider = PROVIDERS[0] as providers.WebSocketProvider;
 const providersForRace = PROVIDERS.filter((p) => p !== provider);
-
-async function testSpeed() {
-  const test = [
-    [PROVIDERS[0], 'WS Alchemy'],
-    [PROVIDERS[1], 'Alchemy'],
-    [PROVIDERS[2], 'WS Infura'],
-    [PROVIDERS[3], 'Infura'],
-  ];
-
-  const blocks: Record<string, any[]> = {};
-  const timestamps: Record<string, any> = {};
-
-  for (const item of test) {
-    (item[0] as any).on('block', (num: number) => {
-      const arr = blocks[String(num)] ?? (blocks[String(num)] = []);
-      const now = Date.now();
-
-      if (!timestamps[String(num)]) {
-        timestamps[String(num)] = now;
-      }
-
-      const first = timestamps[String(num)];
-      arr.push([item[1], now - first]);
-
-      console.log(blocks);
-    });
-  }
-}
 
 async function main() {
   //TODO: filter markets by reserves after retrieval
@@ -246,7 +221,6 @@ async function main() {
 }
 
 main();
-//testSpeed();
 
 //16:09:06.934
 //16:09:09.54

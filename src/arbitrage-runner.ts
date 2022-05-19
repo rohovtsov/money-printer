@@ -82,7 +82,7 @@ export class ArbitrageRunner {
     );
   }
 
-  private startSync(): Observable<SyncEvent> {
+  public startSync(): Observable<SyncEvent> {
     const changedMarkets$: Observable<SyncEvent> = this.newBlocks$.pipe(
       concatMap((event: NewBlockEvent, index: number): Observable<SyncEvent> => {
         if (index === 0) {
