@@ -27,6 +27,7 @@ import {
   ETHER,
   EthMarket,
   EthMarketFactory,
+  FLASHBOTS_RELAY_HACKED_SIGNING_KEY,
   FLASHBOTS_RELAY_SIGNING_KEY,
   getLastBlockNumber,
   INFURA_API_KEY,
@@ -74,7 +75,12 @@ async function main() {
   console.log(`Using ${providersForRace.length} providers for race requests...`);
 
   const sender = USE_FLASHBOTS
-    ? await FlashbotsTransactionSender.create(provider, NETWORK, FLASHBOTS_RELAY_SIGNING_KEY)
+    ? await FlashbotsTransactionSender.create(
+        provider,
+        NETWORK,
+        FLASHBOTS_RELAY_HACKED_SIGNING_KEY,
+        FLASHBOTS_RELAY_SIGNING_KEY,
+      )
     : new Web3TransactionSender(provider, 2);
 
   const LAST_BLOCK = await getLastBlockNumber(provider);

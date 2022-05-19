@@ -10,6 +10,9 @@ export const PRIVATE_KEY =
 export const MIN_PROFIT_NET = BigInt(String(Number(process.env.MIN_PROFIT_NET ?? 0) * 10 ** 18));
 
 export const USE_FLASHBOTS = Boolean(process.env.USE_FLASHBOTS ?? true);
+export const FLASHBOTS_RELAY_HACKED_SIGNING_KEY = Boolean(
+  process.env.FLASHBOTS_RELAY_HACKED_SIGNING_KEY ?? true,
+);
 export const FLASHBOTS_RELAY_SIGNING_KEY = process.env.FLASHBOTS_RELAY_SIGNING_KEY;
 export const MINER_REWORD_PERCENT = Number(process.env.MINER_REWORD_PERCENT ?? 50);
 export const UNISWAP_V3_GRAPH_ENDPOINT =

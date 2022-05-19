@@ -18,6 +18,8 @@ import {
   TransactionSender,
 } from '../entities';
 import { GetBundleStatsResponseSuccess } from '@flashbots/ethers-provider-bundle/src';
+import { id } from 'ethers/lib/utils';
+import { fetchJson } from '@ethersproject/web';
 
 const storePath = `simulations/${NETWORK}.json`;
 
@@ -47,6 +49,7 @@ export class FlashbotsTransactionSender implements TransactionSender {
   }
 
   private handleRateLimitError(err: any): boolean {
+    //TODO: rewrite bad error checking triggers
     const ratelimitResetAt = Number(err?.headers?.['x-ratelimit-reset']) * 1000;
 
     if (ratelimitResetAt && !isNaN(ratelimitResetAt)) {
@@ -79,7 +82,7 @@ export class FlashbotsTransactionSender implements TransactionSender {
         throw new Error('Relay Error');
       }
 
-      const hash = transaction?.bundleHash;
+      const hash = transaction!.bundleHash;
       console.log(
         `Flashbots transaction. Sent: ${hash} at ${blockNumber} - since block was received: ${
           Date.now() - data.opportunity.blockReceivedAt!
@@ -179,7 +182,6 @@ export class FlashbotsTransactionSender implements TransactionSender {
   ): Promise<void> {
     console.log(`Flashbots ${hash}. Resolution: ${resolutionsMap[resolution]}`);
     console.log(`Flashbots ${hash}. Receipt:`, receipt);
-    console.log(`Flashbots ${hash}. User stats:`, await this.flashbotsProvider.getUserStats());
 
     if (receipt === null) {
       try {
@@ -202,6 +204,8 @@ export class FlashbotsTransactionSender implements TransactionSender {
           submittedIn: submittedAt - opportunity.blockReceivedAt!,
           sentToMinersIn: sentToMinersAt - opportunity.blockReceivedAt!,
         });
+        console.log(`Flashbots ${hash}. User stats:`, await this.flashbotsProvider.getUserStats());
+
         /*//TODO: this call affects reputation https://docs.flashbots.net/flashbots-auction/searchers/advanced/troubleshooting#detecting
         console.log(
           `Flashbots ${hash}. Conflicting bundles:`,
@@ -239,41 +243,17 @@ export class FlashbotsTransactionSender implements TransactionSender {
   static async create(
     provider: providers.JsonRpcProvider,
     network?: string,
+    newSigningKeyPerEachRequest?: boolean,
     signingKey?: Address,
   ): Promise<FlashbotsTransactionSender> {
     return new FlashbotsTransactionSender(
-      await createFlashbotsBundleProvider(provider, network, signingKey),
+      await createFlashbotsBundleProvider(
+        provider,
+        network,
+        newSigningKeyPerEachRequest,
+        signingKey,
+      ),
       provider,
     );
   }
 }
-
-/*
-  [
-  {
-    to: '0x28cee28a7C4b4022AC92685C07d2f33Ab1A0e122',
-    from: '0x5e9a214bf9864143e44778F9729B230083388cDB',
-    contractAddress: null,
-    transactionIndex: 1,
-    gasUsed: BigNumber { _hex: '0x03ac56', _isBigNumber: true },
-logsBloom: '0x20200000000000000000000080000000100000000000000000000002000000080000000000000000000000000000001000000000000000000000020000000002400000001400000000000008100100200000000000600000000400000000080008000000000000000000000000000000000000000080040000000010000000000000001000000000000000100000000000000000000000080000004000000108040000000000000000000000000000000000000000001000000000040000000002004003001000000000000000000000000000000000001000000002000000008000000000000000000001000000000000000000000000000000000000802000',
-  blockHash: '0x046a54de0e6478c324ea0e911784d3815a8a5d3514941690417ba8795df04aa9',
-  transactionHash: '0x88212f75419a9aa92c5e30b6f8882469addc80672682fcb843357adb081e4a34',
-  logs: [
-  [Object], [Object],
-  [Object], [Object],
-  [Object], [Object],
-  [Object], [Object],
-  [Object], [Object],
-  [Object], [Object]
-],
-  blockNumber: 6845196,
-  confirmations: 1,
-  cumulativeGasUsed: BigNumber { _hex: '0x040966', _isBigNumber: true },
-effectiveGasPrice: BigNumber { _hex: '0x010c388cc1', _isBigNumber: true },
-status: 1,
-  type: 0,
-  byzantium: true
-}
-]
-*/
