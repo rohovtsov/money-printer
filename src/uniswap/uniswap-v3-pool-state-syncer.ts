@@ -40,9 +40,13 @@ export class UniswapV3PoolStateSyncer {
   private bulkQuery: any;
   private query: any;
 
-  constructor(readonly provider: providers.JsonRpcProvider, readonly parallelCount: number) {
+  constructor(
+    readonly provider: providers.JsonRpcProvider,
+    readonly parallelCount: number,
+    endpoint?: string,
+  ) {
     this.client = new ApolloClient({
-      uri: UNISWAP_V3_GRAPH_ENDPOINT,
+      uri: endpoint ?? UNISWAP_V3_GRAPH_ENDPOINT,
       fetch,
     });
 

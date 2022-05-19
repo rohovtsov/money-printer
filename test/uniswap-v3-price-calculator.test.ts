@@ -11,34 +11,87 @@ import {
 } from '../src/entities';
 import { UniswapV3Market } from '../src/uniswap/uniswap-v3-market';
 import { UniswapV3PoolStateSyncer } from '../src/uniswap/uniswap-v3-pool-state-syncer';
-import { FeeAmount, Pool } from '@uniswap/v3-sdk';
+import { FeeAmount, Pool, Tick } from '@uniswap/v3-sdk';
 import { ChainId, JSBI } from '@uniswap/sdk';
 import { CurrencyAmount, Token } from '@uniswap/sdk-core';
 import { expect } from 'chai';
 import { NativePool } from '../src/uniswap/native-pool/native-pool';
 import { NativeTick } from '../src/uniswap/native-pool/native-pool-utils';
+import { SyncSdkPool } from '../src/uniswap/sync-sdk-pool/sync-sdk-pool';
 import fs from 'fs';
 
-function calcPricesWithSyncPool(market: UniswapV3Market, amount: BigNumber) {
+function filterResult(amount: bigint, result: any) {
+  return result.map((res: any, index: number) => {
+    const isInput = index >= 2;
+
+    if (isInput && JSBI.lessThanOrEqual(res?.[1]?.liquidity ?? '0', JSBI.BigInt(0))) {
+      return null;
+    }
+
+    if (amount <= 0) {
+      return null;
+    }
+
+    const output = res?.[0]?.toSignificant(100);
+    return output ? BigNumber.from(output) : undefined;
+  });
+}
+
+function calcPricesWithSyncSdkPool(pool: SyncSdkPool, amount: bigint) {
   let results = [];
 
   try {
-    results.push(market.calcTokensOut('sell', amount));
+    results.push(
+      pool.getOutputAmountSync(CurrencyAmount.fromRawAmount(pool.token0, amount.toString())),
+    );
   } catch (e) {
     results.push(null);
   }
   try {
-    results.push(market.calcTokensOut('buy', amount));
+    results.push(
+      pool.getOutputAmountSync(CurrencyAmount.fromRawAmount(pool.token1, amount.toString())),
+    );
   } catch (e) {
     results.push(null);
   }
   try {
-    results.push(market.calcTokensIn('sell', amount));
+    results.push(
+      pool.getInputAmountSync(CurrencyAmount.fromRawAmount(pool.token0, amount.toString())),
+    );
   } catch (e) {
     results.push(null);
   }
   try {
-    results.push(market.calcTokensIn('buy', amount));
+    results.push(
+      pool.getInputAmountSync(CurrencyAmount.fromRawAmount(pool.token1, amount.toString())),
+    );
+  } catch (e) {
+    results.push(null);
+  }
+
+  return filterResult(amount, results);
+}
+
+function calcPricesWithNativePool(pool: NativePool, amount: bigint) {
+  let results = [];
+
+  try {
+    results.push(pool.getOutputAmount(pool.token0, amount));
+  } catch (e) {
+    results.push(null);
+  }
+  try {
+    results.push(pool.getOutputAmount(pool.token1, amount));
+  } catch (e) {
+    results.push(null);
+  }
+  try {
+    results.push(pool.getInputAmount(pool.token0, amount));
+  } catch (e) {
+    results.push(null);
+  }
+  try {
+    results.push(pool.getInputAmount(pool.token1, amount));
   } catch (e) {
     results.push(null);
   }
@@ -46,76 +99,15 @@ function calcPricesWithSyncPool(market: UniswapV3Market, amount: BigNumber) {
   return results;
 }
 
-function performanceTest(pool: NativePool, market: UniswapV3Market, amount0: BigNumber) {
-  startTime();
-  let output;
-  let nativeTime;
-  let syncTime;
-  let amount = amount0;
-  for (let i = 0; i < 100; i++) {
-    output = calcPricesWithNativePool(pool, amount);
-    amount = amount.mul(BigNumber.from(2));
-  }
-  console.log('native swap', output?.[0]?.toString(), (nativeTime = endTime()));
-
-  startTime();
-  amount = amount0;
-  for (let i = 0; i < 100; i++) {
-    output = calcPricesWithSyncPool(market, amount);
-    amount = amount.mul(2);
-  }
-  console.log('sync sdk', output?.[0]?.toString(), (syncTime = endTime()));
-  console.log(`native is faster ${syncTime / nativeTime}`);
-}
-
-function testOutputs(pool: NativePool, market: UniswapV3Market, amount: BigNumber) {
-  startTime();
-  let outputs0, outputs1;
-  for (let i = 0; i < 100; i++) {
-    outputs0 = calcPricesWithNativePool(pool, amount);
-    outputs1 = calcPricesWithSyncPool(market, amount);
-    amount = amount.mul(BigNumber.from(2));
-
-    for (let i = 0; i < 4; i++) {
-      expect(outputs0[i]?.toString()).equal(outputs1[i]?.toString());
-    }
-  }
-}
-
-async function calcPricesWithSdkPool(market: UniswapV3Market, amount: BigNumber) {
-  const token0 = new Token(ChainId.MAINNET, market.tokens[0], 0);
-  const token1 = new Token(ChainId.MAINNET, market.tokens[1], 0);
-
-  const pool = new Pool(
-    token0,
-    token1,
-    market.fee as FeeAmount,
-    JSBI.BigInt(market.pool?.sqrtRatioX96 ?? 0),
-    JSBI.BigInt(market.pool?.liquidity ?? 0),
-    market.pool?.tickCurrent ?? 0,
-    (market.pool?.tickDataProvider as any)?.ticks,
-  );
-
+async function calcPricesWithSdkPool(pool: Pool, amount: bigint) {
   const result = await Promise.all([
-    pool.getOutputAmount(CurrencyAmount.fromRawAmount(token0, JSBI.BigInt(amount.toString()))),
-    pool.getOutputAmount(CurrencyAmount.fromRawAmount(token1, JSBI.BigInt(amount.toString()))),
-    pool.getInputAmount(CurrencyAmount.fromRawAmount(token0, JSBI.BigInt(amount.toString()))),
-    pool.getInputAmount(CurrencyAmount.fromRawAmount(token1, JSBI.BigInt(amount.toString()))),
+    pool.getOutputAmount(CurrencyAmount.fromRawAmount(pool.token0, JSBI.BigInt(amount.toString()))),
+    pool.getOutputAmount(CurrencyAmount.fromRawAmount(pool.token1, JSBI.BigInt(amount.toString()))),
+    pool.getInputAmount(CurrencyAmount.fromRawAmount(pool.token0, JSBI.BigInt(amount.toString()))),
+    pool.getInputAmount(CurrencyAmount.fromRawAmount(pool.token1, JSBI.BigInt(amount.toString()))),
   ]);
 
-  return result.map((res, index) => {
-    const isInput = index >= 2;
-
-    if (isInput && JSBI.lessThanOrEqual(res[1].liquidity, JSBI.BigInt(0))) {
-      return null;
-    }
-
-    if (amount.lte(0)) {
-      return null;
-    }
-
-    return BigNumber.from(res[0].toSignificant(100));
-  });
+  return filterResult(amount, result);
 }
 
 function createNativePool(market: UniswapV3Market): NativePool {
@@ -133,47 +125,101 @@ function createNativePool(market: UniswapV3Market): NativePool {
   );
 }
 
-function calcPricesWithNativePool(pool: NativePool, amount: BigNumber) {
-  let results = [];
+function createSyncSdkPool(market: UniswapV3Market): SyncSdkPool {
+  return new SyncSdkPool(
+    new Token(ChainId.MAINNET, market.tokens[0], 0),
+    new Token(ChainId.MAINNET, market.tokens[1], 0),
+    market.fee as FeeAmount,
+    market.pool?.sqrtRatioX96?.toString() ?? '0',
+    market.pool?.liquidity?.toString() ?? '0',
+    market.pool?.tickCurrent ?? 0,
+    market.pool?.ticks?.map(
+      (tick: any) =>
+        new Tick({
+          index: tick.index,
+          liquidityGross: JSBI.BigInt(tick.liquidityGross.toString()),
+          liquidityNet: JSBI.BigInt(tick.liquidityNet.toString()),
+        }),
+    ) ?? [],
+  );
+}
 
-  try {
-    results.push(pool.getOutputAmount(pool.token0, BigInt(amount.toString())));
-  } catch (e) {
-    results.push(null);
-  }
-  try {
-    results.push(pool.getOutputAmount(pool.token1, BigInt(amount.toString())));
-  } catch (e) {
-    results.push(null);
-  }
-  try {
-    results.push(pool.getInputAmount(pool.token0, BigInt(amount.toString())));
-  } catch (e) {
-    results.push(null);
-  }
-  try {
-    results.push(pool.getInputAmount(pool.token1, BigInt(amount.toString())));
-  } catch (e) {
-    results.push(null);
-  }
+function createSdkPool(market: UniswapV3Market): Pool {
+  return new Pool(
+    new Token(ChainId.MAINNET, market.tokens[0], 0),
+    new Token(ChainId.MAINNET, market.tokens[1], 0),
+    market.fee as FeeAmount,
+    market.pool?.sqrtRatioX96?.toString() ?? '0',
+    market.pool?.liquidity?.toString() ?? '0',
+    market.pool?.tickCurrent ?? 0,
+    market.pool?.ticks?.map(
+      (tick: any) =>
+        new Tick({
+          index: tick.index,
+          liquidityGross: JSBI.BigInt(tick.liquidityGross.toString()),
+          liquidityNet: JSBI.BigInt(tick.liquidityNet.toString()),
+        }),
+    ) ?? [],
+  );
+}
 
-  return results;
+function performanceTest(pool: NativePool, syncPool: SyncSdkPool, amount0: bigint) {
+  startTime();
+  let output;
+  let nativeTime;
+  let syncTime;
+  let amount = amount0;
+  for (let i = 0; i < 100; i++) {
+    output = calcPricesWithNativePool(pool, amount);
+    amount = amount * 2n;
+  }
+  console.log('native swap', output?.[0]?.toString(), (nativeTime = endTime()));
+
+  startTime();
+  amount = amount0;
+  for (let i = 0; i < 100; i++) {
+    output = calcPricesWithSyncSdkPool(syncPool, amount);
+    amount = amount * 2n;
+  }
+  console.log('sync sdk', output?.[0]?.toString(), (syncTime = endTime()));
+  console.log(`native is faster ${syncTime / nativeTime}`);
+}
+
+function testOutputs(pool: NativePool, syncPool: SyncSdkPool, amount: bigint) {
+  startTime();
+  let outputs0, outputs1;
+  for (let i = 0; i < 100; i++) {
+    outputs0 = calcPricesWithNativePool(pool, amount);
+    outputs1 = calcPricesWithSyncSdkPool(syncPool, amount);
+    amount = amount * 2n;
+
+    for (let i = 0; i < 4; i++) {
+      expect(outputs0[i]?.toString()).equal(outputs1[i]?.toString());
+    }
+  }
 }
 
 describe('UniswapV3PriceCalculator', function () {
-  const provider = new providers.InfuraProvider('mainnet', '8ac04e84ff9e4fd19db5bfa857b90a92');
   this.timeout(15000);
+  const network: any = 'mainnet'; //goerli
+  const testMarket = '0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8'; //0x56b2Be3730dD9ca5c318390F242650dF5Fa8212b
+  const testAmount = '442535578348252745435545345534'; //mainnet
 
   it('equal prices for contract, sdk, and sync sdk', async function () {
+    const endpoint =
+      network === 'mainnet'
+        ? 'https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3'
+        : 'https://api.thegraph.com/subgraphs/name/ln-e/uniswap-v3-goerli';
+    const provider = new providers.InfuraProvider('mainnet', '8ac04e84ff9e4fd19db5bfa857b90a92');
     const factory = new UniswapV3MarketFactory(provider, UNISWAP_V3_FACTORY_ADDRESS, 12380000);
-    const syncer = new UniswapV3PoolStateSyncer(provider, 10);
+    const syncer = new UniswapV3PoolStateSyncer(provider, 10, endpoint);
     const markets = await factory.getEthMarkets();
 
     const market = markets.find(
-      (m) => m.marketAddress.toLowerCase() === '0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8',
+      (m) => m.marketAddress.toLowerCase() === testMarket.toLowerCase(),
     ) as UniswapV3Market;
     const quoter = new Contract(UNISWAP_V3_QUOTER_ADDRESS, UNISWAP_V3_QUOTER_ABI, provider);
-    const amount = BigNumber.from('442535578348252745435545345534');
+    const amount = BigInt(testAmount);
 
     const contractPrices = await Promise.all([
       quoter.callStatic
@@ -205,15 +251,18 @@ describe('UniswapV3PriceCalculator', function () {
 
     //saveMarket('sample-market.json', market);
     const nativePool = createNativePool(market);
-    const syncPrices = calcPricesWithSyncPool(market, amount);
+    const sdkPool = createSdkPool(market);
+    const syncSdkPool = createSyncSdkPool(market);
+    const syncPrices = calcPricesWithSyncSdkPool(syncSdkPool, amount);
     const nativePrices = calcPricesWithNativePool(nativePool, amount);
-    const sdkPrices = await calcPricesWithSdkPool(market, amount);
+    const sdkPrices = await calcPricesWithSdkPool(sdkPool, amount);
 
-    performanceTest(nativePool, market, amount);
-    testOutputs(nativePool, market, amount);
+    performanceTest(nativePool, syncSdkPool, amount);
+    testOutputs(nativePool, syncSdkPool, amount);
 
     console.log(contractPrices.slice(0, 4).map((b) => b?.toString()));
-    console.log(sdkPrices.map((b) => b?.toString()));
+    console.log(sdkPrices.map((b: any) => b?.toString()));
+    console.log(syncPrices.map((b: any) => b?.toString()));
     console.log(nativePrices.map((b) => b?.toString()));
 
     for (let i = 0; i < 4; i++) {
@@ -236,12 +285,14 @@ https://etherscan.io/address/0xE845469aAe04f8823202b011A848cf199420B4C1#readCont
 https://etherscan.io/address/0x7BeA39867e4169DBe237d55C8242a8f2fcDcc387#readContract
 */
 
+//0x56b2Be3730dD9ca5c318390F242650dF5Fa8212b#readContract
+
 function saveMarket(fileName: string, market: UniswapV3Market): void {
   fs.writeFileSync(
     fileName,
     JSON.stringify(
       {
-        ticks: (market?.pool?.advancedTicks ?? []).map((tick: any) => ({
+        ticks: (market?.pool?.ticks ?? []).map((tick: any) => ({
           index: tick.index,
           liquidityGross: tick.liquidityGross.toString(),
           liquidityNet: tick.liquidityNet.toString(),

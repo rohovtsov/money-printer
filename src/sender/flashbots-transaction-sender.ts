@@ -12,6 +12,7 @@ import {
   ArbitrageOpportunity,
   createFlashbotsBundleProvider,
   NETWORK,
+  printOpportunity,
   sleep,
   TransactionData,
   TransactionSender,
@@ -34,7 +35,10 @@ export class FlashbotsTransactionSender implements TransactionSender {
   private map = JSON.parse(readFileSync(storePath, { encoding: 'utf8' }));
   private rateLimitedTill = 0;
 
-  constructor(readonly flashbotsProvider: FlashbotsBundleProvider) {
+  constructor(
+    readonly flashbotsProvider: FlashbotsBundleProvider,
+    readonly provider: providers.JsonRpcProvider,
+  ) {
     this.opportunityStore();
   }
 
@@ -119,14 +123,26 @@ export class FlashbotsTransactionSender implements TransactionSender {
 
     try {
       const simulation = await this.flashbotsProvider.simulate(signedBundle, blockNumber);
+      let estimatedGas;
+      let estimatedGasErr;
+
+      try {
+        estimatedGas = (await this.provider.estimateGas(transactionData))?.toString();
+      } catch (e0) {
+        estimatedGasErr = e0;
+      }
 
       if ('error' in simulation || simulation.firstRevert !== undefined) {
         this.opportunityResults$.next({ opportunity: data.opportunity, result: false });
+        console.log(`Estimate gas`, estimatedGas, estimatedGasErr);
+        printOpportunity(data.opportunity);
         throw simulation;
       }
 
       this.opportunityResults$.next({ opportunity: data.opportunity, result: true });
 
+      console.log(`Estimate gas`, estimatedGas, estimatedGasErr);
+      printOpportunity(data.opportunity);
       return BigInt(simulation.totalGasUsed);
     } catch (err: any) {
       if (this.handleRateLimitError(err)) {
@@ -211,6 +227,7 @@ export class FlashbotsTransactionSender implements TransactionSender {
   ): Promise<FlashbotsTransactionSender> {
     return new FlashbotsTransactionSender(
       await createFlashbotsBundleProvider(provider, network, signingKey),
+      provider,
     );
   }
 }

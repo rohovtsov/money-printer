@@ -36,18 +36,16 @@ interface StepComputations {
 /**
  * A data provider for ticks that is backed by an in-memory array of ticks.
  */
-class AdvancedTickListDataProvider extends TickListDataProvider {
-  private advancedTicks: readonly Tick[];
+class SyncTickListDataProvider extends TickListDataProvider {
+  readonly syncTicks: Tick[] = [];
 
   constructor(ticks: (Tick | TickConstructorArgs)[], tickSpacing: number) {
     super(ticks, tickSpacing);
-    const ticksMapped: Tick[] = ticks.map((t) => (t instanceof Tick ? t : new Tick(t)));
-    TickList.validateList(ticksMapped, tickSpacing);
-    this.advancedTicks = ticksMapped;
+    this.syncTicks = (this as any).ticks;
   }
 
   getTickSync(tick: number): { liquidityNet: BigintIsh; liquidityGross: BigintIsh } {
-    return TickList.getTick(this.advancedTicks, tick);
+    return TickList.getTick(this.syncTicks, tick);
   }
 
   nextInitializedTickWithinOneWordSync(
@@ -55,13 +53,13 @@ class AdvancedTickListDataProvider extends TickListDataProvider {
     lte: boolean,
     tickSpacing: number,
   ): [number, boolean] {
-    return TickList.nextInitializedTickWithinOneWord(this.advancedTicks, tick, lte, tickSpacing);
+    return TickList.nextInitializedTickWithinOneWord(this.syncTicks, tick, lte, tickSpacing);
   }
 }
 
-export class AdvancedPool extends Pool {
-  protected advancedTickDataProvider: AdvancedTickListDataProvider;
-  public advancedTicks: Tick[];
+export class SyncSdkPool extends Pool {
+  protected syncTickDataProvider: SyncTickListDataProvider;
+  public ticks: Tick[];
 
   public constructor(
     tokenA: Token,
@@ -79,10 +77,10 @@ export class AdvancedPool extends Pool {
       sqrtRatioX96,
       liquidity,
       tickCurrent,
-      new AdvancedTickListDataProvider(ticks, TICK_SPACINGS[fee]),
+      new SyncTickListDataProvider(ticks, TICK_SPACINGS[fee]),
     );
-    this.advancedTicks = ticks;
-    this.advancedTickDataProvider = this.tickDataProvider as AdvancedTickListDataProvider;
+    this.ticks = ticks;
+    this.syncTickDataProvider = this.tickDataProvider as SyncTickListDataProvider;
   }
 
   /**
@@ -213,7 +211,7 @@ export class AdvancedPool extends Pool {
       // by simply traversing to the next available tick, we instead need to exactly replicate
       // tickBitmap.nextInitializedTickWithinOneWord
       [step.tickNext, step.initialized] =
-        this.advancedTickDataProvider.nextInitializedTickWithinOneWordSync(
+        this.syncTickDataProvider.nextInitializedTickWithinOneWordSync(
           state.tick,
           zeroForOne,
           this.tickSpacing,
@@ -260,7 +258,7 @@ export class AdvancedPool extends Pool {
         // if the tick is initialized, run the tick transition
         if (step.initialized) {
           let liquidityNet = JSBI.BigInt(
-            this.advancedTickDataProvider.getTickSync(step.tickNext).liquidityNet,
+            this.syncTickDataProvider.getTickSync(step.tickNext).liquidityNet,
           );
           // if we're moving leftward, we interpret liquidityNet as the opposite sign
           // safe because liquidityNet cannot be type(int128).min
