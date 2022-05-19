@@ -108,8 +108,7 @@ export class FlashbotsTransactionSender implements TransactionSender {
   }
 
   async simulateTransaction(data: TransactionData): Promise<bigint> {
-    return 320000n;
-    /*const { signer, transactionData, blockNumber } = data;
+    const { signer, transactionData, blockNumber } = data;
 
     const signedBundle = await this.flashbotsProvider.signBundle([
       {
@@ -136,7 +135,7 @@ export class FlashbotsTransactionSender implements TransactionSender {
       } else {
         throw err;
       }
-    }*/
+    }
   }
 
   private async logResultReport(

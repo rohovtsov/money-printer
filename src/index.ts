@@ -38,6 +38,7 @@ import { UniswapV3Market } from './uniswap/uniswap-v3-market';
 import { UniswapV3PoolStateSyncerContractQuery } from './uniswap/uniswap-v3-pool-state-syncer-contract-query';
 import { UniswapV2ArbitrageStrategy } from './triangle/uniswap-v2-arbitrage-strategy';
 import { UniswapV2MarketFactory } from './uniswap/uniswap-v2-market-factory';
+import { UniswapV3PreSyncer } from './uniswap/uniswap-v3-pre-syncer';
 
 const PROVIDERS = [
   new providers.AlchemyWebSocketProvider(NETWORK, ALCHEMY_API_KEY),
@@ -109,12 +110,10 @@ async function main() {
   const executor = new ArbitrageExecutor(sender, provider, PRIVATE_KEY);
   const allowedMarkets = blacklist.filterMarkets(markets);
 
-  const syncerV3 = new UniswapV3PoolStateSyncer(provider, 3);
-  let marketsV3 = markets.filter((market) => market.protocol === 'uniswapV3') as UniswapV3Market[];
-  startTime('presyncV3');
-  console.log(`Pre-Sync v3 markets: ${marketsV3.length} ...`);
-  await syncerV3.syncPoolStates(marketsV3, 0);
-  console.log(`Pre-Sync v3 markets: ${marketsV3.length} finished in ${endTime('presyncV3')}ms`);
+  await new UniswapV3PreSyncer(
+    new UniswapV3PoolStateSyncer(provider, 3),
+    markets.filter((market) => market.protocol === 'uniswapV3') as UniswapV3Market[],
+  ).presync();
 
   const runner = new ArbitrageRunner(
     allowedMarkets,
