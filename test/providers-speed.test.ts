@@ -116,28 +116,30 @@ describe('Speed test', function () {
 
   it('Test new block speed', function () {
     testSpeed();
+    return sleep(1000000000);
   });
 
   it('Test contract execution speed', function () {
     testSpeed2();
+    return sleep(1000000000);
   });
 
   it('Test e2e from block receive to full sync', async function () {
     const testProvider = PROVIDERS[0];
     const providersWithNames = [
-      /*[PROVIDERS[0], 'WS Alchemy'],*/
-      /*[PROVIDERS[2], 'WS Infura'],
-      [PROVIDERS[4], 'Local'],*/
-      [PROVIDERS[5], 'WS QuickNode'],
+      [PROVIDERS[0], 'WS Alchemy'],
+      // [PROVIDERS[2], 'WS Infura'],
+      [PROVIDERS[4], 'Local'],
+      // [PROVIDERS[5], 'WS QuickNode'],
     ];
     const LAST_BLOCK = await getLastBlockNumber(testProvider);
     const factories: EthMarketFactory[] = [
       ...UNISWAP_V2_FACTORY_ADDRESSES.map(
         (address) => new UniswapV2MarketFactory(testProvider, address, LAST_BLOCK),
       ),
-      ...UNISWAP_V3_FACTORY_ADDRESSES.map(
-        (address) => new UniswapV3MarketFactory(testProvider, address, LAST_BLOCK),
-      ),
+      // ...UNISWAP_V3_FACTORY_ADDRESSES.map(
+      //   (address) => new UniswapV3MarketFactory(testProvider, address, LAST_BLOCK),
+      // ),
     ];
 
     const markets: EthMarket[] = (

@@ -1,3 +1,4 @@
+import { expect } from 'chai';
 import { loadNangle } from '../src/serializer';
 import { TriangleArbitrageStrategy } from '../src/triangle/triangle-arbitrage-strategy';
 import { printOpportunity, WETH_ADDRESS } from '../src/entities';
@@ -8,14 +9,17 @@ describe('UniswapV3AlgorithmTest', function () {
   let nangle = loadNangle('./test/res/nangle.json');
   let oldStrategy = new TriangleArbitrageStrategy(
     {
-      [WETH_ADDRESS]: [ETHER * 5n],
+      [WETH_ADDRESS]: new Array(100000).fill(null).map((el, i) => (ETHER / 10n) * BigInt(i)),
     },
     nangle.markets,
   );
   let oldOpportunity = oldStrategy.calculateOpportunity(nangle as any, 0)!;
+  const newOpportunity = { profit: 0n, operations: [] }; // todo вставить сюда свою стратегию
 
   it('UniswapV3AlgorithmTest', function () {
     console.log(nangle);
     printOpportunity(oldOpportunity);
+    printOpportunity(newOpportunity as any);
+    expect(Number(newOpportunity.profit - oldOpportunity.profit)).gt(0);
   });
 });
