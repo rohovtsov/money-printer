@@ -57,12 +57,14 @@ import { UniswapV2MarketFactory } from './uniswap/uniswap-v2-market-factory';
 import { UniswapV3PreSyncer } from './uniswap/uniswap-v3-pre-syncer';
 
 const PROVIDERS = [
+  new providers.WebSocketProvider('ws://91.77.164.144:8546', NETWORK),
   new providers.AlchemyWebSocketProvider(NETWORK, ALCHEMY_API_KEY),
   new providers.AlchemyProvider(NETWORK, ALCHEMY_API_KEY),
   new providers.InfuraWebSocketProvider(NETWORK, INFURA_API_KEY),
   new providers.InfuraProvider(NETWORK, INFURA_API_KEY),
 ];
 const provider = PROVIDERS[0] as providers.WebSocketProvider;
+const providerForLogs = PROVIDERS[1];
 const providersForRace = PROVIDERS.filter((p) => p !== provider);
 
 async function main() {
@@ -83,13 +85,13 @@ async function main() {
       )
     : new Web3TransactionSender(provider, 2);
 
-  const LAST_BLOCK = await getLastBlockNumber(provider);
+  const LAST_BLOCK = await getLastBlockNumber(providerForLogs);
   const factories: EthMarketFactory[] = [
     ...UNISWAP_V2_FACTORY_ADDRESSES.map(
-      (address) => new UniswapV2MarketFactory(provider, address, LAST_BLOCK),
+      (address) => new UniswapV2MarketFactory(providerForLogs, address, LAST_BLOCK),
     ),
     ...UNISWAP_V3_FACTORY_ADDRESSES.map(
-      (address) => new UniswapV3MarketFactory(provider, address, LAST_BLOCK),
+      (address) => new UniswapV3MarketFactory(providerForLogs, address, LAST_BLOCK),
     ),
   ];
 
@@ -104,7 +106,7 @@ async function main() {
   const allowedMarkets = blacklist.filterMarkets(markets);
 
   await new UniswapV3PreSyncer(
-    new UniswapV3PoolStateSyncer(provider, 3),
+    new UniswapV3PoolStateSyncer(3),
     markets.filter((market) => market.protocol === 'uniswapV3') as UniswapV3Market[],
     false,
   ).presync();

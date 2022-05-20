@@ -238,7 +238,7 @@ describe('UniswapV3PriceCalculator', function () {
         : 'https://api.thegraph.com/subgraphs/name/ln-e/uniswap-v3-goerli';
     const provider = new providers.InfuraProvider(network, '8ac04e84ff9e4fd19db5bfa857b90a92');
     const factory = new UniswapV3MarketFactory(provider, UNISWAP_V3_FACTORY_ADDRESS, 12380000);
-    const syncer = new UniswapV3PoolStateSyncer(provider, 10, endpoint);
+    const syncer = new UniswapV3PoolStateSyncer(10, endpoint);
     const markets = await factory.getEthMarkets();
     const market = markets.find(
       (m) => m.marketAddress.toLowerCase() === testMarket.toLowerCase(),

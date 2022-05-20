@@ -147,7 +147,7 @@ describe('Speed test', function () {
     ).reduce((acc, markets) => [...acc, ...markets], []);
 
     await new UniswapV3PreSyncer(
-      new UniswapV3PoolStateSyncer(testProvider, 3),
+      new UniswapV3PoolStateSyncer(3),
       markets.filter((market) => market.protocol === 'uniswapV3') as UniswapV3Market[],
       true,
     ).presync();
