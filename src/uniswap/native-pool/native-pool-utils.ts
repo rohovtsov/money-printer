@@ -37,7 +37,7 @@ const POWERS_OF_2 = [128, 64, 32, 16, 8, 4, 2, 1].map((pow: number): [number, bi
 ]);
 const Q32 = BigInt(JSBI.exponentiate(JSBI.BigInt(2), JSBI.BigInt(32)).toString());
 const Q96 = BigInt(JSBI.exponentiate(JSBI.BigInt(2), JSBI.BigInt(96)).toString());
-const MAX_FEE = BigInt(JSBI.exponentiate(JSBI.BigInt(10), JSBI.BigInt(6)).toString());
+export const MAX_FEE = BigInt(JSBI.exponentiate(JSBI.BigInt(10), JSBI.BigInt(6)).toString());
 
 export function mostSignificantBit(x: bigint): number {
   invariant(x > 0n, 'ZERO');
