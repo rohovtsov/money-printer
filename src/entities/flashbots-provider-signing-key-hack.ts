@@ -3,6 +3,8 @@
 import { FlashbotsBundleProvider } from '@flashbots/ethers-provider-bundle';
 import { Wallet } from 'ethers';
 import { FlashbotsOptions, FlashbotsTransaction } from '@flashbots/ethers-provider-bundle/src';
+import { id } from 'ethers/lib/utils';
+import { fetchJson } from '@ethersproject/web';
 
 /*
   private async request(request: string) {
@@ -24,13 +26,9 @@ public async sendRawBundle(
 ): Promise<FlashbotsTransaction> {
 */
 
-export function hackFlashbotsBundleProviderSigningKey(flashbotsProvider: FlashbotsBundleProvider) {
-  /*flashbotsProvider.request = function (requestParam: string) {
-    flashbotsProvider.authSigner = Wallet.createRandom();
-    console.log(`FlashbotsProvider: signing key changed ${flashbotsProvider.authSigner.privateKey}`);
-    return FlashbotsBundleProvider.prototype.request.call(flashbotsProvider, requestParam);
-  }*/
-
+export function hackFlashbotsBundleProviderSigningKey(
+  flashbotsProvider: FlashbotsBundleProvider,
+): void {
   flashbotsProvider.sendRawBundle = function (
     signedBundledTransactions: Array<string>,
     targetBlockNumber: number,
@@ -46,5 +44,44 @@ export function hackFlashbotsBundleProviderSigningKey(flashbotsProvider: Flashbo
       targetBlockNumber,
       opts,
     );
+  };
+}
+
+export function hackFlashbotsBundleProviderToLogServerTimestampDifference(
+  flashbotsProvider: FlashbotsBundleProvider,
+): void {
+  flashbotsProvider.request = function (requestParam: string) {
+    const isSendRawBundle = requestParam.includes(`"method":"eth_sendBundle"`);
+
+    if (isSendRawBundle) {
+      const connectionInfo = { ...flashbotsProvider.connectionInfo };
+
+      return (async () => {
+        connectionInfo.headers = {
+          'X-Flashbots-Signature': `${await flashbotsProvider.authSigner.getAddress()}:${await flashbotsProvider.authSigner.signMessage(
+            id(requestParam),
+          )}`,
+          ...flashbotsProvider.connectionInfo.headers,
+        };
+
+        return fetchJson(connectionInfo, requestParam, (body, response) => {
+          const headersDate = response?.headers?.date;
+
+          if (headersDate) {
+            const headersTimestamp = new Date(headersDate).getTime();
+            const currentTimestamp = Date.now();
+            console.log(
+              'Flashbots time difference',
+              headersTimestamp,
+              currentTimestamp,
+              currentTimestamp - headersTimestamp,
+            );
+          }
+          return body;
+        });
+      })();
+    } else {
+      return FlashbotsBundleProvider.prototype.request.call(flashbotsProvider, requestParam);
+    }
   };
 }
