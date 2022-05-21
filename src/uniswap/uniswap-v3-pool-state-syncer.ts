@@ -1,4 +1,3 @@
-import { providers } from 'ethers';
 import { Address, splitIntoBatches, UNISWAP_V3_GRAPH_ENDPOINT } from '../entities';
 import { UniswapV3Market } from './uniswap-v3-market';
 const fetch = require('node-fetch');
@@ -40,11 +39,7 @@ export class UniswapV3PoolStateSyncer {
   private bulkQuery: any;
   private query: any;
 
-  constructor(
-    readonly provider: providers.JsonRpcProvider,
-    readonly parallelCount: number,
-    endpoint?: string,
-  ) {
+  constructor(readonly parallelCount: number, endpoint?: string) {
     this.client = new ApolloClient({
       uri: endpoint ?? UNISWAP_V3_GRAPH_ENDPOINT,
       fetch,
