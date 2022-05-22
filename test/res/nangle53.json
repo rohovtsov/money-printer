@@ -1,0 +1,184 @@
+{
+  "markets": [
+    {
+      "protocol": "uniswapV3",
+      "ticks": [
+        {
+          "index": 181600,
+          "liquidityGross": "0",
+          "liquidityNet": "73325840895"
+        },
+        {
+          "index": 207200,
+          "liquidityGross": "0",
+          "liquidityNet": "638307334"
+        },
+        {
+          "index": 223400,
+          "liquidityGross": "0",
+          "liquidityNet": "34817691186"
+        },
+        {
+          "index": 230200,
+          "liquidityGross": "0",
+          "liquidityNet": "4215972959342"
+        },
+        {
+          "index": 250600,
+          "liquidityGross": "0",
+          "liquidityNet": "53334054772049"
+        },
+        {
+          "index": 253200,
+          "liquidityGross": "0",
+          "liquidityNet": "-53595157675"
+        },
+        {
+          "index": 253400,
+          "liquidityGross": "0",
+          "liquidityNet": "22926774624967"
+        },
+        {
+          "index": 254200,
+          "liquidityGross": "0",
+          "liquidityNet": "123639279882649"
+        },
+        {
+          "index": 255200,
+          "liquidityGross": "0",
+          "liquidityNet": "39457676900336"
+        },
+        {
+          "index": 255600,
+          "liquidityGross": "0",
+          "liquidityNet": "133225692842233"
+        },
+        {
+          "index": 256200,
+          "liquidityGross": "0",
+          "liquidityNet": "48015447258313"
+        },
+        {
+          "index": 256400,
+          "liquidityGross": "0",
+          "liquidityNet": "8184310876715"
+        },
+        {
+          "index": 256800,
+          "liquidityGross": "0",
+          "liquidityNet": "219267815932"
+        },
+        {
+          "index": 257400,
+          "liquidityGross": "0",
+          "liquidityNet": "-141453561286203"
+        },
+        {
+          "index": 257600,
+          "liquidityGross": "0",
+          "liquidityNet": "-37937028978000"
+        },
+        {
+          "index": 257800,
+          "liquidityGross": "0",
+          "liquidityNet": "276671461"
+        },
+        {
+          "index": 258000,
+          "liquidityGross": "0",
+          "liquidityNet": "3402360630413"
+        },
+        {
+          "index": 258200,
+          "liquidityGross": "0",
+          "liquidityNet": "-46453900174333"
+        },
+        {
+          "index": 258400,
+          "liquidityGross": "0",
+          "liquidityNet": "-216285694846"
+        },
+        {
+          "index": 258600,
+          "liquidityGross": "0",
+          "liquidityNet": "-4747898691008"
+        },
+        {
+          "index": 259600,
+          "liquidityGross": "0",
+          "liquidityNet": "-1477090355081"
+        },
+        {
+          "index": 260200,
+          "liquidityGross": "0",
+          "liquidityNet": "-23146042440899"
+        },
+        {
+          "index": 262200,
+          "liquidityGross": "0",
+          "liquidityNet": "-123639279882649"
+        },
+        {
+          "index": 264400,
+          "liquidityGross": "0",
+          "liquidityNet": "-53334054772049"
+        },
+        {
+          "index": 269400,
+          "liquidityGross": "0",
+          "liquidityNet": "-14535843974"
+        },
+        {
+          "index": 276400,
+          "liquidityGross": "0",
+          "liquidityNet": "-638307334"
+        },
+        {
+          "index": 292400,
+          "liquidityGross": "0",
+          "liquidityNet": "-66282858000"
+        },
+        {
+          "index": 391400,
+          "liquidityGross": "0",
+          "liquidityNet": "-5194839246"
+        },
+        {
+          "index": 414400,
+          "liquidityGross": "0",
+          "liquidityNet": "-4184507792528"
+        }
+      ],
+      "marketAddress": "0x6Ab3bba2F41e7eAA262fa5A1A9b3932fA161526F",
+      "token0": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+      "token1": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+      "tickSpacing": 200,
+      "fee": 10000,
+      "tick": 257305,
+      "sqrtRatioX96": "30613703021029699749359550286310151",
+      "liquidity": "433273664614276"
+    },
+    {
+      "protocol": "uniswapV2",
+      "marketAddress": "0x6DC1b2ACf52b1f970CF4f7B34305bbD7f06cFe70",
+      "token0": "0x0698DDA3c390FF92722f9EeD766D8b1727621Df9",
+      "token1": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+      "reserves0": "791498031519174237",
+      "reserves1": "1763"
+    },
+    {
+      "protocol": "uniswapV2",
+      "marketAddress": "0x1dd89faf8014c8f3cd9FdC9434619fc353688592",
+      "token0": "0x0698DDA3c390FF92722f9EeD766D8b1727621Df9",
+      "token1": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+      "reserves0": "179089181121788599",
+      "reserves1": "272846016155922086"
+    }
+  ],
+  "actions": [
+    "buy",
+    "buy",
+    "sell"
+  ],
+  "startToken": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+}

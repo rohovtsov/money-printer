@@ -1,0 +1,69 @@
+{
+  "markets": [
+    {
+      "protocol": "uniswapV2",
+      "marketAddress": "0xDafd66636E2561b0284EDdE37e42d192F2844D40",
+      "token0": "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984",
+      "token1": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+      "reserves0": "79719827640124198491273",
+      "reserves1": "213650890039567405593"
+    },
+    {
+      "protocol": "uniswapV3",
+      "ticks": [
+        {
+          "index": -180180,
+          "liquidityGross": "0",
+          "liquidityNet": "9715996129801480"
+        },
+        {
+          "index": -173460,
+          "liquidityGross": "0",
+          "liquidityNet": "518686417661730467"
+        },
+        {
+          "index": -173400,
+          "liquidityGross": "0",
+          "liquidityNet": "-75589365619802688"
+        },
+        {
+          "index": -173280,
+          "liquidityGross": "0",
+          "liquidityNet": "-302938033920843011"
+        },
+        {
+          "index": -173220,
+          "liquidityGross": "0",
+          "liquidityNet": "-140159018121084768"
+        },
+        {
+          "index": -168120,
+          "liquidityGross": "0",
+          "liquidityNet": "-9715996129801480"
+        }
+      ],
+      "marketAddress": "0x601F7eFaca945BDbA9cbcC6D1Ebb22E04d0a1F2d",
+      "token0": "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984",
+      "token1": "0xD46bA6D942050d489DBd938a2C909A5d5039A161",
+      "tickSpacing": 60,
+      "fee": 3000,
+      "tick": -171865,
+      "sqrtRatioX96": "14691506074337528276998948",
+      "liquidity": "9715996129801480"
+    },
+    {
+      "protocol": "uniswapV2",
+      "marketAddress": "0xc5be99A02C6857f9Eac67BbCE58DF5572498F40c",
+      "token0": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+      "token1": "0xD46bA6D942050d489DBd938a2C909A5d5039A161",
+      "reserves0": "1169970809398560857153",
+      "reserves1": "2517609079218367"
+    }
+  ],
+  "actions": [
+    "buy",
+    "sell",
+    "buy"
+  ],
+  "startToken": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+}

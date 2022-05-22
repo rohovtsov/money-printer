@@ -57,7 +57,7 @@ import { UniswapV2MarketFactory } from './uniswap/uniswap-v2-market-factory';
 import { UniswapV3PreSyncer } from './uniswap/uniswap-v3-pre-syncer';
 
 const PROVIDERS = [
-  new providers.WebSocketProvider('ws://91.77.164.144:8546', NETWORK),
+  new providers.AlchemyWebSocketProvider(NETWORK, ALCHEMY_API_KEY),
   new providers.AlchemyWebSocketProvider(NETWORK, ALCHEMY_API_KEY),
   new providers.AlchemyProvider(NETWORK, ALCHEMY_API_KEY),
   new providers.InfuraWebSocketProvider(NETWORK, INFURA_API_KEY),
@@ -108,7 +108,7 @@ async function main() {
   await new UniswapV3PreSyncer(
     new UniswapV3PoolStateSyncer(3),
     markets.filter((market) => market.protocol === 'uniswapV3') as UniswapV3Market[],
-    false,
+    true,
   ).presync();
 
   const runner = new ArbitrageRunner(
@@ -116,7 +116,7 @@ async function main() {
     [
       new TriangleArbitrageStrategy(
         {
-          [WETH_ADDRESS]: [ETHER * 5n], //, ETHER.mul(10), ETHER]
+          [WETH_ADDRESS]: [ETHER / 5n], //, ETHER.mul(10), ETHER]
         },
         allowedMarkets,
       ),

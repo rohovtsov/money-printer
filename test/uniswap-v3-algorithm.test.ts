@@ -1,11 +1,128 @@
 import { expect } from 'chai';
 import { loadNangle } from '../src/serializer';
 import { TriangleArbitrageStrategy } from '../src/triangle/triangle-arbitrage-strategy';
-import { MarketAction, printOpportunity, WETH_ADDRESS } from '../src/entities';
+import { EthMarket, MarketAction, printOpportunity, WETH_ADDRESS } from '../src/entities';
 import { ETHER } from '../src/entities';
 import { UniswapV3Market } from '../src/uniswap/uniswap-v3-market';
 import { MAX_FEE, SqrtPriceMath, TickMath } from '../src/uniswap/native-pool/native-pool-utils';
 import { SwapStep } from '../src/uniswap/native-pool/native-pool';
+import invariant from 'tiny-invariant';
+import { Nangle } from '../src/triangle/nangle';
+import fs from 'fs';
+
+function swapNangle(nangle: Nangle, amountIn: bigint): bigint | null {
+  let amount: bigint | null = amountIn;
+
+  for (let i = 0; i < nangle.markets.length; i++) {
+    amount = nangle.markets[i].calcTokensOut(nangle.actions[i], amount);
+
+    if (amount == null) {
+      break;
+    }
+  }
+
+  return amount;
+}
+
+function encodeItems(items: number[][]): string {
+  let str = '';
+
+  for (const item of items) {
+    str += `=SPLIT("${item.join(', ')}", ",")\n`;
+  }
+
+  return str;
+}
+
+function saveChart(
+  fileName: string,
+  nangle: Nangle,
+  fromAmount: bigint,
+  toAmount: bigint,
+  step: bigint,
+) {
+  let xS: any[] = Array.from({ length: Number((toAmount - fromAmount) / step) }).map(
+    (_, i) => fromAmount + BigInt(i) * step,
+  );
+  const yS = xS.map((x) => {
+    const o = swapNangle(nangle, x) ?? 0n;
+    return Number(o - x) / 10 ** 18;
+  });
+
+  xS = xS.map((x) => Number(x / 10n ** 12n));
+  fs.writeFileSync(
+    fileName,
+    encodeItems(
+      yS.map((y, i) => {
+        return [xS[i], y];
+      }),
+    ),
+  );
+}
+
+function saveChartMarket(
+  fileName: string,
+  market: EthMarket,
+  fromAmount: bigint,
+  toAmount: bigint,
+  step: bigint,
+) {
+  let xS: any[] = Array.from({ length: Number((toAmount - fromAmount) / step) }).map(
+    (_, i) => fromAmount + BigInt(i) * step,
+  );
+  let yS: any[] = xS.map((x) => {
+    return market.calcTokensOut('sell', x) ?? 0n;
+  });
+
+  xS = xS.map((x) => String(x));
+  yS = yS.map((y) => String(y));
+  fs.writeFileSync(
+    fileName,
+    encodeItems(
+      yS.map((y, i) => {
+        return [xS[i], y];
+      }),
+    ),
+  );
+}
+
+function binarySearch(nangle: Nangle, maxAmount: bigint, precision: bigint): bigint {
+  //TODO: to be optimized
+  let l = 0n;
+  let r = maxAmount;
+  let input: bigint;
+  let outputL: bigint | null;
+  let outputR: bigint | null;
+  let profitL: bigint | null;
+  let profitR: bigint | null;
+
+  while (true) {
+    input = (l + r) / 2n;
+
+    outputL = swapNangle(nangle, l) ?? 0n;
+    outputR = swapNangle(nangle, r) ?? 0n;
+
+    profitL = outputL - l;
+    profitR = outputR - r;
+
+    console.log(outputL, Number(profitL) / 10 ** 18);
+    console.log(outputR, Number(profitR) / 10 ** 18);
+
+    break;
+    /*
+    if (ticks[i].index <= tick && (i === ticks.length - 1 || ticks[i + 1].index > tick)) {
+      return i;
+    }
+
+    if (ticks[i].index < tick) {
+      l = i + 1;
+    } else {
+      r = i - 1;
+    }*/
+  }
+
+  return 228n;
+}
 
 describe('UniswapV3AlgorithmTest', function () {
   this.timeout(10000);
@@ -199,26 +316,24 @@ describe('UniswapV3AlgorithmTest', function () {
 
     for (const inputStep of inputSteps) {
       const inputAmount: bigint = inputStep.amountIn;
-      let amount: bigint | null = inputStep.amountIn;
+      const outputAmount: bigint | null = swapNangle(nangle, inputAmount);
 
-      for (let i = 0; i < nangle.markets.length; i++) {
-        const marketV3 = nangle.markets[i] as UniswapV3Market;
-        const action = nangle.actions[i];
-        amount = marketV3.calcTokensOut(action, amount);
-
-        if (amount == null) {
-          break;
+      if (outputAmount !== null) {
+        const profit = outputAmount - inputAmount;
+        if (profit >= 0) {
+          console.log(`swap ${inputAmount} for ${outputAmount}`);
+          console.log('profit', profit, Number(profit) / 10 ** 18);
         }
-      }
-
-      if (amount !== null) {
-        const profit = amount - inputAmount;
-        console.log(`swap ${inputAmount} for ${amount}`);
-        console.log('profit', profit, Number(profit) / 10 ** 18);
       } else {
         console.log('fail');
       }
     }
+
+    /*    saveChartMarket('./cache/market.json', marketV3, 0n, ETHER * 1000n, ETHER / 10n);
+    //console.log(binarySearch(nangle, ETHER * 10n, ETHER / 1000n));
+    for (let i = 0; i < 67; i++) {
+      saveChart(`./cache/chart${i}.json`, loadNangle(`./test/res/nangle${i}.json`), 0n, ETHER * 5n, ETHER / 10n);
+    }*/
 
     //37530274643
     //6115585628

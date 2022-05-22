@@ -1,0 +1,189 @@
+{
+  "markets": [
+    {
+      "protocol": "uniswapV2",
+      "marketAddress": "0x29C827Ce49aCCF68A1a278C67C9D30c52fBbC348",
+      "token0": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+      "token1": "0xcB84d72e61e383767C4DFEb2d8ff7f4FB89abc6e",
+      "reserves0": "125506438117994993414",
+      "reserves1": "139006442048347166316278"
+    },
+    {
+      "protocol": "uniswapV2",
+      "marketAddress": "0x42b7B8f8F83fA5cbf0176f8c24Ad51EbcD4B5F17",
+      "token0": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      "token1": "0xcB84d72e61e383767C4DFEb2d8ff7f4FB89abc6e",
+      "reserves0": "101701130680",
+      "reserves1": "56173225579110630932334"
+    },
+    {
+      "protocol": "uniswapV3",
+      "ticks": [
+        {
+          "index": -887272,
+          "liquidityGross": "605265721021",
+          "liquidityNet": "605265721021"
+        },
+        {
+          "index": 187782,
+          "liquidityGross": "0",
+          "liquidityNet": "347236890758409"
+        },
+        {
+          "index": 195690,
+          "liquidityGross": "0",
+          "liquidityNet": "11451835"
+        },
+        {
+          "index": 195753,
+          "liquidityGross": "0",
+          "liquidityNet": "-11451835"
+        },
+        {
+          "index": 195941,
+          "liquidityGross": "0",
+          "liquidityNet": "1155317221850"
+        },
+        {
+          "index": 196003,
+          "liquidityGross": "0",
+          "liquidityNet": "-1155317221850"
+        },
+        {
+          "index": 196772,
+          "liquidityGross": "0",
+          "liquidityNet": "358932402229492"
+        },
+        {
+          "index": 196801,
+          "liquidityGross": "0",
+          "liquidityNet": "-358932402229492"
+        },
+        {
+          "index": 197033,
+          "liquidityGross": "0",
+          "liquidityNet": "161320121767775"
+        },
+        {
+          "index": 197046,
+          "liquidityGross": "0",
+          "liquidityNet": "-161320121767775"
+        },
+        {
+          "index": 197100,
+          "liquidityGross": "0",
+          "liquidityNet": "39934519306858"
+        },
+        {
+          "index": 197140,
+          "liquidityGross": "0",
+          "liquidityNet": "-39934519306858"
+        },
+        {
+          "index": 197191,
+          "liquidityGross": "0",
+          "liquidityNet": "237288793647016"
+        },
+        {
+          "index": 197218,
+          "liquidityGross": "0",
+          "liquidityNet": "-237288793647016"
+        },
+        {
+          "index": 197353,
+          "liquidityGross": "0",
+          "liquidityNet": "20498400330754"
+        },
+        {
+          "index": 197380,
+          "liquidityGross": "0",
+          "liquidityNet": "-20498400330754"
+        },
+        {
+          "index": 197785,
+          "liquidityGross": "0",
+          "liquidityNet": "86152843936"
+        },
+        {
+          "index": 197806,
+          "liquidityGross": "0",
+          "liquidityNet": "-86152843936"
+        },
+        {
+          "index": 197848,
+          "liquidityGross": "0",
+          "liquidityNet": "3724892662139"
+        },
+        {
+          "index": 197888,
+          "liquidityGross": "0",
+          "liquidityNet": "-3724892662139"
+        },
+        {
+          "index": 197903,
+          "liquidityGross": "0",
+          "liquidityNet": "5366964393945"
+        },
+        {
+          "index": 197928,
+          "liquidityGross": "0",
+          "liquidityNet": "-5366964393945"
+        },
+        {
+          "index": 198487,
+          "liquidityGross": "0",
+          "liquidityNet": "13151294614118204"
+        },
+        {
+          "index": 199358,
+          "liquidityGross": "0",
+          "liquidityNet": "671350871367895"
+        },
+        {
+          "index": 200494,
+          "liquidityGross": "0",
+          "liquidityNet": "1965795881223827"
+        },
+        {
+          "index": 200516,
+          "liquidityGross": "0",
+          "liquidityNet": "-1965795881223827"
+        },
+        {
+          "index": 201364,
+          "liquidityGross": "0",
+          "liquidityNet": "-671350871367895"
+        },
+        {
+          "index": 202542,
+          "liquidityGross": "0",
+          "liquidityNet": "-13151294614118204"
+        },
+        {
+          "index": 207243,
+          "liquidityGross": "0",
+          "liquidityNet": "-347236890758409"
+        },
+        {
+          "index": 887272,
+          "liquidityGross": "0",
+          "liquidityNet": "-605265721021"
+        }
+      ],
+      "marketAddress": "0xE0554a476A092703abdB3Ef35c80e0D76d32939F",
+      "token0": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      "token1": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+      "tickSpacing": 1,
+      "fee": 100,
+      "tick": 200431,
+      "sqrtRatioX96": "1782315391866606035497639775804994",
+      "liquidity": "14170487641965529"
+    }
+  ],
+  "actions": [
+    "sell",
+    "buy",
+    "sell"
+  ],
+  "startToken": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+}

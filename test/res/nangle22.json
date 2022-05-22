@@ -1,0 +1,94 @@
+{
+  "markets": [
+    {
+      "protocol": "uniswapV2",
+      "marketAddress": "0xC3D03e4F041Fd4cD388c549Ee2A29a9E5075882f",
+      "token0": "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+      "token1": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+      "reserves0": "13122732873363673571668500",
+      "reserves1": "6634399784122516100824"
+    },
+    {
+      "protocol": "uniswapV2",
+      "marketAddress": "0x7F517657496C09c43CC28D0cA131E35dCD557E02",
+      "token0": "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+      "token1": "0xe76C6c83af64e4C60245D8C7dE953DF673a7A33D",
+      "reserves0": "70382345402726357554941",
+      "reserves1": "40707190163465388248203"
+    },
+    {
+      "protocol": "uniswapV3",
+      "ticks": [
+        {
+          "index": 53200,
+          "liquidityGross": "0",
+          "liquidityNet": "19152015141348944979422"
+        },
+        {
+          "index": 61800,
+          "liquidityGross": "0",
+          "liquidityNet": "275714495511596183460"
+        },
+        {
+          "index": 62200,
+          "liquidityGross": "0",
+          "liquidityNet": "10842614074812050981871"
+        },
+        {
+          "index": 63200,
+          "liquidityGross": "0",
+          "liquidityNet": "40216529241367491904"
+        },
+        {
+          "index": 66600,
+          "liquidityGross": "0",
+          "liquidityNet": "50244600512727404380759"
+        },
+        {
+          "index": 67000,
+          "liquidityGross": "0",
+          "liquidityNet": "-50238333706440510184383"
+        },
+        {
+          "index": 75400,
+          "liquidityGross": "0",
+          "liquidityNet": "-40216529241367491904"
+        },
+        {
+          "index": 78800,
+          "liquidityGross": "0",
+          "liquidityNet": "-6266806286894196376"
+        },
+        {
+          "index": 91000,
+          "liquidityGross": "0",
+          "liquidityNet": "-10842614074812050981871"
+        },
+        {
+          "index": 92000,
+          "liquidityGross": "0",
+          "liquidityNet": "-19152015141348944979422"
+        },
+        {
+          "index": 108200,
+          "liquidityGross": "0",
+          "liquidityNet": "-275714495511596183460"
+        }
+      ],
+      "marketAddress": "0x2837809FD68e4a4104af76bbec5b622b6146B2cb",
+      "token0": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+      "token1": "0xe76C6c83af64e4C60245D8C7dE953DF673a7A33D",
+      "tickSpacing": 200,
+      "fee": 10000,
+      "tick": 70187,
+      "sqrtRatioX96": "2647983903339044736994544198155",
+      "liquidity": "30316827047200853833033"
+    }
+  ],
+  "actions": [
+    "buy",
+    "sell",
+    "buy"
+  ],
+  "startToken": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+}

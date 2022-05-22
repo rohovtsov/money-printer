@@ -31,6 +31,7 @@ export class TriangleArbitrageStrategy implements ArbitrageStrategy {
     this.trianglesByMarket = groupNanglesByMarkets(this.triangles) as TrianglesByMarketAddress;
   }
 
+  id = 0;
   getArbitrageOpportunities(
     changedMarkets: EthMarket[],
     allMarkets: EthMarket[],
@@ -43,10 +44,19 @@ export class TriangleArbitrageStrategy implements ArbitrageStrategy {
     console.log(`Changed triangles ${changedTriangles.length}`);
     return changedTriangles
       .map((triangle) => {
-        /*if (opportunity?.operations?.reduce((acc, op) => acc + (op.market.protocol === 'uniswapV3' ? 1 : 0), 0) === 1) {
-          saveNangle('nangle.json', triangle);
-        }*/
-        return this.calculateOpportunity(triangle, blockNumber);
+        const opportunity = this.calculateOpportunity(triangle, blockNumber);
+
+        if (
+          opportunity &&
+          opportunity!.operations!.reduce(
+            (acc, op) => acc + (op.market.protocol === 'uniswapV3' ? 1 : 0),
+            0,
+          ) === 1
+        ) {
+          saveNangle(`nangle${this.id++}.json`, triangle);
+        }
+
+        return opportunity;
       })
       .filter(Boolean) as ArbitrageOpportunity[];
   }

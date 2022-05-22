@@ -1,0 +1,994 @@
+{
+  "markets": [
+    {
+      "protocol": "uniswapV3",
+      "ticks": [
+        {
+          "index": -887270,
+          "liquidityGross": "0",
+          "liquidityNet": "32610106865545303"
+        },
+        {
+          "index": -154260,
+          "liquidityGross": "0",
+          "liquidityNet": "57513182775053961"
+        },
+        {
+          "index": -114090,
+          "liquidityGross": "0",
+          "liquidityNet": "112146481800289592"
+        },
+        {
+          "index": -92110,
+          "liquidityGross": "0",
+          "liquidityNet": "966430580360954269"
+        },
+        {
+          "index": -90930,
+          "liquidityGross": "0",
+          "liquidityNet": "1197060811860710"
+        },
+        {
+          "index": -76040,
+          "liquidityGross": "0",
+          "liquidityNet": "32022762094924158950"
+        },
+        {
+          "index": -62150,
+          "liquidityGross": "0",
+          "liquidityNet": "395316467144746837"
+        },
+        {
+          "index": -56350,
+          "liquidityGross": "0",
+          "liquidityNet": "157616800196978084354"
+        },
+        {
+          "index": -55220,
+          "liquidityGross": "0",
+          "liquidityNet": "-157616800196978084354"
+        },
+        {
+          "index": -52990,
+          "liquidityGross": "0",
+          "liquidityNet": "887398090557970623"
+        },
+        {
+          "index": -50110,
+          "liquidityGross": "0",
+          "liquidityNet": "468241128054920872"
+        },
+        {
+          "index": -49940,
+          "liquidityGross": "0",
+          "liquidityNet": "68101882283254013632"
+        },
+        {
+          "index": -49920,
+          "liquidityGross": "0",
+          "liquidityNet": "-68101882283254013632"
+        },
+        {
+          "index": -49620,
+          "liquidityGross": "0",
+          "liquidityNet": "1192358802590645002"
+        },
+        {
+          "index": -49040,
+          "liquidityGross": "0",
+          "liquidityNet": "33148996375891813723"
+        },
+        {
+          "index": -48860,
+          "liquidityGross": "0",
+          "liquidityNet": "464778676250788886"
+        },
+        {
+          "index": -48680,
+          "liquidityGross": "0",
+          "liquidityNet": "1582785381416945452"
+        },
+        {
+          "index": -48580,
+          "liquidityGross": "0",
+          "liquidityNet": "1568972592411791174696"
+        },
+        {
+          "index": -48560,
+          "liquidityGross": "0",
+          "liquidityNet": "-1568972592411791174696"
+        },
+        {
+          "index": -48370,
+          "liquidityGross": "0",
+          "liquidityNet": "120587727890911938136"
+        },
+        {
+          "index": -48350,
+          "liquidityGross": "0",
+          "liquidityNet": "-114142457542360191146"
+        },
+        {
+          "index": -48290,
+          "liquidityGross": "0",
+          "liquidityNet": "12400828970028733554"
+        },
+        {
+          "index": -48120,
+          "liquidityGross": "0",
+          "liquidityNet": "348093806755924011"
+        },
+        {
+          "index": -48040,
+          "liquidityGross": "0",
+          "liquidityNet": "66986172933410929664"
+        },
+        {
+          "index": -48030,
+          "liquidityGross": "0",
+          "liquidityNet": "868646025759636431"
+        },
+        {
+          "index": -47930,
+          "liquidityGross": "0",
+          "liquidityNet": "84888013735348082972"
+        },
+        {
+          "index": -47900,
+          "liquidityGross": "0",
+          "liquidityNet": "-84888013735348082972"
+        },
+        {
+          "index": -47880,
+          "liquidityGross": "0",
+          "liquidityNet": "133276619639684264476"
+        },
+        {
+          "index": -47800,
+          "liquidityGross": "0",
+          "liquidityNet": "1319445147464247121"
+        },
+        {
+          "index": -47730,
+          "liquidityGross": "0",
+          "liquidityNet": "14130238209632368982"
+        },
+        {
+          "index": -47720,
+          "liquidityGross": "0",
+          "liquidityNet": "457276012602358359487"
+        },
+        {
+          "index": -47710,
+          "liquidityGross": "0",
+          "liquidityNet": "-61757795011834522144"
+        },
+        {
+          "index": -47700,
+          "liquidityGross": "0",
+          "liquidityNet": "-451870167204922586779"
+        },
+        {
+          "index": -47690,
+          "liquidityGross": "0",
+          "liquidityNet": "1113031101716757592745"
+        },
+        {
+          "index": -47680,
+          "liquidityGross": "0",
+          "liquidityNet": "-1113031101716757592745"
+        },
+        {
+          "index": -47640,
+          "liquidityGross": "0",
+          "liquidityNet": "89119569374879102757"
+        },
+        {
+          "index": -47630,
+          "liquidityGross": "0",
+          "liquidityNet": "5401451730053761147"
+        },
+        {
+          "index": -47620,
+          "liquidityGross": "0",
+          "liquidityNet": "-464778676250788886"
+        },
+        {
+          "index": -47610,
+          "liquidityGross": "0",
+          "liquidityNet": "-86952438259642961382"
+        },
+        {
+          "index": -47600,
+          "liquidityGross": "0",
+          "liquidityNet": "1447440432564551312909"
+        },
+        {
+          "index": -47580,
+          "liquidityGross": "0",
+          "liquidityNet": "-1447440432564551312909"
+        },
+        {
+          "index": -47570,
+          "liquidityGross": "0",
+          "liquidityNet": "122259206011252311067"
+        },
+        {
+          "index": -47560,
+          "liquidityGross": "0",
+          "liquidityNet": "143652861105541919074"
+        },
+        {
+          "index": -47550,
+          "liquidityGross": "0",
+          "liquidityNet": "-122259206011252311067"
+        },
+        {
+          "index": -47540,
+          "liquidityGross": "0",
+          "liquidityNet": "-166564201913313594827"
+        },
+        {
+          "index": -47460,
+          "liquidityGross": "0",
+          "liquidityNet": "-5256178688949465758"
+        },
+        {
+          "index": -47450,
+          "liquidityGross": "0",
+          "liquidityNet": "-21033316006963664665"
+        },
+        {
+          "index": -47360,
+          "liquidityGross": "0",
+          "liquidityNet": "59167689759767513565"
+        },
+        {
+          "index": -47330,
+          "liquidityGross": "0",
+          "liquidityNet": "-62231379781136160459"
+        },
+        {
+          "index": -47230,
+          "liquidityGross": "0",
+          "liquidityNet": "153797846283302443309"
+        },
+        {
+          "index": -47210,
+          "liquidityGross": "0",
+          "liquidityNet": "-153797846283302443309"
+        },
+        {
+          "index": -47200,
+          "liquidityGross": "0",
+          "liquidityNet": "-14130238209632368982"
+        },
+        {
+          "index": -47150,
+          "liquidityGross": "0",
+          "liquidityNet": "265646755523847051615"
+        },
+        {
+          "index": -47130,
+          "liquidityGross": "0",
+          "liquidityNet": "-76065020353718162226"
+        },
+        {
+          "index": -47120,
+          "liquidityGross": "0",
+          "liquidityNet": "-185520431506260948994"
+        },
+        {
+          "index": -47100,
+          "liquidityGross": "0",
+          "liquidityNet": "-10807297127489533855"
+        },
+        {
+          "index": -47020,
+          "liquidityGross": "0",
+          "liquidityNet": "418062873427270361"
+        },
+        {
+          "index": -47010,
+          "liquidityGross": "0",
+          "liquidityNet": "-2249443111517560434"
+        },
+        {
+          "index": -47000,
+          "liquidityGross": "0",
+          "liquidityNet": "-14645168025010596428"
+        },
+        {
+          "index": -46960,
+          "liquidityGross": "0",
+          "liquidityNet": "722090090902834235847"
+        },
+        {
+          "index": -46940,
+          "liquidityGross": "0",
+          "liquidityNet": "-722090090902834235847"
+        },
+        {
+          "index": -46920,
+          "liquidityGross": "0",
+          "liquidityNet": "-14179293041206901700"
+        },
+        {
+          "index": -46740,
+          "liquidityGross": "0",
+          "liquidityNet": "2126461372179246051"
+        },
+        {
+          "index": -46730,
+          "liquidityGross": "0",
+          "liquidityNet": "-2126461372179246051"
+        },
+        {
+          "index": -46640,
+          "liquidityGross": "0",
+          "liquidityNet": "-1319445147464247121"
+        },
+        {
+          "index": -46620,
+          "liquidityGross": "0",
+          "liquidityNet": "-418062873427270361"
+        },
+        {
+          "index": -46550,
+          "liquidityGross": "0",
+          "liquidityNet": "102798514546767142720"
+        },
+        {
+          "index": -46540,
+          "liquidityGross": "0",
+          "liquidityNet": "257868955710604909640"
+        },
+        {
+          "index": -46520,
+          "liquidityGross": "0",
+          "liquidityNet": "21423139688265132387"
+        },
+        {
+          "index": -46510,
+          "liquidityGross": "0",
+          "liquidityNet": "164957394895725844863"
+        },
+        {
+          "index": -46500,
+          "liquidityGross": "0",
+          "liquidityNet": "-226966673536433641843"
+        },
+        {
+          "index": -46490,
+          "liquidityGross": "0",
+          "liquidityNet": "90843336431543736327"
+        },
+        {
+          "index": -46460,
+          "liquidityGross": "0",
+          "liquidityNet": "-89025518456525128256"
+        },
+        {
+          "index": -46450,
+          "liquidityGross": "0",
+          "liquidityNet": "-162371791493345247693"
+        },
+        {
+          "index": -46440,
+          "liquidityGross": "0",
+          "liquidityNet": "-32850037017944098805"
+        },
+        {
+          "index": -46430,
+          "liquidityGross": "0",
+          "liquidityNet": "-4403421377399205241"
+        },
+        {
+          "index": -46410,
+          "liquidityGross": "0",
+          "liquidityNet": "-102798514546767142720"
+        },
+        {
+          "index": -46380,
+          "liquidityGross": "0",
+          "liquidityNet": "4424806754328403854"
+        },
+        {
+          "index": -46360,
+          "liquidityGross": "0",
+          "liquidityNet": "-17921404931127987654"
+        },
+        {
+          "index": -46350,
+          "liquidityGross": "0",
+          "liquidityNet": "2833077588767520317"
+        },
+        {
+          "index": -46250,
+          "liquidityGross": "0",
+          "liquidityNet": "1679788822225896561"
+        },
+        {
+          "index": -46200,
+          "liquidityGross": "0",
+          "liquidityNet": "2120797169277768733"
+        },
+        {
+          "index": -46160,
+          "liquidityGross": "0",
+          "liquidityNet": "-3334580236922962594"
+        },
+        {
+          "index": -46150,
+          "liquidityGross": "0",
+          "liquidityNet": "-4061303663867940395"
+        },
+        {
+          "index": -46060,
+          "liquidityGross": "0",
+          "liquidityNet": "21916396173040855794"
+        },
+        {
+          "index": -46050,
+          "liquidityGross": "0",
+          "liquidityNet": "-29441955920068284372"
+        },
+        {
+          "index": -46040,
+          "liquidityGross": "0",
+          "liquidityNet": "-28361666521592602784"
+        },
+        {
+          "index": -46000,
+          "liquidityGross": "0",
+          "liquidityNet": "27621269656403068710"
+        },
+        {
+          "index": -45860,
+          "liquidityGross": "0",
+          "liquidityNet": "-2833077588767520317"
+        },
+        {
+          "index": -45800,
+          "liquidityGross": "0",
+          "liquidityNet": "-27621269656403068710"
+        },
+        {
+          "index": -45770,
+          "liquidityGross": "0",
+          "liquidityNet": "-17110857068594586466"
+        },
+        {
+          "index": -45750,
+          "liquidityGross": "0",
+          "liquidityNet": "179362367545527506612"
+        },
+        {
+          "index": -45730,
+          "liquidityGross": "0",
+          "liquidityNet": "-198080228285019561865"
+        },
+        {
+          "index": -45700,
+          "liquidityGross": "0",
+          "liquidityNet": "215281489391871944374"
+        },
+        {
+          "index": -45690,
+          "liquidityGross": "0",
+          "liquidityNet": "-215281489391871944374"
+        },
+        {
+          "index": -45630,
+          "liquidityGross": "0",
+          "liquidityNet": "277177712936833304625"
+        },
+        {
+          "index": -45620,
+          "liquidityGross": "0",
+          "liquidityNet": "-277177712936833304625"
+        },
+        {
+          "index": -45550,
+          "liquidityGross": "0",
+          "liquidityNet": "-3357191757028892160"
+        },
+        {
+          "index": -45540,
+          "liquidityGross": "0",
+          "liquidityNet": "-868646025759636431"
+        },
+        {
+          "index": -45520,
+          "liquidityGross": "0",
+          "liquidityNet": "230471301657494437049"
+        },
+        {
+          "index": -45500,
+          "liquidityGross": "0",
+          "liquidityNet": "-230471301657494437049"
+        },
+        {
+          "index": -45430,
+          "liquidityGross": "0",
+          "liquidityNet": "71345230438647866695"
+        },
+        {
+          "index": -45410,
+          "liquidityGross": "0",
+          "liquidityNet": "-71345230438647866695"
+        },
+        {
+          "index": -45350,
+          "liquidityGross": "0",
+          "liquidityNet": "18119287864654120653"
+        },
+        {
+          "index": -45330,
+          "liquidityGross": "0",
+          "liquidityNet": "147921698434993708196"
+        },
+        {
+          "index": -45310,
+          "liquidityGross": "0",
+          "liquidityNet": "-147921698434993708196"
+        },
+        {
+          "index": -45270,
+          "liquidityGross": "0",
+          "liquidityNet": "1215671446741965304"
+        },
+        {
+          "index": -45230,
+          "liquidityGross": "0",
+          "liquidityNet": "-18119287864654120653"
+        },
+        {
+          "index": -45130,
+          "liquidityGross": "0",
+          "liquidityNet": "-2027882628981820572"
+        },
+        {
+          "index": -45100,
+          "liquidityGross": "0",
+          "liquidityNet": "140353340217166718615"
+        },
+        {
+          "index": -45010,
+          "liquidityGross": "0",
+          "liquidityNet": "-33148996375891813723"
+        },
+        {
+          "index": -44910,
+          "liquidityGross": "0",
+          "liquidityNet": "624634491861768829615"
+        },
+        {
+          "index": -44890,
+          "liquidityGross": "0",
+          "liquidityNet": "21874322821788903725"
+        },
+        {
+          "index": -44880,
+          "liquidityGross": "0",
+          "liquidityNet": "313367030357952329790"
+        },
+        {
+          "index": -44870,
+          "liquidityGross": "0",
+          "liquidityNet": "-646508814683557733340"
+        },
+        {
+          "index": -44850,
+          "liquidityGross": "0",
+          "liquidityNet": "263782517999193121002"
+        },
+        {
+          "index": -44810,
+          "liquidityGross": "0",
+          "liquidityNet": "-232693642944459891190"
+        },
+        {
+          "index": -44780,
+          "liquidityGross": "0",
+          "liquidityNet": "102324900494970236422"
+        },
+        {
+          "index": -44770,
+          "liquidityGross": "0",
+          "liquidityNet": "-263782517999193121002"
+        },
+        {
+          "index": -44660,
+          "liquidityGross": "0",
+          "liquidityNet": "38405842619107773740"
+        },
+        {
+          "index": -44580,
+          "liquidityGross": "0",
+          "liquidityNet": "218231654143416269014"
+        },
+        {
+          "index": -44570,
+          "liquidityGross": "0",
+          "liquidityNet": "-215360609611429214"
+        },
+        {
+          "index": -44550,
+          "liquidityGross": "0",
+          "liquidityNet": "-217895571876446618660"
+        },
+        {
+          "index": -44540,
+          "liquidityGross": "0",
+          "liquidityNet": "141417023097330071480"
+        },
+        {
+          "index": -44530,
+          "liquidityGross": "0",
+          "liquidityNet": "1829746691825761146669"
+        },
+        {
+          "index": -44520,
+          "liquidityGross": "0",
+          "liquidityNet": "-141417023097330071480"
+        },
+        {
+          "index": -44510,
+          "liquidityGross": "0",
+          "liquidityNet": "-1829746691825761146669"
+        },
+        {
+          "index": -44490,
+          "liquidityGross": "0",
+          "liquidityNet": "89379413300408957928"
+        },
+        {
+          "index": -44480,
+          "liquidityGross": "0",
+          "liquidityNet": "13399262731532384307"
+        },
+        {
+          "index": -44450,
+          "liquidityGross": "0",
+          "liquidityNet": "-89379413300408957928"
+        },
+        {
+          "index": -44430,
+          "liquidityGross": "0",
+          "liquidityNet": "-221404130527570448762"
+        },
+        {
+          "index": -44350,
+          "liquidityGross": "0",
+          "liquidityNet": "9181486617187093861"
+        },
+        {
+          "index": -44340,
+          "liquidityGross": "0",
+          "liquidityNet": "-9181486617187093861"
+        },
+        {
+          "index": -44320,
+          "liquidityGross": "0",
+          "liquidityNet": "147498949120433869982"
+        },
+        {
+          "index": -44300,
+          "liquidityGross": "0",
+          "liquidityNet": "-147498949120433869982"
+        },
+        {
+          "index": -44270,
+          "liquidityGross": "0",
+          "liquidityNet": "48987967708006172472"
+        },
+        {
+          "index": -44250,
+          "liquidityGross": "0",
+          "liquidityNet": "112278611462315814069"
+        },
+        {
+          "index": -44230,
+          "liquidityGross": "0",
+          "liquidityNet": "130974941536020858124"
+        },
+        {
+          "index": -44220,
+          "liquidityGross": "0",
+          "liquidityNet": "539703941280296529038"
+        },
+        {
+          "index": -44210,
+          "liquidityGross": "0",
+          "liquidityNet": "-807493642832913319715"
+        },
+        {
+          "index": -44200,
+          "liquidityGross": "0",
+          "liquidityNet": "-112278611462315814069"
+        },
+        {
+          "index": -44190,
+          "liquidityGross": "0",
+          "liquidityNet": "191064397417043065889"
+        },
+        {
+          "index": -44180,
+          "liquidityGross": "0",
+          "liquidityNet": "1740501576738329025659"
+        },
+        {
+          "index": -44170,
+          "liquidityGross": "0",
+          "liquidityNet": "-380158192637800748774"
+        },
+        {
+          "index": -44160,
+          "liquidityGross": "0",
+          "liquidityNet": "-1333772383544964627983"
+        },
+        {
+          "index": -44150,
+          "liquidityGross": "0",
+          "liquidityNet": "435565087405525465088"
+        },
+        {
+          "index": -44140,
+          "liquidityGross": "0",
+          "liquidityNet": "-513795174737460036460"
+        },
+        {
+          "index": -44130,
+          "liquidityGross": "0",
+          "liquidityNet": "-150174039028293314011"
+        },
+        {
+          "index": -44120,
+          "liquidityGross": "0",
+          "liquidityNet": "-22174773617848387324"
+        },
+        {
+          "index": -44080,
+          "liquidityGross": "0",
+          "liquidityNet": "222135494766072093673"
+        },
+        {
+          "index": -44070,
+          "liquidityGross": "0",
+          "liquidityNet": "-222135494766072093673"
+        },
+        {
+          "index": -44060,
+          "liquidityGross": "0",
+          "liquidityNet": "262436503907762040668"
+        },
+        {
+          "index": -44040,
+          "liquidityGross": "0",
+          "liquidityNet": "-262436503907762040668"
+        },
+        {
+          "index": -44000,
+          "liquidityGross": "0",
+          "liquidityNet": "-2120797169277768733"
+        },
+        {
+          "index": -43970,
+          "liquidityGross": "0",
+          "liquidityNet": "-12858844195738190497"
+        },
+        {
+          "index": -43940,
+          "liquidityGross": "0",
+          "liquidityNet": "-3538580200570786062"
+        },
+        {
+          "index": -43780,
+          "liquidityGross": "0",
+          "liquidityNet": "-13399262731532384307"
+        },
+        {
+          "index": -43430,
+          "liquidityGross": "0",
+          "liquidityNet": "-3185621506798424059"
+        },
+        {
+          "index": -42360,
+          "liquidityGross": "0",
+          "liquidityNet": "-1215671446741965304"
+        },
+        {
+          "index": -40950,
+          "liquidityGross": "0",
+          "liquidityNet": "-468241128054920872"
+        },
+        {
+          "index": -39120,
+          "liquidityGross": "0",
+          "liquidityNet": "-997751812541295108"
+        },
+        {
+          "index": -36890,
+          "liquidityGross": "0",
+          "liquidityNet": "-4323126227978887646"
+        },
+        {
+          "index": -24840,
+          "liquidityGross": "0",
+          "liquidityNet": "-395316467144746837"
+        },
+        {
+          "index": -23030,
+          "liquidityGross": "0",
+          "liquidityNet": "-83394128946539596"
+        },
+        {
+          "index": -120,
+          "liquidityGross": "0",
+          "liquidityNet": "-120721657358221140"
+        },
+        {
+          "index": 0,
+          "liquidityGross": "0",
+          "liquidityNet": "-31012349476202713408"
+        },
+        {
+          "index": 1040,
+          "liquidityGross": "0",
+          "liquidityNet": "-1192358802590645002"
+        },
+        {
+          "index": 5100,
+          "liquidityGross": "0",
+          "liquidityNet": "258166465609425879680"
+        },
+        {
+          "index": 5110,
+          "liquidityGross": "0",
+          "liquidityNet": "-258166465609425879680"
+        },
+        {
+          "index": 22070,
+          "liquidityGross": "0",
+          "liquidityNet": "43158074938534876"
+        },
+        {
+          "index": 23020,
+          "liquidityGross": "0",
+          "liquidityNet": "-17308600374020029"
+        },
+        {
+          "index": 23030,
+          "liquidityGross": "0",
+          "liquidityNet": "-1717327657532988621"
+        },
+        {
+          "index": 26590,
+          "liquidityGross": "0",
+          "liquidityNet": "103129351562397510"
+        },
+        {
+          "index": 36890,
+          "liquidityGross": "0",
+          "liquidityNet": "41660195034685609105"
+        },
+        {
+          "index": 44230,
+          "liquidityGross": "0",
+          "liquidityNet": "1049504091248010597"
+        },
+        {
+          "index": 44430,
+          "liquidityGross": "0",
+          "liquidityNet": "-41660195034685609105"
+        },
+        {
+          "index": 45100,
+          "liquidityGross": "0",
+          "liquidityNet": "1029731689647586661957"
+        },
+        {
+          "index": 46040,
+          "liquidityGross": "0",
+          "liquidityNet": "19991997395083589008219"
+        },
+        {
+          "index": 46050,
+          "liquidityGross": "0",
+          "liquidityNet": "-21022821746897362215649"
+        },
+        {
+          "index": 48290,
+          "liquidityGross": "0",
+          "liquidityNet": "173824594763436303755"
+        },
+        {
+          "index": 49620,
+          "liquidityGross": "0",
+          "liquidityNet": "-173824594763436303755"
+        },
+        {
+          "index": 52990,
+          "liquidityGross": "0",
+          "liquidityNet": "-103129351562397510"
+        },
+        {
+          "index": 59530,
+          "liquidityGross": "0",
+          "liquidityNet": "-263413278032806907"
+        },
+        {
+          "index": 69080,
+          "liquidityGross": "0",
+          "liquidityNet": "-966430580360954269"
+        },
+        {
+          "index": 73780,
+          "liquidityGross": "0",
+          "liquidityNet": "229032040500464788886"
+        },
+        {
+          "index": 80070,
+          "liquidityGross": "0",
+          "liquidityNet": "115651889033057830474"
+        },
+        {
+          "index": 88540,
+          "liquidityGross": "0",
+          "liquidityNet": "-115651889033057830474"
+        },
+        {
+          "index": 91150,
+          "liquidityGross": "0",
+          "liquidityNet": "20340399503794372263"
+        },
+        {
+          "index": 92110,
+          "liquidityGross": "0",
+          "liquidityNet": "-20340399503794372263"
+        },
+        {
+          "index": 105970,
+          "liquidityGross": "0",
+          "liquidityNet": "-229032040500464788886"
+        },
+        {
+          "index": 887270,
+          "liquidityGross": "0",
+          "liquidityNet": "-32610106865545303"
+        }
+      ],
+      "marketAddress": "0xfaA318479b7755b2dBfDD34dC306cb28B420Ad12",
+      "token0": "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984",
+      "token1": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+      "tickSpacing": 10,
+      "fee": 500,
+      "tick": -59364,
+      "sqrtRatioX96": "4072763585399276330716262737",
+      "liquidity": "33587975974682609622"
+    },
+    {
+      "protocol": "uniswapV2",
+      "marketAddress": "0x7b5a6de999602f905776CF0dBf0F7957a521d28e",
+      "token0": "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984",
+      "token1": "0xC12D1c73eE7DC3615BA4e37E4ABFdbDDFA38907E",
+      "reserves0": "38822354802004570400",
+      "reserves1": "456236589850459"
+    },
+    {
+      "protocol": "uniswapV2",
+      "marketAddress": "0x7cD2c6680471029FA51f6C7169daBa7Dfb70E9cF",
+      "token0": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+      "token1": "0xC12D1c73eE7DC3615BA4e37E4ABFdbDDFA38907E",
+      "reserves0": "4483405433457199217",
+      "reserves1": "5299987323166417"
+    }
+  ],
+  "actions": [
+    "buy",
+    "sell",
+    "buy"
+  ],
+  "startToken": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+}
