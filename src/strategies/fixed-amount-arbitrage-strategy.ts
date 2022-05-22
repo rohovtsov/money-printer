@@ -23,10 +23,11 @@ export class FixedAmountArbitrageStrategy implements ArbitrageStrategy {
   nanglesByMarket: Record<Address, Nangle[]>;
 
   constructor(options: FixedAmountStartOptions, markets: EthMarket[]) {
-    const group = groupEthMarkets(markets);
     this.options = options;
     startTime('nangles');
-    this.nangles = createNangles(Object.keys(options), [2, 3], group);
+    this.nangles = createNangles(Object.keys(options), [2, 3], groupEthMarkets(markets)).filter(
+      (nangle) => nangle.markets.some((m) => m.protocol === 'uniswapV3'),
+    );
     this.nanglesByMarket = groupNanglesByMarkets(this.nangles) as Record<Address, Nangle[]>;
     console.log(
       `Created nangles for V2 & V3 - ${nangleCountsToString(this.nangles)} - in ${endTime(
