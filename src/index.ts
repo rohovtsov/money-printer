@@ -51,11 +51,6 @@ import { UniswapV3PreSyncer } from './uniswap/uniswap-v3-pre-syncer';
 import { EthermineTransactionSender } from './sender/ethermine-transaction-sender';
 
 async function main() {
-  //TODO: filter markets by reserves after retrieval
-  //TODO: ensure all token addresses from different markets are checksumed
-  //12370000 = 9 marketsV3
-  //12369800 = 2 marketsV3
-
   console.log(`Launching on ${NETWORK} ...`);
   const provider = getProvider('main purpose');
   const providerForLogs = getProvider('requesting logs', ['CUSTOM_WS']);
