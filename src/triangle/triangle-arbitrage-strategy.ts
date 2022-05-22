@@ -6,29 +6,21 @@ import {
   groupEthMarkets,
   MarketAction,
 } from '../entities';
-import { createNangles, filterNanglesByMarkets, groupNanglesByMarkets } from './nangle';
+import { createNangles, filterNanglesByMarkets, groupNanglesByMarkets, Nangle } from './nangle';
 import { saveNangle } from '../serializer';
 
 export type TriangleStartOptions = Record<Address, bigint[]>;
 
-type TrianglesByMarketAddress = Record<Address, Triangle[]>;
-
-interface Triangle {
-  markets: [EthMarket, EthMarket, EthMarket];
-  actions: [MarketAction, MarketAction, MarketAction];
-  startToken: Address;
-}
-
 export class TriangleArbitrageStrategy implements ArbitrageStrategy {
   options: TriangleStartOptions;
-  triangles: Triangle[];
-  trianglesByMarket: TrianglesByMarketAddress;
+  nangles: Nangle[];
+  nanglesByMarket: Record<Address, Nangle[]>;
 
   constructor(options: TriangleStartOptions, markets: EthMarket[]) {
     const group = groupEthMarkets(markets);
     this.options = options;
-    this.triangles = createNangles(Object.keys(options), [3], group) as Triangle[];
-    this.trianglesByMarket = groupNanglesByMarkets(this.triangles) as TrianglesByMarketAddress;
+    this.nangles = createNangles(Object.keys(options), [2, 3], group);
+    this.nanglesByMarket = groupNanglesByMarkets(this.nangles) as Record<Address, Nangle[]>;
   }
 
   getArbitrageOpportunities(
@@ -36,24 +28,21 @@ export class TriangleArbitrageStrategy implements ArbitrageStrategy {
     allMarkets: EthMarket[],
     blockNumber: number,
   ): ArbitrageOpportunity[] {
-    const changedTriangles = filterNanglesByMarkets(
-      this.trianglesByMarket,
-      changedMarkets,
-    ) as Triangle[];
-    console.log(`Changed triangles ${changedTriangles.length}`);
-    return changedTriangles
-      .map((triangle) => {
+    const changedNangles = filterNanglesByMarkets(this.nanglesByMarket, changedMarkets);
+    console.log(`Changed nangles V2 & V3 ${changedNangles.length}`);
+    return changedNangles
+      .map((nangle) => {
         /*if (opportunity?.operations?.reduce((acc, op) => acc + (op.market.protocol === 'uniswapV3' ? 1 : 0), 0) === 1) {
-          saveNangle('nangle.json', triangle);
+          saveNangle('nangle.json', nangle);
         }*/
-        return this.calculateOpportunity(triangle, blockNumber);
+        return this.calculateOpportunity(nangle, blockNumber);
       })
       .filter(Boolean) as ArbitrageOpportunity[];
   }
 
-  calculateOpportunity(triangle: Triangle, blockNumber: number): ArbitrageOpportunity | null {
-    return this.options[triangle.startToken].reduce((acc, startAmount) => {
-      const opportunity = this.calculateOpportunityForAmount(triangle, startAmount, blockNumber);
+  calculateOpportunity(nangle: Nangle, blockNumber: number): ArbitrageOpportunity | null {
+    return this.options[nangle.startToken].reduce((acc, startAmount) => {
+      const opportunity = this.calculateOpportunityForAmount(nangle, startAmount, blockNumber);
 
       if (opportunity && (!acc || opportunity.profit > acc.profit)) {
         acc = opportunity;
@@ -64,21 +53,21 @@ export class TriangleArbitrageStrategy implements ArbitrageStrategy {
   }
 
   calculateOpportunityForAmount(
-    triangle: Triangle,
+    nangle: Nangle,
     startAmount: bigint,
     blockNumber: number,
   ): ArbitrageOpportunity | null {
     const amounts: bigint[] = [startAmount];
     let amount = startAmount;
 
-    //console.log(triangle.actions, startAmount?.toString());
+    //console.log(nangle.actions, startAmount?.toString());
 
-    for (let i = 0; i < triangle.markets.length; i++) {
-      const market = triangle.markets[i];
-      const action = triangle.actions[i];
+    for (let i = 0; i < nangle.markets.length; i++) {
+      const market = nangle.markets[i];
+      const action = nangle.actions[i];
       const nextAmount = market.calcTokensOut(action, amount);
 
-      // if (nextAmount.gt(triangle.markets[i].))
+      // if (nextAmount.gt(nangle.markets[i].))
 
       if (nextAmount !== null) {
         amount = nextAmount;
@@ -91,11 +80,11 @@ export class TriangleArbitrageStrategy implements ArbitrageStrategy {
     /*console.log(Number(amount?.toString()) / (10**18), Number(startAmount?.toString()) / (10**18))
     printOpportunity({
       strategyName: 'triangle',
-      operations: triangle.markets.map((market, id) => {
-        return { market, amountIn: amounts[id], amountOut: amounts[id + 1], action: triangle.actions[id] };
+      operations: nangle.markets.map((market, id) => {
+        return { market, amountIn: amounts[id], amountOut: amounts[id + 1], action: nangle.actions[id] };
       }),
       profit: amount.sub(startAmount),
-      startToken: triangle.startToken,
+      startToken: nangle.startToken,
     });*/
 
     if (amount <= startAmount) {
@@ -105,24 +94,24 @@ export class TriangleArbitrageStrategy implements ArbitrageStrategy {
     return {
       blockNumber,
       strategyName: 'triangle',
-      operations: triangle.markets.map((market, id) => {
+      operations: nangle.markets.map((market, id) => {
         return {
           market,
           tokenIn:
-            triangle.actions[id] === 'buy'
-              ? triangle.markets[id].tokens[1]
-              : triangle.markets[id].tokens[0],
+            nangle.actions[id] === 'buy'
+              ? nangle.markets[id].tokens[1]
+              : nangle.markets[id].tokens[0],
           tokenOut:
-            triangle.actions[id] === 'buy'
-              ? triangle.markets[id].tokens[0]
-              : triangle.markets[id].tokens[1],
+            nangle.actions[id] === 'buy'
+              ? nangle.markets[id].tokens[0]
+              : nangle.markets[id].tokens[1],
           amountIn: amounts[id],
           amountOut: amounts[id + 1],
-          action: triangle.actions[id],
+          action: nangle.actions[id],
         };
       }),
       profit: amount - startAmount,
-      startToken: triangle.startToken,
+      startToken: nangle.startToken,
     };
   }
 }

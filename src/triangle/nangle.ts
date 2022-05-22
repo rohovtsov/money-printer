@@ -249,17 +249,17 @@ export function filterNanglesByMarkets(
   nanglesByMarket: Record<Address, Nangle[]>,
   byMarkets: EthMarket[],
 ): Nangle[] {
-  const changedTriangles: Set<Nangle> = new Set<Nangle>();
+  const changedNangles: Set<Nangle> = new Set<Nangle>();
 
   for (const market of byMarkets) {
-    const triangles = nanglesByMarket[market.marketAddress] ?? [];
+    const nangles = nanglesByMarket[market.marketAddress] ?? [];
 
-    for (const triangle of triangles) {
-      changedTriangles.add(triangle);
+    for (const nangle of nangles) {
+      changedNangles.add(nangle);
     }
   }
 
-  return Array.from(changedTriangles);
+  return Array.from(changedNangles);
 }
 
 export function createNanglesInefficient(
@@ -337,7 +337,7 @@ export function createNanglesInefficient(
  group1 = group of markets with firstToken
  group2 = group of markets without firstToken
 
- Triangle Schema:
+ Schema:
  tokenA => m1 => tokenB => m2 => tokenC => m3 => tokenA
 
  m1 e group1 (with tokenA)
@@ -418,7 +418,7 @@ export function createDuoangles(startToken: Address, group: GroupedEthMarkets): 
 }
 
 /**
- quadangle Schema:
+ Schema:
  tokenA => m1 => tokenB => m2 => tokenC => m3 => tokenD => m4 => tokenA
  tokenC !== tokenA
  tokenD !== tokenA

@@ -20,7 +20,7 @@ export class UniswapV2ArbitrageStrategy implements ArbitrageStrategy {
   constructor(options: NangleStartOptions, markets: EthMarket[]) {
     const v2Markets = markets.filter((m) => m.protocol === 'uniswapV2');
     const group = groupEthMarkets(v2Markets);
-    this.nangles = createNangles<UniswapV2Market>(options.startAddresses, [3], group);
+    this.nangles = createNangles<UniswapV2Market>(options.startAddresses, [2, 3], group);
     this.nanglesByMarket = groupNanglesByMarkets(this.nangles);
   }
 
@@ -30,7 +30,7 @@ export class UniswapV2ArbitrageStrategy implements ArbitrageStrategy {
     blockNumber: number,
   ): ArbitrageOpportunity[] {
     const changedTriangles = filterNanglesByMarkets(this.nanglesByMarket, changedMarkets);
-    console.log(`Changed triangles ${changedTriangles.length}`);
+    console.log(`Changed nangles V2 only ${changedTriangles.length}`);
     return changedTriangles
       .map((triangle) => this.calculateOpportunity(triangle, blockNumber))
       .filter(Boolean) as ArbitrageOpportunity[];
