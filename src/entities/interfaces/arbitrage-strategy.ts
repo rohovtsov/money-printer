@@ -1,7 +1,7 @@
 import { Address, EthMarket, MarketAction } from './eth-market';
 import { BigNumber } from 'ethers';
 
-export type ArbitrageStrategyName = 'triangle';
+export type ArbitrageStrategyName = 'uniswap-v2' | 'fixed-amount';
 
 export interface ArbitrageOperation {
   market: EthMarket;

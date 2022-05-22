@@ -64,15 +64,14 @@ export class ArbitrageRunner {
     readonly strategies: ArbitrageStrategy[],
     readonly uniswapV2Syncer: UniswapV2ReservesSyncer,
     readonly uniswapV3Syncer: UniswapV3PoolStateSyncerContractQuery,
-    readonly hostProvider: providers.WebSocketProvider,
-    readonly providersForRace: providers.JsonRpcProvider[] = [],
+    readonly provider: providers.WebSocketProvider,
   ) {
     this.marketsByAddress = this.markets.reduce((acc, market) => {
       acc[market.marketAddress] = market;
       return acc;
     }, {} as Record<Address, EthMarket>);
 
-    this.newBlocks$ = fromNewBlockEvent(this.hostProvider).pipe(
+    this.newBlocks$ = fromNewBlockEvent(this.provider).pipe(
       distinctUntilChanged((prev, current) => prev.blockNumber === current.blockNumber),
       shareReplay(1),
     );
@@ -97,12 +96,7 @@ export class ArbitrageRunner {
 
         startTime('changedMarkets');
         return defer(() =>
-          loadChangedEthMarkets(
-            this.hostProvider,
-            this.providersForRace,
-            event.blockNumber,
-            this.marketsByAddress,
-          ),
+          loadChangedEthMarkets(this.provider, event.blockNumber, this.marketsByAddress),
         )
           .pipe(retry(5))
           .pipe(
@@ -239,27 +233,28 @@ export class ArbitrageRunner {
 
 export function loadChangedEthMarkets(
   provider: providers.JsonRpcProvider,
-  providersForRace: providers.JsonRpcProvider[],
   blockNumber: number,
   marketsByAddress: Record<Address, EthMarket>,
 ): Promise<EthMarket[]> {
   const indicatorTopics = new Set<string>([...UNISWAP_POOL_EVENT_TOPICS, UNISWAP_SYNC_EVENT_TOPIC]);
 
-  return raceGetLogs(provider, providersForRace, {
-    fromBlock: blockNumber,
-    toBlock: blockNumber,
-  }).then((logs) => {
-    const changedAddresses = logs
-      .filter((log) => log.topics.some((topic) => indicatorTopics.has(topic)))
-      .map((log) => log.address);
+  return provider
+    .getLogs({
+      fromBlock: blockNumber,
+      toBlock: blockNumber,
+    })
+    .then((logs) => {
+      const changedAddresses = logs
+        .filter((log) => log.topics.some((topic) => indicatorTopics.has(topic)))
+        .map((log) => log.address);
 
-    return changedAddresses.reduce((acc, address) => {
-      if (marketsByAddress[address]) {
-        acc.push(marketsByAddress[address]);
-      }
-      return acc;
-    }, [] as EthMarket[]);
-  });
+      return changedAddresses.reduce((acc, address) => {
+        if (marketsByAddress[address]) {
+          acc.push(marketsByAddress[address]);
+        }
+        return acc;
+      }, [] as EthMarket[]);
+    });
 }
 
 export function fromNewBlockEvent(

@@ -31,7 +31,7 @@ import fs from 'fs';
 import { loadNangle } from '../src/serializer';
 import { ArbitrageExecutor } from '../src/arbitrage-executor';
 import { FlashbotsTransactionSender } from '../src/sender/flashbots-transaction-sender';
-import { TriangleArbitrageStrategy } from '../src/triangle/triangle-arbitrage-strategy';
+import { FixedAmountArbitrageStrategy } from '../src/strategies/fixed-amount-arbitrage-strategy';
 import { UniswapV2ReservesSyncer } from '../src/uniswap/uniswap-v2-reserves-syncer';
 import { UniswapV2Market } from '../src/uniswap/uniswap-v2-market';
 import { TransactionRequest } from '@ethersproject/providers';
@@ -237,7 +237,7 @@ describe('UniswapV3PriceCalculator', function () {
       provider,
       PRIVATE_KEY,
     );
-    const triangle = new TriangleArbitrageStrategy({}, []);
+    const triangle = new FixedAmountArbitrageStrategy({}, []);
 
     const amount = ETHER * 13n;
     const nangle = loadNangle('./test/res/nangle-single-uniswapV3.json');

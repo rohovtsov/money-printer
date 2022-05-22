@@ -1,13 +1,13 @@
 import { expect } from 'chai';
 import { loadNangle } from '../src/serializer';
-import { TriangleArbitrageStrategy } from '../src/triangle/triangle-arbitrage-strategy';
+import { FixedAmountArbitrageStrategy } from '../src/strategies/fixed-amount-arbitrage-strategy';
 import { printOpportunity, WETH_ADDRESS } from '../src/entities';
 import { ETHER } from '../src/entities';
 
 describe('UniswapV3AlgorithmTest', function () {
   this.timeout(10000);
   let nangle = loadNangle('./test/res/nangle.json');
-  let oldStrategy = new TriangleArbitrageStrategy(
+  let oldStrategy = new FixedAmountArbitrageStrategy(
     {
       [WETH_ADDRESS]: new Array(100000).fill(null).map((el, i) => (ETHER / 10n) * BigInt(i)),
     },

@@ -18,3 +18,4 @@ export * from './parsers/uniswap-pool-created-log-parser';
 export * from './flashbots-provider-factory';
 export * from './rate-limiter';
 export * from './environmet';
+export * from './provider-factory';

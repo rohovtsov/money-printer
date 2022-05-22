@@ -3,6 +3,7 @@ dotenv.config();
 
 export const NETWORK = process.env.NETWORK || 'goerli';
 //export const INFURA_API_KEY = process.env.INFURA_API_KEY || '08a6fc8910ca460e99dd411ec0286be6';
+export const CUSTOM_WS_PROVIDER_URL = process.env.CUSTOM_WS_PROVIDER_URL;
 export const INFURA_API_KEY = process.env.INFURA_API_KEY || '8ac04e84ff9e4fd19db5bfa857b90a92';
 export const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY || 'a0SpOFIBbxj6-0h4q8PyDjF1xKIqScxB';
 export const PRIVATE_KEY =

@@ -21,8 +21,8 @@ import { UniswapV3PreSyncer } from '../src/uniswap/uniswap-v3-pre-syncer';
 import { UniswapV3PoolStateSyncer } from '../src/uniswap/uniswap-v3-pool-state-syncer';
 import { UniswapV3Market } from '../src/uniswap/uniswap-v3-market';
 import { ArbitrageRunner } from '../src/arbitrage-runner';
-import { TriangleArbitrageStrategy } from '../src/triangle/triangle-arbitrage-strategy';
-import { UniswapV2ArbitrageStrategy } from '../src/triangle/uniswap-v2-arbitrage-strategy';
+import { FixedAmountArbitrageStrategy } from '../src/strategies/fixed-amount-arbitrage-strategy';
+import { UniswapV2ArbitrageStrategy } from '../src/strategies/uniswap-v2-arbitrage-strategy';
 import { UniswapV2ReservesSyncer } from '../src/uniswap/uniswap-v2-reserves-syncer';
 import { UniswapV3PoolStateSyncerContractQuery } from '../src/uniswap/uniswap-v3-pool-state-syncer-contract-query';
 import { take, tap } from 'rxjs';
@@ -166,7 +166,6 @@ describe('Speed test', function () {
         new UniswapV2ReservesSyncer(provider, 10, 1000),
         new UniswapV3PoolStateSyncerContractQuery(provider, 10),
         provider,
-        [],
       );
 
       runner.currentBlockNumber$.subscribe((blockNumber) => {
