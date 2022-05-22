@@ -57,7 +57,7 @@ import { UniswapV2MarketFactory } from './uniswap/uniswap-v2-market-factory';
 import { UniswapV3PreSyncer } from './uniswap/uniswap-v3-pre-syncer';
 
 const PROVIDERS = [
-  new providers.AlchemyWebSocketProvider(NETWORK, ALCHEMY_API_KEY),
+  new providers.WebSocketProvider('ws://91.77.164.144:8546', NETWORK),
   new providers.AlchemyWebSocketProvider(NETWORK, ALCHEMY_API_KEY),
   new providers.AlchemyProvider(NETWORK, ALCHEMY_API_KEY),
   new providers.InfuraWebSocketProvider(NETWORK, INFURA_API_KEY),
@@ -108,7 +108,7 @@ async function main() {
   await new UniswapV3PreSyncer(
     new UniswapV3PoolStateSyncer(3),
     markets.filter((market) => market.protocol === 'uniswapV3') as UniswapV3Market[],
-    true,
+    false,
   ).presync();
 
   const runner = new ArbitrageRunner(
@@ -128,21 +128,14 @@ async function main() {
     providersForRace,
   );
 
-  //грубый фильтр по minGasUsed
-  let minGasUsed = 200000n;
-  let maxProfitableBlocksCount = 5;
-  let nonProfitableBlockCount = 0;
-  //убыток составит gasFees / reduceEstimatedGasBy;
-  let reduceEstimatedGasBy = 2n;
-
   const thisBlock$ = runner.currentBlockNumber$;
   const concurrentSimulationCount = 10;
   const opportunities$ = runner.start().pipe(
     //pause a bit, to let eventLoop deliver the new blocks
     delay(1),
     switchMap((event) => {
-      let opportunities = event.opportunities.filter(
-        (op) => op.profit - minGasUsed * event.baseFeePerGas >= MIN_PROFIT_NET,
+      const opportunities = event.opportunities.filter(
+        (op) => op.profit - 200000n * event.baseFeePerGas >= MIN_PROFIT_NET,
       );
       console.log(
         `Found opportunities: ${opportunities.length} in ${endTime('render')}ms at ${
@@ -151,31 +144,9 @@ async function main() {
       );
       console.log(`Since block was received: ${Date.now() - event.blockReceivedAt}ms\n`);
 
-      if (opportunities.length <= 0) {
-        nonProfitableBlockCount++;
-      } else {
-        nonProfitableBlockCount = 0;
-      }
-
-      console.log(`Non profitable blocks passed: ${nonProfitableBlockCount}`);
-
-      if (nonProfitableBlockCount >= maxProfitableBlocksCount) {
-        opportunities = event.opportunities.filter(
-          (op) =>
-            op.profit - (minGasUsed / reduceEstimatedGasBy) * event.baseFeePerGas >= MIN_PROFIT_NET,
-        );
-        console.log(
-          `Found opportunities: ${opportunities.length} in ${endTime('render')}ms at ${
-            event.blockNumber
-          }, with gas use reduced by ${reduceEstimatedGasBy}`,
-        );
-
-        return from(
-          opportunities.map((op) => [op, event.baseFeePerGas] as [ArbitrageOpportunity, bigint]),
-        );
-      }
-
-      return EMPTY;
+      return from(
+        opportunities.map((op) => [op, event.baseFeePerGas] as [ArbitrageOpportunity, bigint]),
+      );
     }),
   );
 
@@ -194,9 +165,7 @@ async function main() {
 
           console.log(`Simulation started. On ${blockNumber}`);
 
-          return defer(() =>
-            executor.simulateOpportunity(opportunity, baseFeePerGas, reduceEstimatedGasBy),
-          ).pipe(
+          return defer(() => executor.simulateOpportunity(opportunity, baseFeePerGas)).pipe(
             catchError((err: any) => {
               //если отвалилось иза-за неправильного газа, проверим на след. блоке
               if (err?.queue) {
@@ -225,8 +194,6 @@ async function main() {
     mergeMap((opportunity) => {
       return thisBlock$.pipe(
         concatMap((blockNumber) => {
-          nonProfitableBlockCount = 0;
-
           if (blockNumber > opportunity.blockNumber) {
             console.log(
               `Execution postponed. Old block ${opportunity.blockNumber} / ${blockNumber}`,
@@ -249,7 +216,10 @@ async function main() {
           printOpportunity(opportunity);
           lastExecutedAtBlock = opportunity.blockNumber;
 
-          return defer(() => executor.executeOpportunity(opportunity)).pipe(map(() => opportunity));
+          return defer(() => executor.executeOpportunity(opportunity)).pipe(
+            catchError(() => EMPTY),
+            map(() => opportunity),
+          );
         }),
       );
     }),

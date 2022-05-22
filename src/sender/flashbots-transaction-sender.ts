@@ -12,11 +12,14 @@ import {
   ArbitrageOpportunity,
   createFlashbotsBundleProvider,
   NETWORK,
+  printOpportunity,
   sleep,
   TransactionData,
   TransactionSender,
 } from '../entities';
 import { GetBundleStatsResponseSuccess } from '@flashbots/ethers-provider-bundle/src';
+import { id } from 'ethers/lib/utils';
+import { fetchJson } from '@ethersproject/web';
 
 const storePath = `simulations/${NETWORK}.json`;
 
@@ -211,10 +214,6 @@ export class FlashbotsTransactionSender implements TransactionSender {
       } catch (err) {
         console.log(`Flashbots ${hash} Error while getting stats.`, err);
       }
-    }
-
-    if (resolution === FlashbotsBundleResolution.BundleIncluded) {
-      throw new Error('BundleIncluded, quitting ...');
     }
   }
 
