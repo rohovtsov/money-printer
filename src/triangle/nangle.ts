@@ -62,44 +62,29 @@ export function createNangles<T extends EthMarket>(
   Ns: number[],
   group: GroupedEthMarkets,
 ): Nangle<T>[] {
-  const graph = createGraph(group);
   const nangles: Nangle[] = [];
 
   for (const startToken of startTokens) {
     for (const N of Ns) {
-      const startNode = graph[startToken];
-      const finishNode = graph[startToken];
-      const maxSize = N * 2;
-
-      if (!isInteger(maxSize) || maxSize < 4) {
+      if (!isInteger(N) || N < 2 || N > 4) {
         throw new Error('Wrong N provided');
       }
 
-      //if (maxSize === 6) {
-      //createTriangles([startToken], group).forEach((n) => nangles.push(n));
-      /*} else {
-        //TODO: fix memory issues
-
-      }*/
-      /*createNanglesRecursive(startNode, startNode, finishNode, maxSize).forEach((n) =>
-        nangles.push(n),
-      );*/
-      createNanglesRecursiveOpti(
-        graph,
-        startNode,
-        startNode,
-        finishNode,
-        maxSize,
-        [startNode],
-        nangles as Nangle[],
-      );
+      if (N == 2) {
+        createDuoangles(startToken, group).forEach((n) => nangles.push(n));
+      } else if (N === 3) {
+        createTriangles(startToken, group).forEach((n) => nangles.push(n));
+      } else if (N === 4) {
+        throw new Error('Wrong N provided');
+        //createQuadangles(startToken, group).forEach(n => nangles.push(n));
+      }
     }
   }
 
   return nangles as Nangle<T>[];
 }
 
-export function createNanglesOpti<T extends EthMarket>(
+export function createNanglesUsingGraph<T extends EthMarket>(
   startTokens: Address[],
   Ns: number[],
   group: GroupedEthMarkets,
@@ -117,20 +102,18 @@ export function createNanglesOpti<T extends EthMarket>(
         throw new Error('Wrong N provided');
       }
 
-      if (maxSize === 6) {
-        createTriangles([startToken], group).forEach((n) => nangles.push(n));
-      } else {
-        //TODO: fix memory issues
-        createNanglesRecursiveOpti(
-          graph,
-          startNode,
-          startNode,
-          finishNode,
-          maxSize,
-          [startNode],
-          nangles,
-        );
-      }
+      /*createNanglesRecursive(startNode, startNode, finishNode, maxSize).forEach((n) =>
+        nangles.push(n),
+      );*/
+      createNanglesRecursiveOpti(
+        graph,
+        startNode,
+        startNode,
+        finishNode,
+        maxSize,
+        [startNode],
+        nangles as Nangle[],
+      );
     }
   }
 
@@ -362,41 +345,137 @@ export function createNanglesInefficient(
  m3 e group3 (without tokenA, without tokenB)
  m4 e group4 (with tokenA)
  */
-export function createTriangles(startingTokens: Address[], group: GroupedEthMarkets): Nangle[] {
+export function createTriangles(startToken: Address, group: GroupedEthMarkets): Nangle[] {
   const nangles: Nangle[] = [];
+  const tokenA = startToken;
 
-  for (const tokenA of startingTokens) {
-    const group1 = groupEthMarkets(group.marketsByToken[tokenA]);
-    const group2 = groupEthMarkets(
-      group.markets.filter((market) => market.tokens[0] !== tokenA && market.tokens[1] !== tokenA),
-    );
+  const group1 = groupEthMarkets(group.marketsByToken[tokenA]);
+  const group2 = groupEthMarkets(
+    group.markets.filter((market) => market.tokens[0] !== tokenA && market.tokens[1] !== tokenA),
+  );
 
-    for (const market1 of group1.markets) {
-      const tokenB = market1.tokens[0] !== tokenA ? market1.tokens[0] : market1.tokens[1];
+  for (const market1 of group1.markets) {
+    const tokenB = market1.tokens[0] !== tokenA ? market1.tokens[0] : market1.tokens[1];
 
-      if (!group2.marketsByToken[tokenB]) {
+    if (!group2.marketsByToken[tokenB]) {
+      continue;
+    }
+
+    for (const market2 of group2.marketsByToken[tokenB]) {
+      const tokenC = market2.tokens[0] !== tokenB ? market2.tokens[0] : market2.tokens[1];
+
+      if (!group1.marketsByToken[tokenC]) {
         continue;
       }
 
-      for (const market2 of group2.marketsByToken[tokenB]) {
-        const tokenC = market2.tokens[0] !== tokenB ? market2.tokens[0] : market2.tokens[1];
-
-        if (!group1.marketsByToken[tokenC]) {
+      for (const market3 of group1.marketsByToken[tokenC]) {
+        if (market3 === market1) {
           continue;
         }
 
-        for (const market3 of group1.marketsByToken[tokenC]) {
-          if (market3 === market1) {
+        nangles.push({
+          startToken: tokenA,
+          markets: [market1, market2, market3],
+          actions: [
+            market1.tokens[0] === tokenA ? 'sell' : 'buy',
+            market2.tokens[0] === tokenB ? 'sell' : 'buy',
+            market3.tokens[0] === tokenC ? 'sell' : 'buy',
+          ],
+        });
+      }
+    }
+  }
+
+  return nangles;
+}
+
+export function createDuoangles(startToken: Address, group: GroupedEthMarkets): Nangle[] {
+  const nangles: Nangle[] = [];
+  const tokenA = startToken;
+
+  const group1 = groupEthMarkets(group.marketsByToken[tokenA]);
+
+  for (const market1 of group1.markets) {
+    const tokenB = market1.tokens[0] !== tokenA ? market1.tokens[0] : market1.tokens[1];
+
+    for (const market2 of group1.marketsByToken[tokenB]) {
+      if (market2 === market1) {
+        continue;
+      }
+
+      nangles.push({
+        startToken: tokenA,
+        markets: [market1, market2],
+        actions: [
+          market1.tokens[0] === tokenA ? 'sell' : 'buy',
+          market2.tokens[0] === tokenB ? 'sell' : 'buy',
+        ],
+      });
+    }
+  }
+
+  return nangles;
+}
+
+/**
+ quadangle Schema:
+ tokenA => m1 => tokenB => m2 => tokenC => m3 => tokenD => m4 => tokenA
+ tokenC !== tokenA
+ tokenD !== tokenA
+
+ m1 e group1 (with tokenA)
+ m2 e group2 (with tokenB, without tokenA)
+ m3 e group3 (with tokenC, without tokenA)
+ m4 e group4 (with tokenA)
+ */
+export function createQuadangles(startToken: Address, group: GroupedEthMarkets): Nangle[] {
+  const nangles: Nangle[] = [];
+  const tokenA = startToken;
+
+  const group1 = groupEthMarkets(group.marketsByToken[tokenA]);
+  const group2 = groupEthMarkets(
+    group.markets.filter((market) => market.tokens[0] !== tokenA && market.tokens[1] !== tokenA),
+  );
+  for (const market1 of group1.markets) {
+    const tokenB = market1.tokens[0] !== tokenA ? market1.tokens[0] : market1.tokens[1];
+
+    if (!group.marketsByToken[tokenB]) {
+      continue;
+    }
+
+    for (const market2 of group2.markets) {
+      const tokenC = market2.tokens[0] !== tokenB ? market2.tokens[0] : market2.tokens[1];
+
+      if (!group.marketsByToken[tokenC]) {
+        continue;
+      }
+
+      const group3 = groupEthMarkets(group.marketsByToken[tokenC]);
+      for (const market3 of group3.markets) {
+        const tokenD = market3.tokens[0] !== tokenC ? market3.tokens[0] : market3.tokens[1];
+
+        if (
+          !group1.marketsByToken[tokenD] ||
+          tokenD === tokenA ||
+          market2 === market3 ||
+          market1 === market3
+        ) {
+          continue;
+        }
+
+        for (const market4 of group1.marketsByToken[tokenD]) {
+          if (market1 === market4 || market2 === market4 || market3 === market4) {
             continue;
           }
 
           nangles.push({
             startToken: tokenA,
-            markets: [market1, market2, market3] as UniswapV2Market[],
+            markets: [market1, market2, market3, market4],
             actions: [
               market1.tokens[0] === tokenA ? 'sell' : 'buy',
               market2.tokens[0] === tokenB ? 'sell' : 'buy',
               market3.tokens[0] === tokenC ? 'sell' : 'buy',
+              market4.tokens[0] === tokenD ? 'sell' : 'buy',
             ],
           });
         }
@@ -406,7 +485,3 @@ export function createTriangles(startingTokens: Address[], group: GroupedEthMark
 
   return nangles;
 }
-
-//A > M1 > B > M3 > C > M2 > A
-//A > M0 > B > M3 > C > M2 > A
-//A > M2
