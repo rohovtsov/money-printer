@@ -9,6 +9,7 @@ import {
   EthMarket,
   getBaseFeePerGas,
   raceGetLogs,
+  sortOpportunitiesByProfit,
   startTime,
   UNISWAP_POOL_EVENT_TOPICS,
   UNISWAP_SYNC_EVENT_TOPIC,
@@ -215,19 +216,18 @@ export class ArbitrageRunner {
     blockNumber: number,
     blockReceivedAt: number,
   ): ArbitrageOpportunity[] {
-    return this.strategies
-      .reduce((acc, strategy) => {
-        const opportunities = strategy.getArbitrageOpportunities(
-          changedMarkets,
-          this.markets,
-          blockNumber,
-        );
-        for (const op of opportunities) {
-          acc.push({ ...op, blockReceivedAt });
-        }
-        return acc;
-      }, [] as ArbitrageOpportunity[])
-      .sort((a, b) => (a.profit < b.profit ? 1 : a.profit > b.profit ? -1 : 0));
+    const opportunities = this.strategies.reduce((acc, strategy) => {
+      const opportunities = strategy.getArbitrageOpportunities(
+        changedMarkets,
+        this.markets,
+        blockNumber,
+      );
+      for (const op of opportunities) {
+        acc.push({ ...op, blockReceivedAt });
+      }
+      return acc;
+    }, [] as ArbitrageOpportunity[]);
+    return sortOpportunitiesByProfit(opportunities);
   }
 }
 

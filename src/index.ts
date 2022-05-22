@@ -1,5 +1,17 @@
 import 'log-timestamp';
-import { concatMap, defer, delay, EMPTY, from, map, mergeMap, switchMap, tap } from 'rxjs';
+import {
+  bufferTime,
+  concatMap,
+  defer,
+  delay,
+  EMPTY,
+  from,
+  map,
+  mergeMap,
+  switchMap,
+  take,
+  tap,
+} from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { ArbitrageBlacklist } from './arbitrage-blacklist';
 import { ArbitrageExecutor } from './arbitrage-executor';
@@ -21,13 +33,12 @@ import {
   printOpportunity,
   PRIVATE_KEY,
   SimulatedArbitrageOpportunity,
+  sortOpportunitiesByProfit,
   UNISWAP_V2_FACTORY_ADDRESSES,
   UNISWAP_V3_FACTORY_ADDRESSES,
-  USE_FLASHBOTS,
   WETH_ADDRESS,
 } from './entities';
 import { FlashbotsTransactionSender } from './sender/flashbots-transaction-sender';
-import { Web3TransactionSender } from './sender/web3-transaction-sender';
 import { FixedAmountArbitrageStrategy } from './strategies/fixed-amount-arbitrage-strategy';
 import { UniswapV2ReservesSyncer } from './uniswap/uniswap-v2-reserves-syncer';
 import { UniswapV3MarketFactory } from './uniswap/uniswap-v3-market-factory';
@@ -37,6 +48,7 @@ import { UniswapV3PoolStateSyncerContractQuery } from './uniswap/uniswap-v3-pool
 import { UniswapV2ArbitrageStrategy } from './strategies/uniswap-v2-arbitrage-strategy';
 import { UniswapV2MarketFactory } from './uniswap/uniswap-v2-market-factory';
 import { UniswapV3PreSyncer } from './uniswap/uniswap-v3-pre-syncer';
+import { EthermineTransactionSender } from './sender/ethermine-transaction-sender';
 
 async function main() {
   //TODO: filter markets by reserves after retrieval
@@ -44,19 +56,17 @@ async function main() {
   //12370000 = 9 marketsV3
   //12369800 = 2 marketsV3
 
-  console.log(`Launching on ${NETWORK} ${USE_FLASHBOTS ? 'using flashbots ' : ''}...`);
-
+  console.log(`Launching on ${NETWORK} ...`);
   const provider = getProvider('main purpose');
   const providerForLogs = getProvider('requesting logs', ['CUSTOM_WS']);
 
-  const sender = USE_FLASHBOTS
-    ? await FlashbotsTransactionSender.create(
-        provider,
-        NETWORK,
-        FLASHBOTS_RELAY_HACKED_SIGNING_KEY,
-        FLASHBOTS_RELAY_SIGNING_KEY,
-      )
-    : new Web3TransactionSender(provider, 2);
+  const flashbots = await FlashbotsTransactionSender.create(
+    provider,
+    NETWORK,
+    FLASHBOTS_RELAY_HACKED_SIGNING_KEY,
+    FLASHBOTS_RELAY_SIGNING_KEY,
+  );
+  const senders = [flashbots, await EthermineTransactionSender.create(provider)];
 
   const LAST_BLOCK = await getLastBlockNumber(providerForLogs);
   const factories: EthMarketFactory[] = [
@@ -75,7 +85,7 @@ async function main() {
   console.log(`Loaded markets: ${markets.length}`);
 
   const blacklist = new ArbitrageBlacklist(BLACKLIST_MARKETS, BLACKLIST_TOKENS);
-  const executor = new ArbitrageExecutor(sender, provider, PRIVATE_KEY);
+  const executor = new ArbitrageExecutor(flashbots, senders, provider, PRIVATE_KEY);
   const allowedMarkets = blacklist.filterMarkets(markets);
 
   await new UniswapV3PreSyncer(
@@ -101,13 +111,14 @@ async function main() {
   );
 
   const thisBlock$ = runner.currentBlockNumber$;
-  const concurrentSimulationCount = 10;
+  const concurrentSimulationCount = 20;
+  const minGas = 200000n;
   const opportunities$ = runner.start().pipe(
     //pause a bit, to let eventLoop deliver the new blocks
     delay(1),
     switchMap((event) => {
       const opportunities = event.opportunities.filter(
-        (op) => op.profit - 200000n * event.baseFeePerGas >= MIN_PROFIT_NET,
+        (op) => op.profit - minGas * event.baseFeePerGas >= MIN_PROFIT_NET,
       );
       console.log(
         `Found opportunities: ${opportunities.length} in ${endTime('render')}ms at ${
@@ -159,6 +170,10 @@ async function main() {
         }),
       );
     }, concurrentSimulationCount),
+    bufferTime(100),
+    concatMap((simulatedOpportunities) => {
+      return from(sortOpportunitiesByProfit<SimulatedArbitrageOpportunity>(simulatedOpportunities));
+    }),
   );
 
   let lastExecutedAtBlock = 0;

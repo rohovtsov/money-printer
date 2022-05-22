@@ -28,3 +28,7 @@ export interface ArbitrageStrategy {
     blockNumber: number,
   ): ArbitrageOpportunity[];
 }
+
+export function sortOpportunitiesByProfit<T extends ArbitrageOpportunity>(opportunities: T[]): T[] {
+  return opportunities.sort((a, b) => (a.profit < b.profit ? 1 : a.profit > b.profit ? -1 : 0));
+}

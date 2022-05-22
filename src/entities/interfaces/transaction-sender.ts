@@ -10,7 +10,11 @@ export interface TransactionData {
 }
 
 export interface TransactionSender {
-  sendTransaction(data: TransactionData): Promise<TransactionReceipt | null>;
+  readonly type: string;
 
+  sendTransaction(data: TransactionData): Promise<TransactionReceipt | null>;
+}
+
+export interface TransactionSimulator {
   simulateTransaction(data: TransactionData): Promise<bigint>;
 }

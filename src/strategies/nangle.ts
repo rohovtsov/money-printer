@@ -16,7 +16,7 @@ export function nangleCountsToString(nangles: Nangle[]): string {
 
   return [
     `total: ${nangles.length}`,
-    ...Object.keys(counts).map((count) => `${count}angles: ${counts[count]}`),
+    ...Object.keys(counts).map((count) => `${count}-angles: ${counts[count]}`),
   ].join(', ');
 }
 

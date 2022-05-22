@@ -10,6 +10,7 @@ import {
   MultipleCallData,
   SimulatedArbitrageOpportunity,
   TransactionSender,
+  TransactionSimulator,
   WETH_ADDRESS,
 } from './entities';
 import { Contract, PopulatedTransaction, providers, utils, Wallet } from 'ethers';
@@ -21,7 +22,8 @@ export class ArbitrageExecutor {
   readonly moneyPrinterContract;
 
   constructor(
-    readonly sender: TransactionSender,
+    readonly simulator: TransactionSimulator,
+    readonly senders: TransactionSender[],
     readonly provider: providers.JsonRpcProvider,
     privateKey: string,
   ) {
@@ -213,7 +215,7 @@ export class ArbitrageExecutor {
     let simOpp: SimulatedArbitrageOpportunity;
 
     try {
-      gasUsed = await this.sender.simulateTransaction({
+      gasUsed = await this.simulator.simulateTransaction({
         signer: this.arbitrageSigningWallet,
         transactionData: transactionData,
         blockNumber: opportunity.blockNumber + 1,
@@ -270,16 +272,20 @@ export class ArbitrageExecutor {
   }
 
   async executeOpportunity(opportunity: SimulatedArbitrageOpportunity): Promise<void> {
-    try {
-      await this.sender.sendTransaction({
-        signer: this.arbitrageSigningWallet,
-        transactionData: opportunity.transactionData,
-        blockNumber: opportunity.blockNumber + 1,
-        opportunity,
-      });
-    } catch (e) {
-      console.log('Execution error.', e);
-    }
+    await Promise.all([
+      ...this.senders.map((sender) =>
+        sender
+          .sendTransaction({
+            signer: this.arbitrageSigningWallet,
+            transactionData: opportunity.transactionData,
+            blockNumber: opportunity.blockNumber + 1,
+            opportunity,
+          })
+          .catch((e) => {
+            console.log(`Execution error at ${sender.type}.`, e);
+          }),
+      ),
+    ]);
   }
 }
 

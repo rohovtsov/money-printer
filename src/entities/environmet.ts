@@ -10,7 +10,6 @@ export const PRIVATE_KEY =
   process.env.PRIVATE_KEY || '0xe287672c1f7b7a8a38449626b3303a2ad4430672977b8a6f741a9ca35b6ca10c';
 export const MIN_PROFIT_NET = BigInt(String(Number(process.env.MIN_PROFIT_NET ?? 0) * 10 ** 18));
 
-export const USE_FLASHBOTS = (process.env.USE_FLASHBOTS ?? 'true') === 'true';
 export const FLASHBOTS_RELAY_HACKED_SIGNING_KEY =
   (process.env.FLASHBOTS_RELAY_HACKED_SIGNING_KEY ?? 'false') === 'true';
 export const FLASHBOTS_RELAY_SIGNING_KEY = process.env.FLASHBOTS_RELAY_SIGNING_KEY;
