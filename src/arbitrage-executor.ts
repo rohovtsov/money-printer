@@ -207,18 +207,20 @@ export class ArbitrageExecutor {
   async simulateOpportunity(
     opportunity: ArbitrageOpportunity,
     gasPrice: bigint,
+    reduceEstimatedGasBy = 1n,
   ): Promise<SimulatedArbitrageOpportunity> {
     const transactionData = await this.createOpportunityTransactionData(opportunity, 0n, gasPrice);
     let gasUsed: bigint;
     let simOpp: SimulatedArbitrageOpportunity;
 
     try {
-      gasUsed = await this.sender.simulateTransaction({
-        signer: this.arbitrageSigningWallet,
-        transactionData: transactionData,
-        blockNumber: opportunity.blockNumber + 1,
-        opportunity,
-      });
+      gasUsed =
+        (await this.sender.simulateTransaction({
+          signer: this.arbitrageSigningWallet,
+          transactionData: transactionData,
+          blockNumber: opportunity.blockNumber + 1,
+          opportunity,
+        })) / reduceEstimatedGasBy;
     } catch (err: SimulationResponseSuccess | RelayResponseError | any) {
       const revert = err?.firstRevert?.revert ?? err?.firstRevert?.error;
       const error = err?.error ?? (!revert ? err : undefined);
@@ -277,8 +279,12 @@ export class ArbitrageExecutor {
         blockNumber: opportunity.blockNumber + 1,
         opportunity,
       });
-    } catch (e) {
+    } catch (e: any) {
       console.log('Execution error.', e);
+
+      if (e?.toString()?.includes('BundleIncluded')) {
+        throw e;
+      }
     }
   }
 }
