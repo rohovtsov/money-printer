@@ -1,13 +1,16 @@
-import { expect } from 'chai';
 import { loadNangle } from '../src/serializer';
 import { FixedAmountArbitrageStrategy } from '../src/strategies/fixed-amount-arbitrage-strategy';
 import { EthMarket, MarketAction, printOpportunity, WETH_ADDRESS } from '../src/entities';
 import { ETHER } from '../src/entities';
 import { UniswapV3Market } from '../src/uniswap/uniswap-v3-market';
-import { MAX_FEE, SqrtPriceMath, TickMath } from '../src/uniswap/native-pool/native-pool-utils';
+import {
+  MAX_FEE,
+  SqrtPriceMath,
+  TickMath,
+  SwapMath,
+} from '../src/uniswap/native-pool/native-pool-utils';
 import { SwapStep } from '../src/uniswap/native-pool/native-pool';
-import invariant from 'tiny-invariant';
-import { Nangle } from '../src/triangle/nangle';
+import { Nangle } from '../src/strategies/nangle';
 import fs from 'fs';
 
 function swapNangle(nangle: Nangle, amountIn: bigint): bigint | null {
@@ -165,19 +168,13 @@ describe('UniswapV3AlgorithmTest', function () {
     const fromId = breakpoints.indexOf(fromRange);
     const toRanges = breakpoints.slice(fromId + 1, fromId + 5);
     const toRange = toRanges[0];
-    const amountIn = 6105000000n;
+    const amountIn = 105000000n;
     console.log(fromRange);
     console.log(toRange);
     console.log(marketV3.pool!.sqrtRatioX96);
 
-    const remainingWithoutFee = (amountIn * (MAX_FEE - BigInt(fee))) / MAX_FEE;
+    /*const remainingWithoutFee = (amountIn * (MAX_FEE - BigInt(fee))) / MAX_FEE;
     const amount1Delta = SqrtPriceMath.getAmount1Delta(
-      sqrtRatioCurrentX96,
-      toRange,
-      liquidity,
-      true,
-    );
-    const maxPossible = SqrtPriceMath.getAmount1Delta(
       sqrtRatioCurrentX96,
       toRange,
       liquidity,
@@ -187,10 +184,10 @@ describe('UniswapV3AlgorithmTest', function () {
     const amountInGross = (amount1Delta * MAX_FEE) / (MAX_FEE - BigInt(fee)) + 1000000000n;
     console.log(remainingWithoutFee);
     console.log(amountInGross);
-    const input = amountInGross; //1000000000n;
-    const output = marketV3.calcTokensOut('buy', input);
+    const input = amountInGross; //1000000000n;*/
+    const output = marketV3.calcTokensOut('buy', amountIn);
     console.log(
-      `swap ${input} for ${output} at average price of ${Number(output) / Number(input)}`,
+      `swap ${amountIn} for ${output} at average price of ${Number(output) / Number(amountIn)}`,
     );
     //swap 1000 for 507129710806 at average price of 507129710.806
     //swap 100000 for 50738352833108 at average price of 507383528.33108
@@ -199,6 +196,22 @@ describe('UniswapV3AlgorithmTest', function () {
     //swap 6118644951 for 3104064912269592924 at average price of 507312474.7600007
 
     //swap 7118644950 for 3611295990851923032 at average price of 507301040.6077245
+
+    const [sqrtRatioNextX96, _amountIn, amountOut, feeAmount] =
+      SwapMath.computeSwapStepSuperSimplifiedOneForZero(
+        sqrtRatioCurrentX96,
+        toRange,
+        liquidity,
+        amountIn,
+        fee,
+      );
+    console.log(
+      `swap ${_amountIn + feeAmount} for ${amountOut} at average price of ${
+        Number(amountOut) / Number(_amountIn + feeAmount)
+      }`,
+    );
+    console.log('---------------');
+    return;
 
     function accumulatedSwapSteps(market: UniswapV3Market, action: MarketAction): SwapStep[] {
       const steps = marketV3.pool!.swapSteps(action === 'sell');
@@ -319,7 +332,7 @@ describe('UniswapV3AlgorithmTest', function () {
       const outputAmount: bigint | null = swapNangle(nangle, inputAmount);
 
       if (outputAmount !== null) {
-        const profit = outputAmount - inputAmount;
+        const profit = outputAmount! - inputAmount;
         if (profit >= 0) {
           console.log(`swap ${inputAmount} for ${outputAmount}`);
           console.log('profit', profit, Number(profit) / 10 ** 18);

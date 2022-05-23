@@ -462,6 +462,249 @@ export abstract class SwapMath {
       returnValues.feeAmount!,
     ];
   }
+
+  public static computeSwapStepSimplified(
+    sqrtRatioCurrentX96: bigint,
+    sqrtRatioTargetX96: bigint,
+    liquidity: bigint,
+    amountRemaining: bigint,
+    feePips: FeeAmount,
+  ): [bigint, bigint, bigint, bigint] {
+    const returnValues: Partial<{
+      sqrtRatioNextX96: bigint;
+      amountIn: bigint;
+      amountOut: bigint;
+      feeAmount: bigint;
+    }> = {};
+
+    const zeroForOne = sqrtRatioCurrentX96 >= sqrtRatioTargetX96;
+
+    const amountRemainingLessFee = (amountRemaining * (MAX_FEE - BigInt(feePips))) / MAX_FEE;
+    returnValues.amountIn = zeroForOne
+      ? SqrtPriceMath.getAmount0Delta(sqrtRatioTargetX96, sqrtRatioCurrentX96, liquidity, true)
+      : SqrtPriceMath.getAmount1Delta(sqrtRatioCurrentX96, sqrtRatioTargetX96, liquidity, true);
+    if (amountRemainingLessFee >= returnValues.amountIn!) {
+      returnValues.sqrtRatioNextX96 = sqrtRatioTargetX96;
+    } else {
+      returnValues.sqrtRatioNextX96 = SqrtPriceMath.getNextSqrtPriceFromInput(
+        sqrtRatioCurrentX96,
+        liquidity,
+        amountRemainingLessFee,
+        zeroForOne,
+      );
+    }
+
+    const max = sqrtRatioTargetX96 === returnValues.sqrtRatioNextX96;
+
+    if (zeroForOne) {
+      returnValues.amountIn = max
+        ? returnValues.amountIn
+        : SqrtPriceMath.getAmount0Delta(
+            returnValues.sqrtRatioNextX96,
+            sqrtRatioCurrentX96,
+            liquidity,
+            true,
+          );
+      returnValues.amountOut = SqrtPriceMath.getAmount1Delta(
+        returnValues.sqrtRatioNextX96,
+        sqrtRatioCurrentX96,
+        liquidity,
+        false,
+      );
+    } else {
+      returnValues.amountIn = max
+        ? returnValues.amountIn
+        : SqrtPriceMath.getAmount1Delta(
+            sqrtRatioCurrentX96,
+            returnValues.sqrtRatioNextX96,
+            liquidity,
+            true,
+          );
+      returnValues.amountOut = SqrtPriceMath.getAmount0Delta(
+        sqrtRatioCurrentX96,
+        returnValues.sqrtRatioNextX96,
+        liquidity,
+        false,
+      );
+    }
+
+    if (returnValues.sqrtRatioNextX96 !== sqrtRatioTargetX96) {
+      // we didn't reach the target, so take the remainder of the maximum input as fee
+      returnValues.feeAmount = amountRemaining - returnValues.amountIn!;
+    } else {
+      returnValues.feeAmount = FullMath.mulDivRoundingUp(
+        returnValues.amountIn!,
+        BigInt(feePips),
+        MAX_FEE - BigInt(feePips),
+      );
+    }
+
+    return [
+      returnValues.sqrtRatioNextX96!,
+      returnValues.amountIn!,
+      returnValues.amountOut!,
+      returnValues.feeAmount!,
+    ];
+  }
+
+  public static computeSwapStepSimplifiedOneForZero(
+    sqrtRatioCurrentX96: bigint,
+    sqrtRatioTargetX96: bigint,
+    liquidity: bigint,
+    amountRemaining: bigint,
+    feePips: FeeAmount,
+  ): [bigint, bigint, bigint, bigint] {
+    const returnValues: Partial<{
+      sqrtRatioNextX96: bigint;
+      amountIn: bigint;
+      amountOut: bigint;
+      feeAmount: bigint;
+    }> = {};
+
+    const amountRemainingLessFee = (amountRemaining * (MAX_FEE - BigInt(feePips))) / MAX_FEE;
+    returnValues.amountIn = SqrtPriceMath.getAmount1Delta(
+      sqrtRatioCurrentX96,
+      sqrtRatioTargetX96,
+      liquidity,
+      true,
+    );
+    returnValues.sqrtRatioNextX96 = this.getNextSqrtPriceFromAmount1RoundingDownSimplified(
+      sqrtRatioCurrentX96,
+      liquidity,
+      amountRemainingLessFee,
+    );
+
+    returnValues.amountIn = SqrtPriceMath.getAmount1Delta(
+      sqrtRatioCurrentX96,
+      returnValues.sqrtRatioNextX96,
+      liquidity,
+      true,
+    );
+    returnValues.amountOut = SqrtPriceMath.getAmount0Delta(
+      sqrtRatioCurrentX96,
+      returnValues.sqrtRatioNextX96,
+      liquidity,
+      false,
+    );
+
+    returnValues.feeAmount = amountRemaining - returnValues.amountIn!;
+
+    return [
+      returnValues.sqrtRatioNextX96!,
+      returnValues.amountIn!,
+      returnValues.amountOut!,
+      returnValues.feeAmount!,
+    ];
+  }
+
+  public static getNextSqrtPriceFromAmount1RoundingDownSimplified(
+    sqrtPX96: bigint,
+    liquidity: bigint,
+    amount: bigint,
+  ): bigint {
+    //amount <= MaxUint160!!!!
+    const quotient = (amount * 2n ** 96n) / liquidity;
+
+    return sqrtPX96 + quotient;
+  }
+
+  public static getAmount0DeltaSimplified(
+    sqrtRatioAX96: bigint,
+    sqrtRatioBX96: bigint,
+    liquidity: bigint,
+    roundUp: boolean,
+  ): bigint {
+    if (sqrtRatioAX96 > sqrtRatioBX96) {
+      console.log('SWAP');
+      [sqrtRatioAX96, sqrtRatioBX96] = [sqrtRatioBX96, sqrtRatioAX96];
+    }
+    console.log('NOSWAP');
+
+    const numerator1 = liquidity << 96n;
+    const numerator2 = sqrtRatioBX96 - sqrtRatioAX96;
+
+    return roundUp
+      ? FullMath.mulDivRoundingUp(
+          FullMath.mulDivRoundingUp(numerator1, numerator2, sqrtRatioBX96),
+          1n,
+          sqrtRatioAX96,
+        )
+      : (numerator1 * numerator2) / sqrtRatioBX96 / sqrtRatioAX96;
+  }
+
+  public static getAmount1DeltaSimplified(
+    sqrtRatioAX96: bigint,
+    sqrtRatioBX96: bigint,
+    liquidity: bigint,
+    roundUp: boolean,
+  ): bigint {
+    if (sqrtRatioAX96 > sqrtRatioBX96) {
+      [sqrtRatioAX96, sqrtRatioBX96] = [sqrtRatioBX96, sqrtRatioAX96];
+    }
+
+    return roundUp
+      ? FullMath.mulDivRoundingUp(liquidity, sqrtRatioBX96 - sqrtRatioAX96, Q96)
+      : (liquidity * (sqrtRatioBX96 - sqrtRatioAX96)) / Q96;
+  }
+
+  public static computeSwapStepSuperSimplifiedOneForZero(
+    sqrtRatioCurrentX96: bigint,
+    sqrtRatioTargetX96: bigint,
+    liquidity: bigint,
+    amountRemaining: bigint,
+    feePips: FeeAmount,
+  ): [bigint, bigint, bigint, bigint] {
+    //TODO: add invariants for max, and exactInput
+    const returnValues: Partial<{
+      sqrtRatioNextX96: bigint;
+      amountIn: bigint;
+      amountOut: bigint;
+      feeAmount: bigint;
+    }> = {};
+    invariant(sqrtRatioCurrentX96 != sqrtRatioTargetX96);
+
+    //const zeroForOne = sqrtRatioCurrentX96 >= sqrtRatioTargetX96; = false
+    const amountRemainingLessFee = (amountRemaining * (MAX_FEE - BigInt(feePips))) / MAX_FEE;
+    invariant(amountRemainingLessFee <= MaxUint160);
+
+    returnValues.sqrtRatioNextX96 =
+      sqrtRatioCurrentX96 + (amountRemainingLessFee * 2n ** 96n) / liquidity;
+    returnValues.amountIn = FullMath.mulDivRoundingUp(
+      liquidity,
+      returnValues.sqrtRatioNextX96 - sqrtRatioCurrentX96,
+      Q96,
+    );
+
+    const numerator1 = liquidity * 2n ** 96n;
+    const numerator2 = returnValues.sqrtRatioNextX96 - sqrtRatioCurrentX96;
+    returnValues.amountOut = FullMath.mulDivRoundingUp(
+      FullMath.mulDivRoundingUp(numerator1, numerator2, returnValues.sqrtRatioNextX96),
+      1n,
+      sqrtRatioCurrentX96,
+    );
+
+    returnValues.feeAmount = amountRemaining - returnValues.amountIn!;
+
+    const sqA = sqrtRatioCurrentX96;
+    const X = amountRemaining;
+    const F = BigInt(feePips);
+    const L = liquidity;
+    const M = MAX_FEE;
+    const sqB = sqA + (((X * (M - F)) / M) * 2n ** 96n) / L;
+    const Y = (L * 2n ** 96n * (sqB - sqA)) / sqB / sqA;
+    const Y2 = (L * 2n ** 96n * (sqB - sqA)) / sqB / sqA;
+    console.log(Y);
+
+    /*console.log(amountRemainingLessFee * (2n ** 96n), (X * (M - F)) / M * (2n ** 96n));
+    console.log(returnValues.amountOut, Y);*/
+
+    return [
+      returnValues.sqrtRatioNextX96!,
+      returnValues.amountIn!,
+      returnValues.amountOut!,
+      returnValues.feeAmount!,
+    ];
+  }
 }
 
 export function clamp(val: number, min: number, max: number): number {
