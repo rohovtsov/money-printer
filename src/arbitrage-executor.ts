@@ -36,6 +36,7 @@ export class ArbitrageExecutor {
     printMoneyContract: Contract,
     ethAmountToCoinbase: bigint,
     gasPrice: bigint,
+    gasLimit: bigint,
   ): Promise<PopulatedTransaction> {
     return await printMoneyContract.populateTransaction.printMoney(
       ethAmountToCoinbase,
@@ -43,7 +44,7 @@ export class ArbitrageExecutor {
       callData.data,
       {
         gasPrice,
-        gasLimit: 600000n,
+        gasLimit,
       },
     );
   }
@@ -52,6 +53,7 @@ export class ArbitrageExecutor {
     opportunity: ArbitrageOpportunity,
     ethAmountToCoinbase: bigint,
     gasPrice: bigint,
+    gasLimit: bigint,
   ): Promise<PopulatedTransaction> {
     const callData: MultipleCallData = { data: [], targets: [] };
 
@@ -150,6 +152,7 @@ export class ArbitrageExecutor {
         this.moneyPrinterContract,
         ethAmountToCoinbase,
         gasPrice,
+        gasLimit,
       );
     } else {
       transactionData = await this.createRegularSwap(
@@ -157,6 +160,7 @@ export class ArbitrageExecutor {
         this.moneyPrinterContract,
         ethAmountToCoinbase,
         gasPrice,
+        gasLimit,
       );
     }
 
@@ -170,6 +174,7 @@ export class ArbitrageExecutor {
   ): Promise<SimulatedArbitrageOpportunity> {
     const gasFees = estimatedGas * gasPrice;
     const profitWithoutGasFees = opportunity.profit - gasFees;
+    const gasLimit = (estimatedGas * 105n) / 100n + 1n;
 
     if (gasFees >= opportunity.profit) {
       throw {
@@ -195,6 +200,7 @@ export class ArbitrageExecutor {
       opportunity,
       amountToCoinbase,
       gasPrice,
+      gasLimit,
     );
 
     return {
@@ -210,7 +216,12 @@ export class ArbitrageExecutor {
     opportunity: ArbitrageOpportunity,
     gasPrice: bigint,
   ): Promise<SimulatedArbitrageOpportunity> {
-    const transactionData = await this.createOpportunityTransactionData(opportunity, 0n, gasPrice);
+    const transactionData = await this.createOpportunityTransactionData(
+      opportunity,
+      0n,
+      gasPrice,
+      0n,
+    );
     let gasUsed: bigint;
     let simOpp: SimulatedArbitrageOpportunity;
 
