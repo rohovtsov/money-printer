@@ -16,7 +16,9 @@ async function getNextTransactionCount(
 }
 
 export class Web3TransactionSender implements TransactionSender {
-  constructor(readonly provider: providers.JsonRpcProvider, readonly confirmations: number = -1) {}
+  readonly type = 'web3';
+
+  constructor(readonly provider: providers.JsonRpcProvider, readonly confirmations: number = 1) {}
 
   async sendTransaction(data: TransactionData): Promise<TransactionReceipt | null> {
     const { signer, transactionData } = data;
@@ -27,16 +29,10 @@ export class Web3TransactionSender implements TransactionSender {
     });
     const result = await this.provider.sendTransaction(signedTransaction);
 
-    console.log(result);
-
     if (this.confirmations > 0) {
       await result.wait(this.confirmations);
     }
 
     return this.provider.getTransactionReceipt(result.hash);
-  }
-
-  async simulateTransaction(data: TransactionData): Promise<bigint> {
-    return 0n;
   }
 }

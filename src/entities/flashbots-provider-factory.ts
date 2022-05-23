@@ -32,3 +32,10 @@ export async function createFlashbotsBundleProvider(
     return flashbots;
   }
 }
+
+export async function createEthermineBundleProvider(
+  provider: providers.JsonRpcProvider,
+): Promise<FlashbotsBundleProvider> {
+  const rpcUrl = 'https://mev-relay.ethermine.org';
+  return await FlashbotsBundleProvider.create(provider, Wallet.createRandom(), rpcUrl, 'mainnet');
+}

@@ -1,10 +1,49 @@
-import { createNangles, createNanglesOpti, createTriangles, Nangle } from '../src/triangle/nangle';
+import {
+  createNangles,
+  createNanglesUsingGraph,
+  createQuadangles,
+  createTriangles,
+  Nangle,
+} from '../src/strategies/nangle';
 import { Address, endTime, EthMarket, groupEthMarkets, startTime } from '../src/entities';
-import { createDummyMarkets } from './entities/dummy-market';
+import { createDummyMarkets, DummyMarket } from './entities/dummy-market';
 import { expect } from 'chai';
+import fs from 'fs';
 
 describe('NangleTest', function () {
-  this.timeout(10000);
+  let realMarkets = JSON.parse(fs.readFileSync('./test/res/dummy-markets.json').toString()).map(
+    (item: any) => {
+      return new DummyMarket(item[0], [item[1], item[2]], item[3]);
+    },
+  );
+  let markets: EthMarket[];
+  let fewMarkets: EthMarket[];
+  this.timeout(100000000);
+
+  beforeEach(() => {
+    markets = createDummyMarkets([
+      ...Array.from({ length: 40000 }).map((_, i) => ['A', `B${i}`]),
+      ...Array.from({ length: 800 }).map((_, i) => [`B${i}`, 'C']),
+      ...Array.from({ length: 10 }).map((_, i) => [`B${i}`, `C${i}`]),
+      ...Array.from({ length: 10 }).map((_, i) => [`E`, `C${i}`]),
+      ...Array.from({ length: 20 }).map(() => ['A', 'C']),
+      ...Array.from({ length: 10 }).map(() => ['a', 'd']),
+      ...Array.from({ length: 10 }).map(() => ['d', 'e']),
+      ...Array.from({ length: 10 }).map(() => ['c', 'e']),
+      ...Array.from({ length: 10 }).map(() => ['C', 'D']),
+      ...Array.from({ length: 10 }).map(() => ['b', 'D']),
+      ...Array.from({ length: 10 }).map(() => ['A', 'E']),
+    ] as [string, string][]);
+    fewMarkets = createDummyMarkets([
+      ['A', 'B'],
+      ['B', 'C'],
+      ['B', 'C'],
+      ['C', 'A'],
+      ['C', 'A'],
+      ['A', 'D'],
+      ['C', 'D'],
+    ]);
+  });
 
   it('Test creation of triangles', function () {
     const group = groupEthMarkets(
@@ -17,58 +56,92 @@ describe('NangleTest', function () {
         ['C', 'D'],
       ]),
     );
-    const nangles = createTriangles(['A'], group);
+    const nangles = createTriangles('A', group);
     printNangles(nangles);
     expect(nangles.length).equal(8);
   });
 
-  it('Test creation of nangles and triangles', function () {
-    /*const group = groupEthMarkets(createDummyMarkets([
-      ['A', 'B'],
-      ['B', 'A'],
-      ['B', 'A'],
-      ['B', 'C'],
-    ]));
-    const nangles = createNangles(['A'], group, 2);
-    printNangles(nangles);*/
-    const markets = createDummyMarkets([
-      ...Array.from({ length: 40000 }).map((_, i) => ['A', `B${i}`]),
-      ...Array.from({ length: 4000 }).map((_, i) => [`B${i}`, 'C']),
-      ...Array.from({ length: 100 }).map(() => ['A', 'C']),
-      ...Array.from({ length: 100 }).map(() => ['A', 'C']),
-    ] as [string, string][]);
-
+  it('Test creation of nangles N = 2', function () {
     startTime('nangles');
-    const triangles = createTriangles(['A'], groupEthMarkets(markets));
+    const duoangles = createNanglesUsingGraph(['A'], [2], groupEthMarkets(markets));
+    console.log(endTime('nangles'));
+    startTime('nangles');
+    const nangles = createNangles(['A'], [2], groupEthMarkets(markets));
+    console.log(endTime('nangles'));
+    console.log('----');
+    console.log(duoangles.length);
+    expect(duoangles.length).equal(nangles.length);
+  });
+
+  it('Test creation of nangles N = 3', function () {
+    startTime('nangles');
+    const triangles = createNanglesUsingGraph(['A'], [3], groupEthMarkets(markets));
     console.log(endTime('nangles'));
     startTime('nangles');
     const nangles = createNangles(['A'], [3], groupEthMarkets(markets));
     console.log(endTime('nangles'));
-    startTime('nangles');
-    const nanglesOpti = createNanglesOpti(['A'], [3], groupEthMarkets(markets));
-    console.log(endTime('nangles'));
     console.log('----');
-    /*printNangles(triangles);
-    printNangles(nangles);*/
+    console.log(triangles.length);
     expect(triangles.length).equal(nangles.length);
-    expect(nanglesOpti.length).equal(nangles.length);
   });
 
-  it('Test creation of nangles 2', function () {
-    const group = groupEthMarkets(
-      createDummyMarkets([
-        ['A', 'B'],
-        ['B', 'C'],
-        ['B', 'C'],
-        ['C', 'A'],
-        ['C', 'A'],
-        ['C', 'A'],
-        ['C', 'D'],
-      ]),
-    );
-    const nangles = createNangles(['A'], [2], group);
-    printNangles(nangles);
-    //console.log(nangles);
+  it('Test creation of nangles N = 4', function () {
+    startTime('nangles');
+    const quadangles = createNanglesUsingGraph(['A'], [4], groupEthMarkets(markets)); /*.filter(
+      (nangle) => {
+        let middleToken = nangle.startToken;
+
+        for (let i = 0; i < 2; i++) {
+          middleToken =
+            nangle.markets[i].tokens[0] !== middleToken
+              ? nangle.markets[i].tokens[0]
+              : nangle.markets[i].tokens[1];
+        }
+
+        return nangle.startToken !== middleToken;
+      },
+    )*/
+    console.log(endTime('nangles'));
+    startTime('nangles');
+    const nangles = createNangles(['A'], [4], groupEthMarkets(markets));
+    console.log(endTime('nangles'));
+    console.log('----');
+    //printNangles(quadangles);
+    console.log('----');
+    //printNangles(nangles);
+    console.log(quadangles.length);
+    console.log(nangles.length);
+    expect(quadangles.length).equal(nangles.length);
+  });
+
+  it('Test WTF', function () {
+    const group = groupEthMarkets(realMarkets.filter((m: EthMarket) => m.protocol === 'uniswapV3'));
+    const start = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2';
+    startTime();
+    console.log(group.markets.length);
+    const oldNangles = createQuadangles(start, group);
+    console.log('old', endTime());
+    const newNangles = []; //createNanglesUsingGraph([start], [4], group);
+    console.log('new', endTime());
+
+    /*    function nangleToStr(nangle: Nangle): string {
+      return nangle.markets.map(m => m.marketAddress).join(',');
+    }
+
+    const newNanglesSet = new Set<string>(newNangles.map(n => nangleToStr(n)));
+    let missingMarkets: EthMarket[] = [];
+    let missingNangles: Nangle[] = [];
+    for (const nangle of oldNangles) {
+      if (!newNanglesSet.has(nangleToStr(nangle))) {
+        missingNangles.push(nangle);
+        nangle.markets.forEach(m => {
+          missingMarkets = Array.from(new Set([...missingMarkets, m]));
+        })
+      }
+    }*/
+
+    console.log(oldNangles.length, 'vs', newNangles.length);
+    expect(oldNangles.length).equal(newNangles.length);
   });
 });
 
@@ -90,16 +163,16 @@ function printNangles(nangles: Nangle[]) {
   }, {} as Record<Address, string>);
 
   function tokenName(address: string) {
-    if (address.length < 5) {
-      return address;
+    if (address.length < 500) {
+      return address.slice(0, 6);
     }
 
     return dictionary[address];
   }
 
   function marketName(address: string) {
-    if (address.length < 5) {
-      return address;
+    if (address.length < 500) {
+      return address.slice(0, 6);
     }
 
     return marketDictionary[address];

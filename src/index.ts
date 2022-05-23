@@ -1,6 +1,6 @@
 import 'log-timestamp';
-import { Contract, providers } from 'ethers';
 import {
+  bufferTime,
   concatMap,
   defer,
   delay,
@@ -8,7 +8,6 @@ import {
   from,
   map,
   mergeMap,
-  skip,
   switchMap,
   take,
   tap,
@@ -18,72 +17,51 @@ import { ArbitrageBlacklist } from './arbitrage-blacklist';
 import { ArbitrageExecutor } from './arbitrage-executor';
 import { ArbitrageRunner } from './arbitrage-runner';
 import {
-  ALCHEMY_API_KEY,
   ArbitrageOpportunity,
   BLACKLIST_MARKETS,
   BLACKLIST_TOKENS,
   endTime,
-  ERC20_ABI,
   ETHER,
   EthMarket,
   EthMarketFactory,
   FLASHBOTS_RELAY_HACKED_SIGNING_KEY,
   FLASHBOTS_RELAY_SIGNING_KEY,
   getLastBlockNumber,
-  INFURA_API_KEY,
+  getProvider,
   MIN_PROFIT_NET,
-  MONEY_PRINTER_QUERY_ABI,
-  MONEY_PRINTER_QUERY_ADDRESS,
   NETWORK,
   printOpportunity,
   PRIVATE_KEY,
   SimulatedArbitrageOpportunity,
-  startTime,
+  sortOpportunitiesByProfit,
   UNISWAP_V2_FACTORY_ADDRESSES,
   UNISWAP_V3_FACTORY_ADDRESSES,
-  USE_FLASHBOTS,
   WETH_ADDRESS,
 } from './entities';
 import { FlashbotsTransactionSender } from './sender/flashbots-transaction-sender';
-import { Web3TransactionSender } from './sender/web3-transaction-sender';
-import { TriangleArbitrageStrategy } from './triangle/triangle-arbitrage-strategy';
+import { FixedAmountArbitrageStrategy } from './strategies/fixed-amount-arbitrage-strategy';
 import { UniswapV2ReservesSyncer } from './uniswap/uniswap-v2-reserves-syncer';
 import { UniswapV3MarketFactory } from './uniswap/uniswap-v3-market-factory';
 import { UniswapV3PoolStateSyncer } from './uniswap/uniswap-v3-pool-state-syncer';
 import { UniswapV3Market } from './uniswap/uniswap-v3-market';
 import { UniswapV3PoolStateSyncerContractQuery } from './uniswap/uniswap-v3-pool-state-syncer-contract-query';
-import { UniswapV2ArbitrageStrategy } from './triangle/uniswap-v2-arbitrage-strategy';
+import { UniswapV2ArbitrageStrategy } from './strategies/uniswap-v2-arbitrage-strategy';
 import { UniswapV2MarketFactory } from './uniswap/uniswap-v2-market-factory';
 import { UniswapV3PreSyncer } from './uniswap/uniswap-v3-pre-syncer';
-
-const PROVIDERS = [
-  new providers.AlchemyWebSocketProvider(NETWORK, ALCHEMY_API_KEY),
-  new providers.AlchemyWebSocketProvider(NETWORK, ALCHEMY_API_KEY),
-  new providers.AlchemyProvider(NETWORK, ALCHEMY_API_KEY),
-  new providers.InfuraWebSocketProvider(NETWORK, INFURA_API_KEY),
-  new providers.InfuraProvider(NETWORK, INFURA_API_KEY),
-];
-const provider = PROVIDERS[0] as providers.WebSocketProvider;
-const providerForLogs = PROVIDERS[1];
-const providersForRace = PROVIDERS.filter((p) => p !== provider);
+import { EthermineTransactionSender } from './sender/ethermine-transaction-sender';
 
 async function main() {
-  //TODO: filter markets by reserves after retrieval
-  //TODO: ensure all token addresses from different markets are checksumed
-  //12370000 = 9 marketsV3
-  //12369800 = 2 marketsV3
+  console.log(`Launching on ${NETWORK} ...`);
+  const provider = getProvider('main purpose');
+  const providerForLogs = getProvider('requesting logs', ['CUSTOM_WS']);
 
-  console.log(`Launching on ${NETWORK} ${USE_FLASHBOTS ? 'using flashbots ' : ''}...`);
-  console.log(`Using ${providersForRace.length} providers for race requests...`);
-
-  const sender = USE_FLASHBOTS
-    ? await FlashbotsTransactionSender.create(
-        provider,
-        NETWORK,
-        FLASHBOTS_RELAY_HACKED_SIGNING_KEY,
-        FLASHBOTS_RELAY_SIGNING_KEY,
-      )
-    : new Web3TransactionSender(provider, 2);
+  const flashbots = await FlashbotsTransactionSender.create(
+    provider,
+    NETWORK,
+    FLASHBOTS_RELAY_HACKED_SIGNING_KEY,
+    FLASHBOTS_RELAY_SIGNING_KEY,
+  );
+  const senders = [flashbots, await EthermineTransactionSender.create(provider)];
 
   const LAST_BLOCK = await getLastBlockNumber(providerForLogs);
   const factories: EthMarketFactory[] = [
@@ -102,7 +80,7 @@ async function main() {
   console.log(`Loaded markets: ${markets.length}`);
 
   const blacklist = new ArbitrageBlacklist(BLACKLIST_MARKETS, BLACKLIST_TOKENS);
-  const executor = new ArbitrageExecutor(sender, provider, PRIVATE_KEY);
+  const executor = new ArbitrageExecutor(flashbots, senders, provider, PRIVATE_KEY);
   const allowedMarkets = blacklist.filterMarkets(markets);
 
   await new UniswapV3PreSyncer(
@@ -114,7 +92,7 @@ async function main() {
   const runner = new ArbitrageRunner(
     allowedMarkets,
     [
-      new TriangleArbitrageStrategy(
+      new FixedAmountArbitrageStrategy(
         {
           [WETH_ADDRESS]: [ETHER / 5n], //, ETHER.mul(10), ETHER]
         },
@@ -125,17 +103,17 @@ async function main() {
     new UniswapV2ReservesSyncer(provider, 10, 1000),
     new UniswapV3PoolStateSyncerContractQuery(provider, 10),
     provider,
-    providersForRace,
   );
 
   const thisBlock$ = runner.currentBlockNumber$;
-  const concurrentSimulationCount = 10;
+  const concurrentSimulationCount = 20;
+  const minGas = 200000n;
   const opportunities$ = runner.start().pipe(
     //pause a bit, to let eventLoop deliver the new blocks
     delay(1),
     switchMap((event) => {
       const opportunities = event.opportunities.filter(
-        (op) => op.profit - 200000n * event.baseFeePerGas >= MIN_PROFIT_NET,
+        (op) => op.profit - minGas * event.baseFeePerGas >= MIN_PROFIT_NET,
       );
       console.log(
         `Found opportunities: ${opportunities.length} in ${endTime('render')}ms at ${
@@ -187,6 +165,10 @@ async function main() {
         }),
       );
     }, concurrentSimulationCount),
+    bufferTime(100),
+    concatMap((simulatedOpportunities) => {
+      return from(sortOpportunitiesByProfit<SimulatedArbitrageOpportunity>(simulatedOpportunities));
+    }),
   );
 
   let lastExecutedAtBlock = 0;
@@ -229,33 +211,3 @@ async function main() {
 }
 
 main();
-
-//16:09:06.934
-//16:09:09.54
-//16:09:10.63
-//16:09:23.211Z
-
-//16:13:21.69
-//16:13:24.47
-//16:13:26.78
-//16:13:27.182Z
-
-//16:16:51.317Z
-//16:16:54.257Z
-//16:16:54.748
-//16:16:55.126Z
-
-//22:17:05.532 - Получили блок
-//22:17:07.752 - Получили измененные рынки
-//22:17:08.491 - Закончили синхронится
-//22:17:08.491 - Changed markets: 109 in 14782544
-//22:17:08.494 - Changed triangles 52176
-//22:17:09.790 - Changed triangles 22334
-//22:17:13.268 - Found opportunities: 71, non-correlating: 71 in 4777ms
-//22:17:13.268 - Передали на симуляция
-//22:17:13.268 - Передали на симуляция
-//22:17:13.902 - Пришла симуляция
-//22:17:13.903 - Передали на отправку
-//22:17:14.406 - Отправлено
-//Итого - 9 сек
-//22:17:30.248 - Новый блок (спустя 16 сек)

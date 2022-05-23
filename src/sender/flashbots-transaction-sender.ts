@@ -12,14 +12,12 @@ import {
   ArbitrageOpportunity,
   createFlashbotsBundleProvider,
   NETWORK,
-  printOpportunity,
   sleep,
   TransactionData,
   TransactionSender,
+  TransactionSimulator,
 } from '../entities';
 import { GetBundleStatsResponseSuccess } from '@flashbots/ethers-provider-bundle/src';
-import { id } from 'ethers/lib/utils';
-import { fetchJson } from '@ethersproject/web';
 
 const storePath = `simulations/${NETWORK}.json`;
 
@@ -29,7 +27,8 @@ const resolutionsMap: Record<FlashbotsBundleResolution, string> = {
   [FlashbotsBundleResolution.BlockPassedWithoutInclusion]: 'BlockPassedWithoutInclusion',
 };
 
-export class FlashbotsTransactionSender implements TransactionSender {
+export class FlashbotsTransactionSender implements TransactionSender, TransactionSimulator {
+  readonly type = 'flashbots';
   private opportunityResults$ = new Subject<{
     opportunity: ArbitrageOpportunity;
     result: boolean;
@@ -78,8 +77,7 @@ export class FlashbotsTransactionSender implements TransactionSender {
       const transaction = await this.flashbotsProvider.sendRawBundle(signedBundle, blockNumber);
 
       if ('error' in transaction) {
-        console.log(transaction);
-        throw new Error('Relay Error');
+        throw transaction;
       }
 
       const hash = transaction!.bundleHash;
@@ -90,7 +88,7 @@ export class FlashbotsTransactionSender implements TransactionSender {
       );
       const result = await transaction.wait();
       const receipt = ((await transaction.receipts()) ?? [])?.[0] ?? null;
-      await this.logResultReport(hash, data.opportunity, result, receipt, blockNumber);
+      this.logResultReport(hash, data.opportunity, result, receipt, blockNumber);
 
       return receipt;
     } catch (err: any) {
@@ -183,37 +181,35 @@ export class FlashbotsTransactionSender implements TransactionSender {
     console.log(`Flashbots ${hash}. Resolution: ${resolutionsMap[resolution]}`);
     console.log(`Flashbots ${hash}. Receipt:`, receipt);
 
-    if (receipt === null) {
-      try {
-        const bundleStats = (await this.flashbotsProvider.getBundleStats(
-          hash,
-          blocKNumber,
-        )) as GetBundleStatsResponseSuccess;
-        const simulatedAt = bundleStats?.simulatedAt
-          ? new Date(bundleStats!.simulatedAt).getTime()
-          : opportunity.blockReceivedAt!;
-        const submittedAt = bundleStats?.submittedAt
-          ? new Date(bundleStats!.submittedAt).getTime()
-          : opportunity.blockReceivedAt!;
-        const sentToMinersAt = bundleStats?.sentToMinersAt
-          ? new Date(bundleStats!.sentToMinersAt).getTime()
-          : opportunity.blockReceivedAt!;
+    try {
+      const bundleStats = (await this.flashbotsProvider.getBundleStats(
+        hash,
+        blocKNumber,
+      )) as GetBundleStatsResponseSuccess;
+      const simulatedAt = bundleStats?.simulatedAt
+        ? new Date(bundleStats!.simulatedAt).getTime()
+        : opportunity.blockReceivedAt!;
+      const submittedAt = bundleStats?.submittedAt
+        ? new Date(bundleStats!.submittedAt).getTime()
+        : opportunity.blockReceivedAt!;
+      const sentToMinersAt = bundleStats?.sentToMinersAt
+        ? new Date(bundleStats!.sentToMinersAt).getTime()
+        : opportunity.blockReceivedAt!;
 
-        console.log(`Flashbots ${hash}. Bundle stats:`, bundleStats, {
-          simulatedIn: simulatedAt - opportunity.blockReceivedAt!,
-          submittedIn: submittedAt - opportunity.blockReceivedAt!,
-          sentToMinersIn: sentToMinersAt - opportunity.blockReceivedAt!,
-        });
-        console.log(`Flashbots ${hash}. User stats:`, await this.flashbotsProvider.getUserStats());
+      console.log(`Flashbots ${hash}. Bundle stats:`, bundleStats, {
+        simulatedIn: simulatedAt - opportunity.blockReceivedAt!,
+        submittedIn: submittedAt - opportunity.blockReceivedAt!,
+        sentToMinersIn: sentToMinersAt - opportunity.blockReceivedAt!,
+      });
+      console.log(`Flashbots ${hash}. User stats:`, await this.flashbotsProvider.getUserStats());
 
-        /*//TODO: this call affects reputation https://docs.flashbots.net/flashbots-auction/searchers/advanced/troubleshooting#detecting
-        console.log(
-          `Flashbots ${hash}. Conflicting bundles:`,
-          await this.flashbotsProvider.getConflictingBundle(signedBundle, blocKNumber),
-        );*/
-      } catch (err) {
-        console.log(`Flashbots ${hash} Error while getting stats.`, err);
-      }
+      /*//TODO: this call affects reputation https://docs.flashbots.net/flashbots-auction/searchers/advanced/troubleshooting#detecting
+      console.log(
+        `Flashbots ${hash}. Conflicting bundles:`,
+        await this.flashbotsProvider.getConflictingBundle(signedBundle, blocKNumber),
+      );*/
+    } catch (err) {
+      console.log(`Flashbots ${hash} Error while getting stats.`, err);
     }
   }
 

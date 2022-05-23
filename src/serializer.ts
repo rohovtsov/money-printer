@@ -2,7 +2,7 @@ import { UniswapV3Market } from './uniswap/uniswap-v3-market';
 import { NativeTick } from './uniswap/native-pool/native-pool-utils';
 import { UniswapV2Market } from './uniswap/uniswap-v2-market';
 import { Address, EthMarket, MarketAction } from './entities';
-import { Nangle } from './triangle/nangle';
+import { Nangle } from './strategies/nangle';
 import fs from 'fs';
 
 function serializeV3Market(market: UniswapV3Market): any {

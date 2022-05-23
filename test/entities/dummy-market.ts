@@ -1,9 +1,15 @@
 import { Address, CallData, EthMarket, MarketAction, Protocol } from '../../src/entities';
 
 export class DummyMarket implements EthMarket {
-  readonly protocol = 'dummy' as Protocol;
+  readonly protocol;
 
-  constructor(readonly marketAddress: Address, readonly tokens: [Address, Address]) {}
+  constructor(
+    readonly marketAddress: Address,
+    readonly tokens: [Address, Address],
+    protocol?: string,
+  ) {
+    this.protocol = (protocol ?? 'dummy') as Protocol;
+  }
 
   calcTokensIn(action: MarketAction, amountOut: bigint): bigint | null {
     return null;

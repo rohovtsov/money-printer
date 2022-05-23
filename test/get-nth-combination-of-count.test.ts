@@ -3,7 +3,7 @@ import {
   countOfCombinationsA,
   getAllPossibleCombinations,
   getNthCombination,
-} from '../src/triangle/get-nth-combination-of-count';
+} from '../src/strategies/get-nth-combination-of-count';
 
 describe('Test', function () {
   it('should count all combinations', () => {

@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import { loadNangle } from '../src/serializer';
-import { TriangleArbitrageStrategy } from '../src/triangle/triangle-arbitrage-strategy';
+import { FixedAmountArbitrageStrategy } from '../src/strategies/fixed-amount-arbitrage-strategy';
 import { EthMarket, MarketAction, printOpportunity, WETH_ADDRESS } from '../src/entities';
 import { ETHER } from '../src/entities';
 import { UniswapV3Market } from '../src/uniswap/uniswap-v3-market';
@@ -127,7 +127,7 @@ function binarySearch(nangle: Nangle, maxAmount: bigint, precision: bigint): big
 describe('UniswapV3AlgorithmTest', function () {
   this.timeout(10000);
   let nangle = loadNangle('./test/res/nangle.json');
-  let oldStrategy = new TriangleArbitrageStrategy(
+  let oldStrategy = new FixedAmountArbitrageStrategy(
     {
       [WETH_ADDRESS]: new Array(10000).fill(null).map((el, i) => (ETHER / 1000n) * BigInt(i)),
     },
