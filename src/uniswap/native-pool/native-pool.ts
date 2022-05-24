@@ -164,16 +164,6 @@ export class NativePool {
       step.tickNext = clamp(step.tickNext, TickMath.MIN_TICK, TickMath.MAX_TICK);
       step.sqrtPriceNextX96 = TickMath.getSqrtRatioAtTick(step.tickNext);
 
-      /*const nextSqrt = (
-        zeroForOne
-          ? step.sqrtPriceNextX96 < sqrtPriceLimitX96
-          : step.sqrtPriceNextX96 > sqrtPriceLimitX96
-      )
-        ? sqrtPriceLimitX96
-        : step.sqrtPriceNextX96;
-      console.log(
-        `Pool compute: ${state.sqrtPriceX96} ${nextSqrt} ${state.liquidity} ${state.amountSpecifiedRemaining} ${zeroForOne}`,
-      );*/
       [state.sqrtPriceX96, step.amountIn, step.amountOut, step.feeAmount] =
         SwapMath.computeSwapStep(
           state.sqrtPriceX96,

@@ -220,7 +220,7 @@ export class ArbitrageExecutor {
       opportunity,
       0n,
       gasPrice,
-      0n,
+      1000000n,
     );
     let gasUsed: bigint;
     let simOpp: SimulatedArbitrageOpportunity;

@@ -94,7 +94,7 @@ async function main() {
     [
       new FixedAmountArbitrageStrategy(
         {
-          [WETH_ADDRESS]: [ETHER / 5n], //, ETHER.mul(10), ETHER]
+          [WETH_ADDRESS]: [ETHER * 5n], //, ETHER.mul(10), ETHER]
         },
         allowedMarkets,
       ),
@@ -208,7 +208,7 @@ async function main() {
     }),
   );
 
-  sync$.subscribe();
+  executedOpportunities$.subscribe();
 }
 
 main();
