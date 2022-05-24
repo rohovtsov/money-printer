@@ -608,6 +608,17 @@ export abstract class SwapMath {
     return sqrtPX96 + quotient;
   }
 
+  public static getNextSqrtPriceFromAmount0RoundingUpSimplified(
+    sqrtPX96: bigint,
+    liquidity: bigint,
+    amount: bigint,
+    add: boolean,
+  ): bigint {
+    invariant(amount !== 0n);
+
+    return (liquidity * 2n ** 96n * sqrtPX96) / (liquidity * 2n ** 96n + amount * sqrtPX96);
+  }
+
   public static getAmount0DeltaSimplified(
     sqrtRatioAX96: bigint,
     sqrtRatioBX96: bigint,
@@ -690,13 +701,58 @@ export abstract class SwapMath {
     const F = BigInt(feePips);
     const L = liquidity;
     const M = MAX_FEE;
-    const sqB = sqA + (((X * (M - F)) / M) * 2n ** 96n) / L;
-    const Y = (L * 2n ** 96n * (sqB - sqA)) / sqB / sqA;
-    const Y2 = (L * 2n ** 96n * (sqB - sqA)) / sqB / sqA;
-    console.log(Y);
+    const Q = 2n ** 96n;
+    const sqB = sqA + (((X * (M - F)) / M) * Q) / L;
+    const Y = (L * Q * (sqB - sqA)) / sqB / sqA;
 
-    /*console.log(amountRemainingLessFee * (2n ** 96n), (X * (M - F)) / M * (2n ** 96n));
-    console.log(returnValues.amountOut, Y);*/
+    const KX = (X * (M - F)) / M;
+    const Y2 = (KX * L * Q * Q) / (sqA * sqA * L + sqA * Q * KX);
+
+    console.log(returnValues.amountOut, 'vs', Y, Y2);
+
+    return [
+      returnValues.sqrtRatioNextX96!,
+      returnValues.amountIn!,
+      returnValues.amountOut!,
+      returnValues.feeAmount!,
+    ];
+  }
+
+  public static computeSwapStepSuperSimplifiedZeroForOne(
+    sqrtRatioCurrentX96: bigint,
+    sqrtRatioTargetX96: bigint,
+    liquidity: bigint,
+    amountRemaining: bigint,
+    feePips: FeeAmount,
+  ): [bigint, bigint, bigint, bigint] {
+    const returnValues: Partial<{
+      sqrtRatioNextX96: bigint;
+      amountIn: bigint;
+      amountOut: bigint;
+      feeAmount: bigint;
+    }> = {};
+
+    const amountRemainingLessFee = (amountRemaining * (MAX_FEE - BigInt(feePips))) / MAX_FEE;
+    returnValues.sqrtRatioNextX96 =
+      (liquidity * 2n ** 96n * sqrtRatioCurrentX96) /
+      (liquidity * 2n ** 96n + amountRemainingLessFee * sqrtRatioCurrentX96);
+
+    returnValues.amountOut =
+      (liquidity * (sqrtRatioCurrentX96 - returnValues.sqrtRatioNextX96)) / Q96;
+
+    const sqA = sqrtRatioCurrentX96;
+    const X = amountRemaining;
+    const F = BigInt(feePips);
+    const L = liquidity;
+    const M = MAX_FEE;
+    const Q = 2n ** 96n;
+    const sqB = (L * Q * sqA) / (L * Q + (sqA * X * (M - F)) / M);
+    const Y = (L * (sqA - sqB)) / Q;
+
+    const KX = (X * (M - F)) / M;
+    const Y2 = (sqA * sqA * L * KX) / (sqA * KX * Q + L * Q * Q);
+
+    console.log(returnValues.amountOut, 'vs', Y, Y2);
 
     return [
       returnValues.sqrtRatioNextX96!,

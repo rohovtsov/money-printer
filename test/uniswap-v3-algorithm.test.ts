@@ -1,6 +1,13 @@
 import { loadNangle } from '../src/serializer';
 import { FixedAmountArbitrageStrategy } from '../src/strategies/fixed-amount-arbitrage-strategy';
-import { EthMarket, MarketAction, printOpportunity, WETH_ADDRESS } from '../src/entities';
+import {
+  endTime,
+  EthMarket,
+  MarketAction,
+  printOpportunity,
+  startTime,
+  WETH_ADDRESS,
+} from '../src/entities';
 import { ETHER } from '../src/entities';
 import { UniswapV3Market } from '../src/uniswap/uniswap-v3-market';
 import {
@@ -9,9 +16,11 @@ import {
   TickMath,
   SwapMath,
 } from '../src/uniswap/native-pool/native-pool-utils';
-import { SwapStep } from '../src/uniswap/native-pool/native-pool';
+import { NativePool, NativeSwapStep } from '../src/uniswap/native-pool/native-pool';
 import { Nangle } from '../src/strategies/nangle';
 import fs from 'fs';
+import { ProfitFormulas } from '../src/strategies/profit-calculator/profit-formulas';
+import { getExtremumInput, getNangleSwapRanges } from '../src/strategies/profit-calculator';
 
 function swapNangle(nangle: Nangle, amountIn: bigint): bigint | null {
   let amount: bigint | null = amountIn;
@@ -25,6 +34,28 @@ function swapNangle(nangle: Nangle, amountIn: bigint): bigint | null {
   }
 
   return amount;
+}
+
+function profitNangle(nangle: Nangle, amountIn: bigint): bigint | null {
+  return (swapNangle(nangle, amountIn) ?? 0n) - amountIn;
+}
+
+function swapNangleFormula(nangle: Nangle, amountIn: bigint): bigint {
+  const P = nangle.markets.map((m: any): NativePool => m.pool);
+
+  return ProfitFormulas.swapTriangle(
+    P[0].sqrtRatioX96,
+    P[0].liquidity,
+    BigInt(P[0].fee),
+    P[1].sqrtRatioX96,
+    P[1].liquidity,
+    BigInt(P[1].fee),
+    P[2].sqrtRatioX96,
+    P[2].liquidity,
+    BigInt(P[2].fee),
+    amountIn,
+    nangle.actions,
+  );
 }
 
 function encodeItems(items: number[][]): string {
@@ -43,12 +74,14 @@ function saveChart(
   fromAmount: bigint,
   toAmount: bigint,
   step: bigint,
+  fn: (nangle: Nangle, amountIn: bigint) => bigint = (nangle, amountIn) =>
+    swapNangle(nangle, amountIn) ?? 0n,
 ) {
   let xS: any[] = Array.from({ length: Number((toAmount - fromAmount) / step) }).map(
     (_, i) => fromAmount + BigInt(i) * step,
   );
   const yS = xS.map((x) => {
-    const o = swapNangle(nangle, x) ?? 0n;
+    const o = fn(nangle, x);
     return Number(o - x) / 10 ** 18;
   });
 
@@ -74,7 +107,7 @@ function saveChartMarket(
     (_, i) => fromAmount + BigInt(i) * step,
   );
   let yS: any[] = xS.map((x) => {
-    return market.calcTokensOut('sell', x) ?? 0n;
+    //return market.calcTokensOut('sell', x) ?? 0n;
   });
 
   xS = xS.map((x) => String(x));
@@ -129,7 +162,7 @@ function binarySearch(nangle: Nangle, maxAmount: bigint, precision: bigint): big
 
 describe('UniswapV3AlgorithmTest', function () {
   this.timeout(10000);
-  let nangle = loadNangle('./test/res/nangle.json');
+  let nangle = loadNangle('./test/res/nangle7.json');
   let oldStrategy = new FixedAmountArbitrageStrategy(
     {
       [WETH_ADDRESS]: new Array(10000).fill(null).map((el, i) => (ETHER / 1000n) * BigInt(i)),
@@ -139,14 +172,12 @@ describe('UniswapV3AlgorithmTest', function () {
   let oldOpportunity = oldStrategy.calculateOpportunity(nangle as any, 0)!;
   const newOpportunity = { profit: 0n, operations: [] }; // todo вставить сюда свою стратегию
 
-  it('UniswapV3AlgorithmTest', function () {
+  it('UniswapV3AlgorithmTest1', function () {
     printOpportunity(oldOpportunity);
-    /*printOpportunity(newOpportunity as any);
-    expect(Number(newOpportunity.profit - oldOpportunity.profit)).gt(0);*/
+    console.log(oldOpportunity.operations[0].amountIn);
     console.log(oldOpportunity.profit);
 
-    const marketV3 = nangle.markets[0] as UniswapV3Market;
-    const marketsV3 = nangle.markets as UniswapV3Market[];
+    /*const marketV3 = nangle.markets[0] as UniswapV3Market;
     const breakpoints = marketV3.pool!.ticks.map((tick) => {
       return TickMath.getSqrtRatioAtTick(tick.index);
     });
@@ -173,29 +204,10 @@ describe('UniswapV3AlgorithmTest', function () {
     console.log(toRange);
     console.log(marketV3.pool!.sqrtRatioX96);
 
-    /*const remainingWithoutFee = (amountIn * (MAX_FEE - BigInt(fee))) / MAX_FEE;
-    const amount1Delta = SqrtPriceMath.getAmount1Delta(
-      sqrtRatioCurrentX96,
-      toRange,
-      liquidity,
-      true,
-    );
-
-    const amountInGross = (amount1Delta * MAX_FEE) / (MAX_FEE - BigInt(fee)) + 1000000000n;
-    console.log(remainingWithoutFee);
-    console.log(amountInGross);
-    const input = amountInGross; //1000000000n;*/
     const output = marketV3.calcTokensOut('buy', amountIn);
     console.log(
       `swap ${amountIn} for ${output} at average price of ${Number(output) / Number(amountIn)}`,
     );
-    //swap 1000 for 507129710806 at average price of 507129710.806
-    //swap 100000 for 50738352833108 at average price of 507383528.33108
-    //swap 10000000 for 5073834133482015 at average price of 507383413.3482015
-    //swap 1000000000 for 507371915323139641 at average price of 507371915.32313967
-    //swap 6118644951 for 3104064912269592924 at average price of 507312474.7600007
-
-    //swap 7118644950 for 3611295990851923032 at average price of 507301040.6077245
 
     const [sqrtRatioNextX96, _amountIn, amountOut, feeAmount] =
       SwapMath.computeSwapStepSuperSimplifiedOneForZero(
@@ -211,10 +223,49 @@ describe('UniswapV3AlgorithmTest', function () {
       }`,
     );
     console.log('---------------');
-    return;
+    const amountIn2 = 50000142547874562n;
+    console.log(
+      `swap ${amountIn2} for ${marketV3.calcTokensOut('sell', amountIn2)}`,
+    );
+    SwapMath.computeSwapStepSuperSimplifiedZeroForOne(
+      sqrtRatioCurrentX96,
+      fromRange,
+      liquidity,
+      amountIn2,
+      fee,
+    );*/
 
-    function accumulatedSwapSteps(market: UniswapV3Market, action: MarketAction): SwapStep[] {
-      const steps = marketV3.pool!.swapSteps(action === 'sell');
+    console.log(nangle.actions);
+    //startTime();
+    const ranges = getNangleSwapRanges(nangle);
+    let id = 0;
+    for (const range of ranges) {
+      if (range.constants.length !== 3) {
+        console.log(id, range.constants);
+      }
+    }
+    //console.log(endTime());
+    startTime();
+    let extremum;
+    console.log((extremum = getExtremumInput(nangle)));
+    console.log(endTime());
+    console.log(oldOpportunity.profit);
+    console.log(oldOpportunity.operations[0].amountIn);
+    console.log(profitNangle(nangle, extremum));
+  });
+
+  //3541854147025631026n
+  //7086438364150202404n
+  //943532774756490962n
+  //1887259045186412467n
+  //9210591728604472349n
+
+  it('Find best ticks', function () {
+    /*printOpportunity(oldOpportunity);
+    console.log(oldOpportunity.profit);
+
+    function accumulatedSwapSteps(market: UniswapV3Market, action: MarketAction): NativeSwapStep[] {
+      const steps = market.pool!.swapSteps(action === 'sell');
 
       for (let i = 1; i < steps.length; i++) {
         const prevStep = steps[i - 1];
@@ -225,7 +276,7 @@ describe('UniswapV3AlgorithmTest', function () {
       return steps;
     }
 
-    function groupSwapStepsBy(steps: SwapStep[], by: 'input' | 'output'): Record<string, SwapStep> {
+    function groupSwapStepsBy(steps: NativeSwapStep[], by: 'input' | 'output'): Record<string, NativeSwapStep> {
       const isInput = by === 'input';
       return steps.reduce((acc, step) => {
         if (isInput) {
@@ -234,13 +285,13 @@ describe('UniswapV3AlgorithmTest', function () {
           acc[step.amountOut.toString()] = step;
         }
         return acc;
-      }, {} as Record<string, SwapStep>);
+      }, {} as Record<string, NativeSwapStep>);
     }
 
-    function fillMissingStepsForPair(stepsA: SwapStep[], stepsB: SwapStep[]): SwapStep[] {
+    function fillMissingStepsForPair(stepsA: NativeSwapStep[], stepsB: NativeSwapStep[]): NativeSwapStep[] {
       const groupA = groupSwapStepsBy(stepsA, 'output');
       const groupB = groupSwapStepsBy(stepsB, 'input');
-      const stepsAToAdd: SwapStep[] = [];
+      const stepsAToAdd: NativeSwapStep[] = [];
 
       for (const amountInBKey in groupB) {
         const groupAKeys = Object.keys(groupA);
@@ -256,7 +307,6 @@ describe('UniswapV3AlgorithmTest', function () {
         }
 
         const stepA = groupA[amountOutAKey];
-        //const stepB = groupB[amountInBKey];
 
         const newAmountInA = (amountInB * stepA.amountIn) / stepA.amountOut;
         const newAmountOutA = amountInB;
@@ -266,14 +316,6 @@ describe('UniswapV3AlgorithmTest', function () {
           amountOut: newAmountOutA,
           tick: stepA.tick,
         });
-
-        /*console.log(amountInB);
-        console.log(amountOutA);
-        console.log(stepA);
-        console.log(stepB);
-        console.log(newAmountInA);
-        console.log(newAmountOutA);
-        break;*/
       }
 
       const maxOutputA = BigInt(Object.keys(groupA)[Object.keys(groupA).length - 1]);
@@ -284,22 +326,6 @@ describe('UniswapV3AlgorithmTest', function () {
         return a.amountIn > b.amountIn ? 1 : a.amountIn < b.amountIn ? -1 : 0;
       });
     }
-
-    /*for (let i = 0; i < nangle.markets.length; i++) {
-      const marketV3 = nangle.markets[i] as UniswapV3Market;
-      const action = nangle.actions[i];
-      const steps = accumulatedSwapSteps(marketV3, action);
-
-      if (i !== 0) {
-        continue;
-      }
-
-      console.log(nangle.actions[0], accumulatedSwapSteps(nangle.markets[0] as UniswapV3Market, nangle.actions[0])[0]);
-      console.log(nangle.actions[1], accumulatedSwapSteps(nangle.markets[1] as UniswapV3Market, nangle.actions[1])[0]);
-      const stepsA = accumulatedSwapSteps(nangle.markets[0] as UniswapV3Market, nangle.actions[0]);
-      const stepsB = accumulatedSwapSteps(nangle.markets[1] as UniswapV3Market, nangle.actions[1]);
-      const stepsANew = fillMissingStepsForPair(stepsA, stepsB);
-    }*/
 
     const stepsA = accumulatedSwapSteps(nangle.markets[0] as UniswapV3Market, nangle.actions[0]);
     const stepsB = accumulatedSwapSteps(nangle.markets[1] as UniswapV3Market, nangle.actions[1]);
@@ -327,6 +353,63 @@ describe('UniswapV3AlgorithmTest', function () {
     console.log(stepsA.length);
     console.log(inputSteps.length);
 
+    const P = nangle.markets.map((m: any): NativePool => m.pool);
+    const testAmount = 10n ** 18n;
+    saveChart('./cache/ch-s.json', nangle, ETHER, ETHER * 6n, ETHER / 100n);
+    saveChart('./cache/ch-f.json', nangle, ETHER, ETHER * 6n, ETHER / 100n, (n, x) => {
+      const P = n.markets.map((m: any): NativePool => m.pool);
+      return NativeFormulas.swapTriangle(
+        P[0].sqrtRatioX96,
+        P[0].liquidity,
+        BigInt(P[0].fee),
+        P[1].sqrtRatioX96,
+        P[1].liquidity,
+        BigInt(P[1].fee),
+        P[2].sqrtRatioX96,
+        P[2].liquidity,
+        BigInt(P[2].fee),
+        x,
+        nangle.actions,
+      );
+    });
+
+    startTime();
+    const am = NativeFormulas.extremumTriangle(
+      P[0].sqrtRatioX96,
+      P[0].liquidity,
+      BigInt(P[0].fee),
+      P[1].sqrtRatioX96,
+      P[1].liquidity,
+      BigInt(P[1].fee),
+      P[2].sqrtRatioX96,
+      P[2].liquidity,
+      BigInt(P[2].fee),
+      nangle.actions,
+    );
+    console.log(am);
+    console.log((swapNangle(nangle, am) ?? 0n) - am);
+    console.log(endTime());
+
+    console.log('-----');
+    console.log('-----');
+    console.log(NativeFormulas.swapTriangle(
+      P[0].sqrtRatioX96,
+      P[0].liquidity,
+      BigInt(P[0].fee),
+      P[1].sqrtRatioX96,
+      P[1].liquidity,
+      BigInt(P[1].fee),
+      P[2].sqrtRatioX96,
+      P[2].liquidity,
+      BigInt(P[2].fee),
+      testAmount,
+      nangle.actions,
+    ));
+    console.log('-----');
+    console.log(swapNangle(nangle, testAmount));
+    console.log('-----');
+
+
     for (const inputStep of inputSteps) {
       const inputAmount: bigint = inputStep.amountIn;
       const outputAmount: bigint | null = swapNangle(nangle, inputAmount);
@@ -342,32 +425,35 @@ describe('UniswapV3AlgorithmTest', function () {
       }
     }
 
-    /*    saveChartMarket('./cache/market.json', marketV3, 0n, ETHER * 1000n, ETHER / 10n);
-    //console.log(binarySearch(nangle, ETHER * 10n, ETHER / 1000n));
-    for (let i = 0; i < 67; i++) {
-      saveChart(`./cache/chart${i}.json`, loadNangle(`./test/res/nangle${i}.json`), 0n, ETHER * 5n, ETHER / 10n);
-    }*/
-
-    //37530274643
-    //6115585628
-    //3104064912269592924
-    //19068158736933871427
-
-    /*
-    [
-      0, 0,
-      5, 10,
-      50, 90,
-      500, 80,
-    ]
-    [
-      0, 0,
-      7, 100,
-      70, 9000,
-      700, 80000,
-    ]
-*/
-
-    //console.log(ranges);
+    console.log(inputSteps[0]);*/
   });
 });
+
+/*
+saveChartMarket('./cache/market.json', marketV3, 0n, ETHER * 1000n, ETHER / 10n);
+//console.log(binarySearch(nangle, ETHER * 10n, ETHER / 1000n));
+for (let i = 0; i < 67; i++) {
+  saveChart(`./cache/chart${i}.json`, loadNangle(`./test/res/nangle${i}.json`), 0n, ETHER * 5n, ETHER / 10n);
+}*/
+
+//37530274643
+//6115585628
+//3104064912269592924
+//19068158736933871427
+
+/*
+[
+  0, 0,
+  5, 10,
+  50, 90,
+  500, 80,
+]
+[
+  0, 0,
+  7, 100,
+  70, 9000,
+  700, 80000,
+]
+*/
+
+//console.log(ranges);

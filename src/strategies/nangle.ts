@@ -374,6 +374,10 @@ export function createTriangles(startToken: Address, group: GroupedEthMarkets): 
   const nangles: Nangle[] = [];
   const tokenA = startToken;
 
+  if (!group.marketsByToken[tokenA]) {
+    return [];
+  }
+
   const group1 = groupEthMarkets(group.marketsByToken[tokenA]);
   const group2 = groupEthMarkets(
     group.markets.filter((market) => market.tokens[0] !== tokenA && market.tokens[1] !== tokenA),
@@ -418,6 +422,10 @@ export function createDuoangles(startToken: Address, group: GroupedEthMarkets): 
   const nangles: Nangle[] = [];
   const tokenA = startToken;
 
+  if (!group.marketsByToken[tokenA]) {
+    return [];
+  }
+
   const group1 = groupEthMarkets(group.marketsByToken[tokenA]);
 
   for (const market1 of group1.markets) {
@@ -456,6 +464,10 @@ export function createDuoangles(startToken: Address, group: GroupedEthMarkets): 
 export function createQuadangles(startToken: Address, group: GroupedEthMarkets): Nangle[] {
   const nangles: Nangle[] = [];
   const tokenA = startToken;
+
+  if (!group.marketsByToken[tokenA]) {
+    return [];
+  }
 
   const group1 = groupEthMarkets(group.marketsByToken[tokenA]);
   const group2 = groupEthMarkets(

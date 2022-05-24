@@ -20,10 +20,11 @@ interface StepComputations {
   feeAmount: bigint;
 }
 
-export interface SwapStep {
+export interface NativeSwapStep {
   amountIn: bigint;
   amountOut: bigint;
-  tick: number;
+  liquidity: bigint;
+  sqrtPrice: bigint;
 }
 
 /**
@@ -229,13 +230,13 @@ export class NativePool {
     };
   }
 
-  public swapSteps(zeroForOne: boolean): SwapStep[] {
+  public swapSteps(zeroForOne: boolean): NativeSwapStep[] {
     //TODO: change to while tick <= MAX_TICK / MIN_TICK
     const amountSpecified = 1000000000000000000000000000000000000000000000000000000n;
     const sqrtPriceLimitX96 = zeroForOne
       ? TickMath.MIN_SQRT_RATIO + 1n
       : TickMath.MAX_SQRT_RATIO - 1n;
-    const accumulatedSteps: SwapStep[] = [];
+    const steps: NativeSwapStep[] = [];
 
     if (zeroForOne) {
       invariant(sqrtPriceLimitX96 > TickMath.MIN_SQRT_RATIO, 'RATIO_MIN');
@@ -275,17 +276,21 @@ export class NativePool {
       step.tickNext = clamp(step.tickNext, TickMath.MIN_TICK, TickMath.MAX_TICK);
       step.sqrtPriceNextX96 = TickMath.getSqrtRatioAtTick(step.tickNext);
 
+      const stepSqrtPriceX96 = state.sqrtPriceX96;
+      const stepLiquidity = state.liquidity;
+      const stepTargetSqrtPriceX96 = (
+        zeroForOne
+          ? step.sqrtPriceNextX96 < sqrtPriceLimitX96
+          : step.sqrtPriceNextX96 > sqrtPriceLimitX96
+      )
+        ? sqrtPriceLimitX96
+        : step.sqrtPriceNextX96;
+
       [state.sqrtPriceX96, step.amountIn, step.amountOut, step.feeAmount] =
         SwapMath.computeSwapStep(
-          state.sqrtPriceX96,
-          (
-            zeroForOne
-              ? step.sqrtPriceNextX96 < sqrtPriceLimitX96
-              : step.sqrtPriceNextX96 > sqrtPriceLimitX96
-          )
-            ? sqrtPriceLimitX96
-            : step.sqrtPriceNextX96,
-          state.liquidity,
+          stepSqrtPriceX96,
+          stepTargetSqrtPriceX96,
+          stepLiquidity,
           state.amountSpecifiedRemaining,
           this.fee,
         );
@@ -319,13 +324,14 @@ export class NativePool {
         state.tick = TickMath.getTickAtSqrtRatio(state.sqrtPriceX96);
       }
 
-      accumulatedSteps.push({
-        amountIn: step.amountIn,
+      steps.push({
+        amountIn: step.amountIn + step.feeAmount,
         amountOut: step.amountOut,
-        tick: step.tickNext,
+        liquidity: stepLiquidity,
+        sqrtPrice: stepSqrtPriceX96,
       });
     }
 
-    return accumulatedSteps;
+    return steps;
   }
 }
