@@ -20,6 +20,13 @@ interface StepComputations {
   feeAmount: bigint;
 }
 
+export interface NativeSwapStep {
+  amountIn: bigint;
+  amountOut: bigint;
+  liquidity: bigint;
+  sqrtPrice: bigint;
+}
+
 /**
  * Represents a V3 pool
  */
@@ -171,6 +178,9 @@ export class NativePool {
           state.amountSpecifiedRemaining,
           this.fee,
         );
+      /*console.log(
+        `Pool result : ${state.sqrtPriceX96} ${step.amountIn} ${step.amountOut} ${zeroForOne}`,
+      );*/
 
       if (exactInput) {
         state.amountSpecifiedRemaining -= step.amountIn + step.feeAmount;
@@ -208,5 +218,110 @@ export class NativePool {
       liquidity: state.liquidity,
       tickCurrent: state.tick,
     };
+  }
+
+  public swapSteps(zeroForOne: boolean): NativeSwapStep[] {
+    //TODO: change to while tick <= MAX_TICK / MIN_TICK
+    const amountSpecified = 1000000000000000000000000000000000000000000000000000000n;
+    const sqrtPriceLimitX96 = zeroForOne
+      ? TickMath.MIN_SQRT_RATIO + 1n
+      : TickMath.MAX_SQRT_RATIO - 1n;
+    const steps: NativeSwapStep[] = [];
+
+    if (zeroForOne) {
+      invariant(sqrtPriceLimitX96 > TickMath.MIN_SQRT_RATIO, 'RATIO_MIN');
+      invariant(sqrtPriceLimitX96 < this.sqrtRatioX96, 'RATIO_CURRENT');
+    } else {
+      invariant(sqrtPriceLimitX96 < TickMath.MAX_SQRT_RATIO, 'RATIO_MAX');
+      invariant(sqrtPriceLimitX96 > this.sqrtRatioX96, 'RATIO_CURRENT');
+    }
+
+    const exactInput = amountSpecified >= 0n;
+
+    // keep track of swap state
+
+    const state = {
+      amountSpecifiedRemaining: amountSpecified,
+      amountCalculated: 0n,
+      sqrtPriceX96: this.sqrtRatioX96,
+      tick: this.tickCurrent,
+      liquidity: this.liquidity,
+    };
+
+    // start swap while loop
+    while (state.amountSpecifiedRemaining !== 0n && state.sqrtPriceX96 !== sqrtPriceLimitX96) {
+      let step: Partial<StepComputations> = {};
+      step.sqrtPriceStartX96 = state.sqrtPriceX96;
+
+      // because each iteration of the while loop rounds, we can't optimize this code (relative to the smart contract)
+      // by simply traversing to the next available tick, we instead need to exactly replicate
+      // tickBitmap.nextInitializedTickWithinOneWord
+      [step.tickNext, step.tickNextInitialized] =
+        this.tickDataProvider.nextInitializedTickWithinOneWord(
+          state.tick,
+          zeroForOne,
+          this.tickSpacing,
+        );
+
+      step.tickNext = clamp(step.tickNext, TickMath.MIN_TICK, TickMath.MAX_TICK);
+      step.sqrtPriceNextX96 = TickMath.getSqrtRatioAtTick(step.tickNext);
+
+      const stepSqrtPriceX96 = state.sqrtPriceX96;
+      const stepLiquidity = state.liquidity;
+      const stepTargetSqrtPriceX96 = (
+        zeroForOne
+          ? step.sqrtPriceNextX96 < sqrtPriceLimitX96
+          : step.sqrtPriceNextX96 > sqrtPriceLimitX96
+      )
+        ? sqrtPriceLimitX96
+        : step.sqrtPriceNextX96;
+
+      [state.sqrtPriceX96, step.amountIn, step.amountOut, step.feeAmount] =
+        SwapMath.computeSwapStep(
+          stepSqrtPriceX96,
+          stepTargetSqrtPriceX96,
+          stepLiquidity,
+          state.amountSpecifiedRemaining,
+          this.fee,
+        );
+
+      if (exactInput) {
+        state.amountSpecifiedRemaining -= step.amountIn + step.feeAmount;
+        state.amountCalculated -= step.amountOut;
+      } else {
+        state.amountSpecifiedRemaining += step.amountOut;
+        state.amountCalculated += step.amountIn + step.feeAmount;
+      }
+
+      // TODO
+      if (state.sqrtPriceX96 === step.sqrtPriceNextX96) {
+        // if the tick is initialized, run the tick transition
+        if (step.tickNextInitialized) {
+          let liquidityNet = step.tickNextInitialized.liquidityNet;
+          // if we're moving leftward, we interpret liquidityNet as the opposite sign
+          // safe because liquidityNet cannot be type(int128).min
+          if (zeroForOne) {
+            liquidityNet *= -1n;
+          }
+
+          state.liquidity = LiquidityMath.addDelta(state.liquidity, liquidityNet);
+          invariant(exactInput || state.liquidity !== 0n, 'LIQUIDITY_ZERO');
+        }
+
+        state.tick = zeroForOne ? step.tickNext - 1 : step.tickNext;
+      } else if (state.sqrtPriceX96 !== step.sqrtPriceStartX96) {
+        // recompute unless we're on a lower tick boundary (i.e. already transitioned ticks), and haven't moved
+        state.tick = TickMath.getTickAtSqrtRatio(state.sqrtPriceX96);
+      }
+
+      steps.push({
+        amountIn: step.amountIn + step.feeAmount,
+        amountOut: step.amountOut,
+        liquidity: stepLiquidity,
+        sqrtPrice: stepSqrtPriceX96,
+      });
+    }
+
+    return steps;
   }
 }

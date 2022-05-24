@@ -1,0 +1,69 @@
+{
+  "markets": [
+    {
+      "protocol": "uniswapV2",
+      "marketAddress": "0xC3D03e4F041Fd4cD388c549Ee2A29a9E5075882f",
+      "token0": "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+      "token1": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+      "reserves0": "13122732873363673571668500",
+      "reserves1": "6634399784122516100824"
+    },
+    {
+      "protocol": "uniswapV3",
+      "ticks": [
+        {
+          "index": -214200,
+          "liquidityGross": "0",
+          "liquidityNet": "29949145929179916"
+        },
+        {
+          "index": -211320,
+          "liquidityGross": "0",
+          "liquidityNet": "171529948274098"
+        },
+        {
+          "index": -209460,
+          "liquidityGross": "0",
+          "liquidityNet": "290959137949584437"
+        },
+        {
+          "index": -205320,
+          "liquidityGross": "0",
+          "liquidityNet": "-290959137949584437"
+        },
+        {
+          "index": -200340,
+          "liquidityGross": "0",
+          "liquidityNet": "-171529948274098"
+        },
+        {
+          "index": -196260,
+          "liquidityGross": "0",
+          "liquidityNet": "-29949145929179916"
+        }
+      ],
+      "marketAddress": "0x61d8D4324E06408386251dcf6Bf77F0EbCCbF591",
+      "token0": "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+      "token1": "0xD46bA6D942050d489DBd938a2C909A5d5039A161",
+      "tickSpacing": 60,
+      "fee": 3000,
+      "tick": -205508,
+      "sqrtRatioX96": "2732466601429752203020772",
+      "liquidity": "321079813827038451"
+    },
+    {
+      "protocol": "uniswapV2",
+      "marketAddress": "0xc5be99A02C6857f9Eac67BbCE58DF5572498F40c",
+      "token0": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+      "token1": "0xD46bA6D942050d489DBd938a2C909A5d5039A161",
+      "reserves0": "1169970809398560857153",
+      "reserves1": "2517609079218367"
+    }
+  ],
+  "actions": [
+    "buy",
+    "sell",
+    "buy"
+  ],
+  "startToken": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+}

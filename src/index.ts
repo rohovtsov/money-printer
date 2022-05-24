@@ -108,7 +108,8 @@ async function main() {
   const thisBlock$ = runner.currentBlockNumber$;
   const concurrentSimulationCount = 20;
   const minGas = 200000n;
-  const opportunities$ = runner.start().pipe(
+  const sync$ = runner.start();
+  const opportunities$ = sync$.pipe(
     //pause a bit, to let eventLoop deliver the new blocks
     delay(1),
     switchMap((event) => {

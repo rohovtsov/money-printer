@@ -98,7 +98,30 @@ export class UniswapV2Market implements EthMarket {
   }
 
   setTokenReserves(reserves1: bigint, reserves2: bigint): void {
+    const oldReserves = [...(this.reserves ?? [])];
     this.reserves = [reserves1, reserves2];
     this.cacheOut = {};
+
+    if (oldReserves.length !== this.reserves.length) {
+      console.log(
+        `${this.marketAddress} changed reserves size`,
+        oldReserves.length,
+        'vs',
+        this.reserves.length,
+      );
+    } else if (this.reserves.length) {
+      let id = 0;
+
+      if (this.reserves[0] !== oldReserves[0] || this.reserves[1] !== oldReserves[1]) {
+        console.log(
+          `${this.marketAddress} ${id} changed reserves`,
+          oldReserves[0],
+          oldReserves[1],
+          'vs',
+          this.reserves[0],
+          this.reserves[1],
+        );
+      }
+    }
   }
 }

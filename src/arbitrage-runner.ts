@@ -107,6 +107,16 @@ export class ArbitrageRunner {
                   'changedMarkets',
                 )}ms at ${event.blockNumber}`,
               );
+              console.log(
+                `Changed v2 markets: ${
+                  changedMarkets.filter((market) => market.protocol === 'uniswapV2').length
+                }`,
+              );
+              console.log(
+                `Changed v3 markets: ${
+                  changedMarkets.filter((market) => market.protocol === 'uniswapV3').length
+                }`,
+              );
               return {
                 changedMarkets,
                 baseFeePerGas: event.nextBaseFeePerGas,
