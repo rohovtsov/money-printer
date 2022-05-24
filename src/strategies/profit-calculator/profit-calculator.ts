@@ -36,6 +36,71 @@ function getMarketV3SwapSteps(marketV3: UniswapV3Market, action: MarketAction): 
   return marketV3?.pool?.swapSteps(action === 'sell') ?? [];
 }
 
+function getMarketConstants(market: EthMarket, action: MarketAction): MarketConstants {
+  const isSell = action === 'sell';
+
+  if (market.protocol === 'uniswapV3') {
+    const marketV3 = market as UniswapV3Market;
+
+    if (
+      !marketV3.pool?.liquidity ||
+      marketV3.pool.liquidity <= 0n ||
+      !marketV3.pool?.sqrtRatioX96 ||
+      marketV3.pool.sqrtRatioX96 <= 0n
+    ) {
+      throw new Error('Wrong pool parameters');
+    }
+
+    const F = BigInt(marketV3.fee);
+
+    let A;
+    let Q;
+    const L = marketV3.pool!.liquidity;
+
+    if (isSell) {
+      A = marketV3.pool!.sqrtRatioX96;
+      Q = Q96;
+    } else {
+      A = Q96;
+      Q = marketV3.pool!.sqrtRatioX96;
+    }
+
+    const T = (A * A * L * (MAX_FEE - F)) / MAX_FEE;
+    const M = (A * Q * (MAX_FEE - F)) / MAX_FEE;
+    const G = L * Q * Q;
+
+    return { T, M, G };
+  } else if (market.protocol === 'uniswapV2') {
+    const marketV2 = market as UniswapV2Market;
+    const reserves0 = marketV2.getReserve0();
+    const reserves1 = marketV2.getReserve1();
+    const reservesIn = isSell ? reserves0 : reserves1;
+    const reservesOut = isSell ? reserves1 : reserves0;
+
+    const T = Q997 * reservesOut;
+    const M = Q997;
+    const G = Q1000 * reservesIn;
+
+    return { T, M, G };
+  }
+
+  throw new Error('Invalid market protocol');
+}
+
+function getMarketV2Constants(market: UniswapV2Market, action: MarketAction): MarketConstants {
+  const isSell = action === 'sell';
+  const reserves0 = market.getReserve0();
+  const reserves1 = market.getReserve1();
+  const reservesIn = isSell ? reserves0 : reserves1;
+  const reservesOut = isSell ? reserves1 : reserves0;
+
+  const T = Q997 * reservesOut;
+  const M = Q997;
+  const G = Q1000 * reservesIn;
+
+  return { T, M, G };
+}
+
 function getMarketV2SwapRange(market: UniswapV2Market, action: MarketAction): MarketSwapRange {
   //Y = (T * X) / (M * X + G)
 
@@ -329,9 +394,6 @@ export function getExtremumInput(nangle: Nangle): bigint {
     const min = range.fromInput;
     const max = range.toInput;
 
-    //3322171391958105561n
-    //943532774756490962n
-    //9210591728604472349n
     if (!firstExtremum) {
       firstExtremum = extremumAmount;
     }
@@ -348,6 +410,33 @@ export function getExtremumInput(nangle: Nangle): bigint {
 
   return firstExtremum ?? 0n;
 }
+
+export function getExtremumInputAmount(nangle: Nangle): bigint | null {
+  if (nangle.markets.length !== 3) {
+    return null;
+  }
+
+  try {
+    const cs: MarketConstants[] = nangle.markets.map((m, i) =>
+      getMarketConstants(m, nangle.actions[i]),
+    );
+    const extremum = extremumTriangleInternal(
+      cs[0].T,
+      cs[0].M,
+      cs[0].G,
+      cs[1].T,
+      cs[1].M,
+      cs[1].G,
+      cs[2].T,
+      cs[2].M,
+      cs[2].G,
+    );
+    return extremum > 0n ? extremum : null;
+  } catch (e) {
+    return null;
+  }
+}
+
 //3322171391958105561n
 //943532774756490962n
 /*

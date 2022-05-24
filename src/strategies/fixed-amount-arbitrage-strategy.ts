@@ -2,6 +2,7 @@ import {
   Address,
   ArbitrageOpportunity,
   ArbitrageStrategy,
+  ArbitrageStrategyName,
   endTime,
   EthMarket,
   groupEthMarkets,
@@ -14,8 +15,10 @@ import {
   Nangle,
   nangleCountsToString,
 } from './nangle';
+import { getExtremumInputAmount } from './profit-calculator';
 
-export type FixedAmountStartOptions = Record<Address, bigint[]>;
+type StartAmount = bigint | 'extremum';
+export type FixedAmountStartOptions = Record<Address, StartAmount[]>;
 
 export class FixedAmountArbitrageStrategy implements ArbitrageStrategy {
   options: FixedAmountStartOptions;
@@ -55,7 +58,15 @@ export class FixedAmountArbitrageStrategy implements ArbitrageStrategy {
 
   calculateOpportunity(nangle: Nangle, blockNumber: number): ArbitrageOpportunity | null {
     return this.options[nangle.startToken].reduce((acc, startAmount) => {
-      const opportunity = this.calculateOpportunityForAmount(nangle, startAmount, blockNumber);
+      const name: ArbitrageStrategyName =
+        startAmount === 'extremum' ? 'extremum-amount' : 'fixed-amount';
+      const amount = startAmount === 'extremum' ? getExtremumInputAmount(nangle) : startAmount;
+
+      if (!amount) {
+        return acc;
+      }
+
+      const opportunity = this.calculateOpportunityForAmount(nangle, amount, blockNumber, name);
 
       if (opportunity && (!acc || opportunity.profit > acc.profit)) {
         acc = opportunity;
@@ -69,6 +80,7 @@ export class FixedAmountArbitrageStrategy implements ArbitrageStrategy {
     nangle: Nangle,
     startAmount: bigint,
     blockNumber: number,
+    name: ArbitrageStrategyName,
   ): ArbitrageOpportunity | null {
     const amounts: bigint[] = [startAmount];
     let amount = startAmount;
@@ -96,7 +108,7 @@ export class FixedAmountArbitrageStrategy implements ArbitrageStrategy {
 
     return {
       blockNumber,
-      strategyName: 'fixed-amount',
+      strategyName: name,
       operations: nangle.markets.map((market, id) => {
         return {
           market,

@@ -20,7 +20,11 @@ import { NativePool, NativeSwapStep } from '../src/uniswap/native-pool/native-po
 import { Nangle } from '../src/strategies/nangle';
 import fs from 'fs';
 import { ProfitFormulas } from '../src/strategies/profit-calculator/profit-formulas';
-import { getExtremumInput, getNangleSwapRanges } from '../src/strategies/profit-calculator';
+import {
+  getExtremumInput,
+  getExtremumInputAmount,
+  getNangleSwapRanges,
+} from '../src/strategies/profit-calculator';
 
 function swapNangle(nangle: Nangle, amountIn: bigint): bigint | null {
   let amount: bigint | null = amountIn;
@@ -162,7 +166,7 @@ function binarySearch(nangle: Nangle, maxAmount: bigint, precision: bigint): big
 
 describe('UniswapV3AlgorithmTest', function () {
   this.timeout(10000);
-  let nangle = loadNangle('./test/res/nangle7.json');
+  let nangle = loadNangle('./test/res/nangle.json');
   let oldStrategy = new FixedAmountArbitrageStrategy(
     {
       [WETH_ADDRESS]: new Array(10000).fill(null).map((el, i) => (ETHER / 1000n) * BigInt(i)),
@@ -248,6 +252,7 @@ describe('UniswapV3AlgorithmTest', function () {
     startTime();
     let extremum;
     console.log((extremum = getExtremumInput(nangle)));
+    console.log(getExtremumInputAmount(nangle));
     console.log(endTime());
     console.log(oldOpportunity.profit);
     console.log(oldOpportunity.operations[0].amountIn);
