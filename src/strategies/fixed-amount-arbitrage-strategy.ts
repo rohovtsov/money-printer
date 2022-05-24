@@ -48,12 +48,25 @@ export class FixedAmountArbitrageStrategy implements ArbitrageStrategy {
     console.log(`Changed nangles V2 & V3: ${changedNangles.length}`);
     return changedNangles
       .map((nangle) => {
+        if (!this.hasLiquidity(nangle)) {
+          return null;
+        }
         /*if (opportunity?.operations?.reduce((acc, op) => acc + (op.market.protocol === 'uniswapV3' ? 1 : 0), 0) === 1) {
           saveNangle('nangle.json', nangle);
         }*/
         return this.calculateOpportunity(nangle, blockNumber);
       })
       .filter(Boolean) as ArbitrageOpportunity[];
+  }
+
+  hasLiquidity(nangle: Nangle): boolean {
+    for (const market of nangle.markets) {
+      if (!market.hasLiquidity()) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   calculateOpportunity(nangle: Nangle, blockNumber: number): ArbitrageOpportunity | null {

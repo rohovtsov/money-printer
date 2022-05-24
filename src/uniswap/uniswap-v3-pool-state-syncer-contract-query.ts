@@ -7,7 +7,7 @@ import {
   startTime,
 } from '../entities';
 import { UniswapV3Market } from './uniswap-v3-market';
-import { defer, lastValueFrom, merge, tap } from 'rxjs';
+import { defer, lastValueFrom, map, merge, reduce, tap } from 'rxjs';
 import { retry } from 'rxjs/operators';
 import { NativeTick } from './native-pool/native-pool-utils';
 
@@ -36,10 +36,10 @@ export class UniswapV3PoolStateSyncerContractQuery {
     );
   }
 
-  async syncPoolStates(markets: UniswapV3Market[]): Promise<void> {
+  async syncPoolStates(markets: UniswapV3Market[]): Promise<UniswapV3Market[]> {
     if (!markets.length) {
       console.log(`Sync V3 skipped`);
-      return;
+      return [];
     }
 
     startTime('syncV3');
@@ -70,30 +70,46 @@ export class UniswapV3PoolStateSyncerContractQuery {
 
     if (!batches.length) {
       console.log(`Sync V3 skipped: no batches`);
-      return;
+      return [];
     }
 
     console.log(`Request v3 batches:`, batches.length);
 
-    await lastValueFrom(
+    return lastValueFrom(
       merge(
         ...batches.map((batch) => defer(() => this.requestStatesBatch(batch)).pipe(retry(5))),
         this.parallelCount,
       ).pipe(
-        tap((states) => {
+        map((states) => {
+          const changedMarkets: UniswapV3Market[] = [];
+
           for (const state of states) {
-            marketsByAddress[state.address].setPoolState(
-              state.tick,
-              state.sqrtPriceX96,
-              state.liquidity,
-              state.ticks,
-            );
+            const market = marketsByAddress[state.address];
+
+            if (
+              market.isPoolStateDifferent(
+                state.tick,
+                state.sqrtPriceX96,
+                state.liquidity,
+                state.ticks,
+              )
+            ) {
+              market.setPoolState(state.tick, state.sqrtPriceX96, state.liquidity, state.ticks);
+              changedMarkets.push(market);
+            }
           }
+
+          return changedMarkets;
+        }),
+        reduce((acc, changedMarkets) => {
+          acc.push(...changedMarkets);
+          return acc;
+        }, [] as UniswapV3Market[]),
+        tap(() => {
+          console.log(`Sync V3 complete: ${markets.length} markets in ${endTime('syncV3')}ms`);
         }),
       ),
     );
-
-    console.log(`Sync V3 complete: ${markets.length} markets in ${endTime('syncV3')}ms`);
   }
 
   async requestStatesBatch(payload: PoolBatchPayload): Promise<PoolState[]> {

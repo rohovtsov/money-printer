@@ -123,6 +123,10 @@ async function main() {
       );
       console.log(`Since block was received: ${Date.now() - event.blockReceivedAt}ms\n`);
 
+      for (const op of opportunities) {
+        printOpportunity(op);
+      }
+
       return from(
         opportunities.map((op) => [op, event.baseFeePerGas] as [ArbitrageOpportunity, bigint]),
       );
@@ -208,7 +212,7 @@ async function main() {
     }),
   );
 
-  executedOpportunities$.subscribe();
+  opportunities$.subscribe();
 }
 
 main();

@@ -42,12 +42,7 @@ function getMarketConstants(market: EthMarket, action: MarketAction): MarketCons
   if (market.protocol === 'uniswapV3') {
     const marketV3 = market as UniswapV3Market;
 
-    if (
-      !marketV3.pool?.liquidity ||
-      marketV3.pool.liquidity <= 0n ||
-      !marketV3.pool?.sqrtRatioX96 ||
-      marketV3.pool.sqrtRatioX96 <= 0n
-    ) {
+    if (!marketV3.pool || marketV3.pool.liquidity <= 0n || marketV3.pool.sqrtRatioX96 <= 0n) {
       throw new Error('Wrong pool parameters');
     }
 
@@ -74,6 +69,11 @@ function getMarketConstants(market: EthMarket, action: MarketAction): MarketCons
     const marketV2 = market as UniswapV2Market;
     const reserves0 = marketV2.getReserve0();
     const reserves1 = marketV2.getReserve1();
+
+    if (reserves0 <= 0n || reserves1 <= 0n) {
+      throw new Error('Wrong reserves');
+    }
+
     const reservesIn = isSell ? reserves0 : reserves1;
     const reservesOut = isSell ? reserves1 : reserves0;
 

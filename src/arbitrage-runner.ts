@@ -98,34 +98,33 @@ export class ArbitrageRunner {
         startTime('changedMarkets');
         return defer(() =>
           loadChangedEthMarkets(this.provider, event.blockNumber, this.marketsByAddress),
-        )
-          .pipe(retry(5))
-          .pipe(
-            map((changedMarkets: EthMarket[]) => {
-              console.log(
-                `Loaded ${changedMarkets.length} changed markets in ${endTime(
-                  'changedMarkets',
-                )}ms at ${event.blockNumber}`,
-              );
-              console.log(
-                `Changed v2 markets: ${
-                  changedMarkets.filter((market) => market.protocol === 'uniswapV2').length
-                }`,
-              );
-              console.log(
-                `Changed v3 markets: ${
-                  changedMarkets.filter((market) => market.protocol === 'uniswapV3').length
-                }`,
-              );
-              return {
-                changedMarkets,
-                baseFeePerGas: event.nextBaseFeePerGas,
-                blockReceivedAt: event.blockReceivedAt,
-                blockNumber: event.blockNumber,
-                initial: false,
-              };
-            }),
-          );
+        ).pipe(
+          retry(5),
+          map((changedMarkets: EthMarket[]) => {
+            console.log(
+              `Loaded ${changedMarkets.length} changed markets in ${endTime(
+                'changedMarkets',
+              )}ms at ${event.blockNumber}`,
+            );
+            console.log(
+              `Changed v2 markets: ${
+                changedMarkets.filter((market) => market.protocol === 'uniswapV2').length
+              }`,
+            );
+            console.log(
+              `Changed v3 markets: ${
+                changedMarkets.filter((market) => market.protocol === 'uniswapV3').length
+              }`,
+            );
+            return {
+              changedMarkets,
+              baseFeePerGas: event.nextBaseFeePerGas,
+              blockReceivedAt: event.blockReceivedAt,
+              blockNumber: event.blockNumber,
+              initial: false,
+            };
+          }),
+        );
       }),
     );
 
@@ -134,9 +133,15 @@ export class ArbitrageRunner {
       concatMap((changedEvent) => {
         const queuedMarkets = this.retrieveQueuedMarketsAndEmptyQueue();
         const changedMarkets = mergeMarkets(queuedMarkets, changedEvent.changedMarkets);
-        const event = { ...changedEvent, changedMarkets };
 
-        return from(this.syncMarkets(changedMarkets, event.blockNumber)).pipe(map(() => event));
+        return from(this.syncMarkets(changedMarkets, changedEvent.blockNumber)).pipe(
+          map((syncedMarkets) => ({
+            ...changedEvent,
+            changedMarkets: changedEvent.initial
+              ? changedMarkets
+              : mergeMarkets(syncedMarkets, queuedMarkets),
+          })),
+        );
       }),
     );
 
@@ -208,17 +213,20 @@ export class ArbitrageRunner {
     return Array.from(markets);
   }
 
-  private async syncMarkets(markets: EthMarket[], minBlockNumber: number): Promise<void> {
+  private async syncMarkets(markets: EthMarket[], minBlockNumber: number): Promise<EthMarket[]> {
     const uniswapV2Markets = markets.filter(
       (market) => market.protocol === 'uniswapV2',
     ) as UniswapV2Market[];
     const uniswapV3Markets = markets.filter(
       (market) => market.protocol === 'uniswapV3',
     ) as UniswapV3Market[];
-    await Promise.all([
+
+    const [changedV2, changedV3] = await Promise.all([
       this.uniswapV2Syncer.syncReserves(uniswapV2Markets),
       this.uniswapV3Syncer.syncPoolStates(uniswapV3Markets),
     ]);
+
+    return [...changedV2, ...changedV3];
   }
 
   private runStrategies(

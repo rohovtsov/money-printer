@@ -92,15 +92,42 @@ export class UniswapV3Market implements EthMarket {
     };
   }
 
+  hasLiquidity(): boolean {
+    return !!this.pool && this.pool.liquidity > 0n && this.pool.sqrtRatioX96 > 0n;
+  }
+
+  isPoolStateDifferent(
+    tick: number,
+    sqrtPriceX96: bigint,
+    liquidity: bigint,
+    ticks: NativeTick[],
+  ): boolean {
+    if (
+      !this.pool ||
+      tick !== this.pool.tickCurrent ||
+      sqrtPriceX96 !== this.pool.sqrtRatioX96 ||
+      liquidity !== this.pool.liquidity ||
+      ticks.length !== this.pool.ticks.length
+    ) {
+      return true;
+    }
+
+    for (let i = 0; i < ticks.length; i++) {
+      const poolTick = this.pool.ticks[i];
+      const newTick = ticks[i];
+
+      if (poolTick.index !== newTick.index || poolTick.liquidityNet !== newTick.liquidityNet) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   setPoolState(tick: number, sqrtPriceX96: bigint, liquidity: bigint, ticks: NativeTick[]) {
     //TODO: ticks.length === 0 - still valid?
     this.cacheOut = {};
     try {
-      const oldTicks = this.pool?.ticks ?? [];
-      const oldTick = this.pool?.tickCurrent ?? 0;
-      const oldSqrt = this.pool?.sqrtRatioX96 ?? 0n;
-      const oldLiquidity = this.pool?.liquidity ?? 0n;
-
       this.pool = new NativePool(
         this.tokens[0],
         this.tokens[1],
@@ -110,65 +137,6 @@ export class UniswapV3Market implements EthMarket {
         tick,
         ticks,
       );
-
-      if (oldTick !== this.pool.tickCurrent) {
-        console.log(
-          `${this.marketAddress} changed tickCurrent`,
-          oldTick,
-          'vs',
-          this.pool.tickCurrent,
-        );
-      }
-
-      if (oldSqrt !== this.pool.sqrtRatioX96) {
-        console.log(`${this.marketAddress} changed sqrtX96`, oldSqrt, 'vs', this.pool.sqrtRatioX96);
-      }
-
-      if (oldLiquidity !== this.pool.liquidity) {
-        console.log(
-          `${this.marketAddress} changed liquidity`,
-          oldLiquidity,
-          'vs',
-          this.pool.liquidity,
-        );
-      }
-
-      if (oldTicks.length !== ticks.length) {
-        console.log(
-          `${this.marketAddress} changed ticks size`,
-          oldTicks.length,
-          'vs',
-          ticks.length,
-        );
-      } else if (ticks.length) {
-        let id = 0;
-        for (let i = 0; i < ticks.length; i++) {
-          const tick = ticks[i];
-          const oldTick = oldTicks[i];
-
-          if (tick.index !== oldTick.index) {
-            console.log(
-              `${this.marketAddress} ${id} changed tick index`,
-              tick.index,
-              'vs',
-              oldTick.index,
-            );
-          }
-
-          if (tick.liquidityNet !== oldTick.liquidityNet) {
-            console.log(
-              `${this.marketAddress} ${id} changed tick liquidity`,
-              tick.liquidityNet,
-              'vs',
-              oldTick.liquidityNet,
-            );
-          }
-
-          if (tick.liquidityNet !== oldTick.liquidityNet || tick.index !== oldTick.index) {
-            id++;
-          }
-        }
-      }
     } catch (e: any) {
       const isPriceBounds = !!e?.message?.includes('PRICE_BOUNDS');
 

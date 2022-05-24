@@ -31,6 +31,8 @@ export interface EthMarket {
   marketAddress: Address;
   protocol: Protocol;
 
+  hasLiquidity(): boolean;
+
   calcTokensOut(action: MarketAction, amountIn: bigint): bigint | null;
 
   calcTokensIn(action: MarketAction, amountOut: bigint): bigint | null;
