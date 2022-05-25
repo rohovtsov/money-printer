@@ -50,6 +50,74 @@ export function bigIntSqrt(value: bigint): bigint {
   } while (true);
 }
 
+export function bigIntSqrtFast(A: bigint, n: bigint): bigint {
+  //"rounding" parameter
+  //can be a strings:
+  //1. 'floor', undefined, or another other value - by default...
+  //2. 'ceil' - up rounding
+  //3. 'round' - rounding to nearest integer.
+
+  //Code from here: https://github.com/peterolson/BigInteger.js/issues/146
+  //I already have integer logarithm function here
+  function ilog2(n: bigint): bigint {
+    // n is a positive non-zero BigInt
+    const C1 = BigInt(1);
+    const C2 = BigInt(2);
+    var count: bigint = 0n;
+    for (; n > C1; count++) n = n / C2;
+    return count;
+  }
+
+  // https://stackoverflow.com/questions/15978781/how-to-find-integer-nth-roots
+  // @ts-ignore
+  var nthRoot = function (A: bigint, n: bigint, e: bigint): bigint {
+    if (e < n) {
+      return 1n;
+    }
+    var q = e / n / 2n;
+    var t = 2n ** q;
+    var x0 = q === 0n ? 4n : (t + 1n) * nthRoot(A / t ** n, n, e - q * n);
+    var x = x0;
+    var xp = x + 1n;
+    while (x < xp) {
+      xp = x;
+      var t = A / x ** (n - 1n);
+      x = (x * (n - 1n) + t) / n;
+    }
+    return xp;
+  };
+  if (A < 0 || n <= 0) {
+    throw new RangeError();
+  }
+  if (A === 0n) {
+    return 0n;
+  }
+  var e = ilog2(A);
+  var x = nthRoot(A, n, e);
+  /*
+
+  if(typeof rounding !== 'undefined'){
+    if(rounding === 'ceil'){
+      return x.next();
+    }
+    else if(rounding === 'round'){
+      //10 n√x = n√(10^n)x;
+      //(n√(10^n)x % 10 >= 5) ? n_root++ : n_root;
+      var n10 = bigInt('10').pow(n);
+      var An10 = A.multiply(n10);
+      var n_root_An10 = An10.nthRoot(n);
+      var last_digit = n_root_An10.mod(bigInt('10'));
+      if(last_digit.geq(bigInt('5'))){return x.next()}
+      //else return default floor.
+    }
+    //else return default floor
+  }//else return default floor
+*/
+
+  return x;
+  //if x not a whole root, and A not a x.pow(m), you can calculate difference yourself.
+}
+
 export function fromProviderEvent<T = unknown>(
   provider: providers.JsonRpcProvider,
   eventName: string,

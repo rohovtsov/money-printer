@@ -1,6 +1,9 @@
 import { loadNangle } from '../src/serializer';
 import { FixedAmountArbitrageStrategy } from '../src/strategies/fixed-amount-arbitrage-strategy';
 import {
+  bigIntSqrt,
+  bigIntSqrt2,
+  bigIntSqrt3,
   endTime,
   EthMarket,
   MarketAction,
@@ -25,6 +28,7 @@ import {
   getExtremumInputAmount,
   getNangleSwapRanges,
 } from '../src/strategies/profit-calculator';
+import { expect } from 'chai';
 
 function swapNangle(nangle: Nangle, amountIn: bigint): bigint | null {
   let amount: bigint | null = amountIn;
@@ -180,6 +184,14 @@ describe('UniswapV3AlgorithmTest', function () {
     printOpportunity(oldOpportunity);
     console.log(oldOpportunity.operations[0].amountIn);
     console.log(oldOpportunity.profit);
+
+    const X = 10n ** 1000n;
+    startTime();
+    console.log(bigIntSqrt3(X, 2n));
+    console.log(endTime());
+    console.log(bigIntSqrt(X));
+    console.log(endTime());
+    expect(bigIntSqrt3(X, 2n)).equal(bigIntSqrt(X));
 
     /*const marketV3 = nangle.markets[0] as UniswapV3Market;
     const breakpoints = marketV3.pool!.ticks.map((tick) => {
