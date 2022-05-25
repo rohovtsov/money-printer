@@ -50,7 +50,7 @@ export function bigIntSqrt(value: bigint): bigint {
   } while (true);
 }
 
-export function bigIntSqrtFast(A: bigint, n: bigint): bigint {
+export function bigIntSqrtFast(A: bigint): bigint {
   //"rounding" parameter
   //can be a strings:
   //1. 'floor', undefined, or another other value - by default...
@@ -66,6 +66,26 @@ export function bigIntSqrtFast(A: bigint, n: bigint): bigint {
     var count: bigint = 0n;
     for (; n > C1; count++) n = n / C2;
     return count;
+  }
+
+  function ilog2_str(n: bigint): bigint {
+    // 2*faster!
+    return BigInt(n.toString(2).length - 1);
+  }
+
+  function ilog2_bs(value: bigint): bigint {
+    let result = 0n,
+      i,
+      v;
+    for (i = 1n; value >> (1n << i); i <<= 1n);
+    while (value > 1n) {
+      v = 1n << --i;
+      if (value >> v) {
+        result += v;
+        value >>= v;
+      }
+    }
+    return result;
   }
 
   // https://stackoverflow.com/questions/15978781/how-to-find-integer-nth-roots
@@ -86,14 +106,14 @@ export function bigIntSqrtFast(A: bigint, n: bigint): bigint {
     }
     return xp;
   };
-  if (A < 0 || n <= 0) {
+  if (A < 0) {
     throw new RangeError();
   }
   if (A === 0n) {
     return 0n;
   }
-  var e = ilog2(A);
-  var x = nthRoot(A, n, e);
+  var e = ilog2_bs(A);
+  var x = nthRoot(A, 2n, e);
   /*
 
   if(typeof rounding !== 'undefined'){

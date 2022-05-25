@@ -2,8 +2,7 @@ import { loadNangle } from '../src/serializer';
 import { FixedAmountArbitrageStrategy } from '../src/strategies/fixed-amount-arbitrage-strategy';
 import {
   bigIntSqrt,
-  bigIntSqrt2,
-  bigIntSqrt3,
+  bigIntSqrtFast,
   endTime,
   EthMarket,
   MarketAction,
@@ -185,13 +184,12 @@ describe('UniswapV3AlgorithmTest', function () {
     console.log(oldOpportunity.operations[0].amountIn);
     console.log(oldOpportunity.profit);
 
-    const X = 10n ** 1000n;
+    const X = 172332n ** 1000n;
     startTime();
-    console.log(bigIntSqrt3(X, 2n));
+    console.log(bigIntSqrtFast(X));
     console.log(endTime());
     console.log(bigIntSqrt(X));
     console.log(endTime());
-    expect(bigIntSqrt3(X, 2n)).equal(bigIntSqrt(X));
 
     /*const marketV3 = nangle.markets[0] as UniswapV3Market;
     const breakpoints = marketV3.pool!.ticks.map((tick) => {
