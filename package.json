@@ -5,6 +5,7 @@
   "main": "build/index.js",
   "types": "build/index.d.ts",
   "scripts": {
+    "prof": "node -r ts-node/register --inspect src/index.ts",
     "start": "ts-node src/index.ts",
     "startAndLogToFile": "ts-node src/index.ts > output.log",
     "start-old": "npx ts-node --project tsconfig.json src/index.ts",
