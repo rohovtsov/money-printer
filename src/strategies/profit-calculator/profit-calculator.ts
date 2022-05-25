@@ -1,9 +1,10 @@
 import { UniswapV3Market } from '../../uniswap/uniswap-v3-market';
-import { bigIntSqrtFast, EthMarket, MarketAction } from '../../entities';
+import { EthMarket, MarketAction } from '../../entities';
 import { NativeSwapStep } from '../../uniswap/native-pool/native-pool';
 import { UniswapV2Market } from '../../uniswap/uniswap-v2-market';
 import { MAX_FEE } from '../../uniswap/native-pool/native-pool-utils';
 import { Nangle } from '../nangle';
+import { ProfitFormulas } from './profit-formulas';
 
 const Q997 = 997n;
 const Q1000 = 1000n;
@@ -311,58 +312,6 @@ export function getNangleSwapRanges(nangle: Nangle): NangleSwapRange[] {
   return nangleRanges[0];
 }
 
-function extremumTriangleInternal(
-  T1: bigint,
-  M1: bigint,
-  G1: bigint,
-  T2: bigint,
-  M2: bigint,
-  G2: bigint,
-  T3: bigint,
-  M3: bigint,
-  G3: bigint,
-): bigint {
-  const forSQRT =
-    G1 * G2 * G2 * G2 * G3 * G3 * G3 * M1 * M1 * T1 * T2 * T3 +
-    2n * G1 * G2 * G2 * G3 * G3 * G3 * M1 * M2 * T1 * T1 * T2 * T3 +
-    2n * G1 * G2 * G2 * G3 * G3 * M1 * M3 * T1 * T1 * T2 * T2 * T3 +
-    G1 * G2 * G3 * G3 * G3 * M2 * M2 * T1 * T1 * T1 * T2 * T3 +
-    2n * G1 * G2 * G3 * G3 * M2 * M3 * T1 * T1 * T1 * T2 * T2 * T3 +
-    G1 * G2 * G3 * M3 * M3 * T1 * T1 * T1 * T2 * T2 * T2 * T3;
-  const SQRT = bigIntSqrtFast(forSQRT);
-  //Found opportunities: 210 in 80578ms at 14840712
-  //Found opportunities: 256 in 53589ms at 14840727
-
-  const nominator =
-    -G1 * G2 * G2 * G3 * G3 * M1 + SQRT - G1 * G2 * G3 * G3 * M2 * T1 - G1 * G2 * G3 * M3 * T1 * T2;
-  const denominator =
-    G2 * G2 * G3 * G3 * M1 * M1 +
-    2n * G2 * G3 * G3 * M1 * M2 * T1 +
-    2n * G2 * G3 * M1 * M3 * T1 * T2 +
-    G3 * G3 * M2 * M2 * T1 * T1 +
-    2n * G3 * M2 * M3 * T1 * T1 * T2 +
-    M3 * M3 * T1 * T1 * T2 * T2;
-
-  return nominator / denominator;
-}
-
-function zeroTriangleInternal(
-  T1: bigint,
-  M1: bigint,
-  G1: bigint,
-  T2: bigint,
-  M2: bigint,
-  G2: bigint,
-  T3: bigint,
-  M3: bigint,
-  G3: bigint,
-): bigint {
-  const nominator = T1 * T2 * T3 - G1 * G2 * G3;
-  const denominator = G2 * G3 * M1 + G3 * M2 * T1 + M3 * T1 * T2;
-
-  return nominator / denominator;
-}
-
 export function getExtremumInput(nangle: Nangle): bigint {
   const ranges = getNangleSwapRanges(nangle);
   console.log(ranges[0]);
@@ -371,7 +320,7 @@ export function getExtremumInput(nangle: Nangle): bigint {
 
   for (const range of ranges) {
     const cs = range.constants;
-    const extremumAmount = extremumTriangleInternal(
+    const extremumAmount = ProfitFormulas.extremumTriangle(
       cs[0].T,
       cs[0].M,
       cs[0].G,
@@ -382,7 +331,7 @@ export function getExtremumInput(nangle: Nangle): bigint {
       cs[2].M,
       cs[2].G,
     );
-    const zeroAmount = zeroTriangleInternal(
+    const zeroAmount = ProfitFormulas.zeroTriangle(
       cs[0].T,
       cs[0].M,
       cs[0].G,
@@ -414,7 +363,7 @@ export function getExtremumInput(nangle: Nangle): bigint {
 }
 
 export function getExtremumInputAmount(nangle: Nangle): bigint | null {
-  if (nangle.markets.length !== 3) {
+  if (nangle.markets.length <= 1 || nangle.markets.length >= 4) {
     return null;
   }
 
@@ -422,17 +371,31 @@ export function getExtremumInputAmount(nangle: Nangle): bigint | null {
     const cs: MarketConstants[] = nangle.markets.map((m, i) =>
       getMarketConstants(m, nangle.actions[i]),
     );
-    const extremum = extremumTriangleInternal(
-      cs[0].T,
-      cs[0].M,
-      cs[0].G,
-      cs[1].T,
-      cs[1].M,
-      cs[1].G,
-      cs[2].T,
-      cs[2].M,
-      cs[2].G,
-    );
+
+    let extremum = 0n;
+    if (cs.length === 3) {
+      extremum = ProfitFormulas.extremumTriangle(
+        cs[0].T,
+        cs[0].M,
+        cs[0].G,
+        cs[1].T,
+        cs[1].M,
+        cs[1].G,
+        cs[2].T,
+        cs[2].M,
+        cs[2].G,
+      );
+    } else if (cs.length === 2) {
+      extremum = ProfitFormulas.duoangleExtremum(
+        cs[0].T,
+        cs[0].M,
+        cs[0].G,
+        cs[1].T,
+        cs[1].M,
+        cs[1].G,
+      );
+    }
+
     return extremum > 0n ? extremum : null;
   } catch (e) {
     return null;

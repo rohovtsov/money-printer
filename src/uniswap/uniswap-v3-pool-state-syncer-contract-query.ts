@@ -8,7 +8,7 @@ import {
 } from '../entities';
 import { UniswapV3Market } from './uniswap-v3-market';
 import { defer, lastValueFrom, map, merge, reduce, tap } from 'rxjs';
-import { retry } from 'rxjs/operators';
+import { catchError, retry } from 'rxjs/operators';
 import { NativeTick } from './native-pool/native-pool-utils';
 
 interface PoolState {
@@ -77,7 +77,17 @@ export class UniswapV3PoolStateSyncerContractQuery {
 
     return lastValueFrom(
       merge(
-        ...batches.map((batch) => defer(() => this.requestStatesBatch(batch)).pipe(retry(5))),
+        ...batches.map((batch) =>
+          defer(() => this.requestStatesBatch(batch)).pipe(
+            retry(5),
+            catchError((err) => {
+              console.log(`Request v3 error: ${batch.addresses.length} ${batch.totalBufferSize}:`);
+              console.log(`Request v3 error bufferSizes: ${JSON.stringify(batch.bufferSizes)}`);
+              console.log(`Request v3 error addresses:${JSON.stringify(batch.addresses)}`);
+              throw err;
+            }),
+          ),
+        ),
         this.parallelCount,
       ).pipe(
         map((states) => {

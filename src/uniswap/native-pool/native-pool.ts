@@ -7,6 +7,9 @@ import {
   TICK_SPACINGS,
   NativeTickDataProvider,
   TickMath,
+  MAX_FEE,
+  SqrtPriceMath,
+  FullMath,
 } from './native-pool-utils';
 import invariant from 'tiny-invariant';
 
@@ -33,6 +36,7 @@ export interface NativeSwapStep {
 export class NativePool {
   public readonly tickDataProvider: NativeTickDataProvider;
   public readonly tickSpacing: number;
+  public readonly feeBigInt: bigint;
 
   public constructor(
     public readonly token0: string,
@@ -56,6 +60,7 @@ export class NativePool {
     // [this.token0, this.token1] = tokenA.sortsBefore(tokenB) ? [tokenA, tokenB] : [tokenB, tokenA];
     this.tickSpacing = TICK_SPACINGS[this.fee];
     this.tickDataProvider = new NativeTickDataProvider(ticks, this.tickSpacing);
+    this.feeBigInt = BigInt(this.fee);
   }
 
   /**
@@ -82,11 +87,7 @@ export class NativePool {
 
     const zeroForOne = inputToken === this.token0;
 
-    const { amountCalculated: outputAmount } = this.swap(
-      zeroForOne,
-      inputAmount,
-      sqrtPriceLimitX96,
-    );
+    const outputAmount = this.swapFast(zeroForOne, inputAmount);
 
     return outputAmount * -1n;
   }
@@ -106,11 +107,7 @@ export class NativePool {
 
     const zeroForOne = outputToken === this.token1;
 
-    const { amountCalculated: inputAmount } = this.swap(
-      zeroForOne,
-      outputAmount * -1n,
-      sqrtPriceLimitX96,
-    );
+    const inputAmount = this.swapFast(zeroForOne, outputAmount * -1n);
 
     return inputAmount;
   }
@@ -218,6 +215,204 @@ export class NativePool {
       liquidity: state.liquidity,
       tickCurrent: state.tick,
     };
+  }
+
+  private swapFast(zeroForOne: boolean, amountSpecified: bigint): bigint {
+    invariant(amountSpecified !== 0n, 'ZERO_AMOUNT_SPECIFIED');
+    const sqrtPriceLimitX96 = zeroForOne
+      ? TickMath.MIN_SQRT_RATIO + 1n
+      : TickMath.MAX_SQRT_RATIO - 1n;
+
+    if (zeroForOne) {
+      invariant(sqrtPriceLimitX96 < this.sqrtRatioX96, 'RATIO_CURRENT');
+    } else {
+      invariant(sqrtPriceLimitX96 > this.sqrtRatioX96, 'RATIO_CURRENT');
+    }
+
+    const exactInput = amountSpecified >= 0n;
+    let stateAmountSpecifiedRemaining = amountSpecified;
+    let stateAmountCalculated = 0n;
+    let stateSqrtPriceX96 = this.sqrtRatioX96;
+    let stateTick = this.tickCurrent;
+    let stateLiquidity = this.liquidity;
+
+    // start swap while loop
+    while (stateAmountSpecifiedRemaining !== 0n && stateSqrtPriceX96 !== sqrtPriceLimitX96) {
+      let stepSqrtPriceStartX96: bigint;
+      let stepTickNext: number;
+      let stepTickNextInitialized: NativeTick | null;
+      let stepSqrtPriceNextX96: bigint;
+      let stepAmountIn: bigint;
+      let stepAmountOut: bigint;
+      let stepFeeAmount: bigint;
+      stepSqrtPriceStartX96 = stateSqrtPriceX96;
+
+      // because each iteration of the while loop rounds, we can't optimize this code (relative to the smart contract)
+      // by simply traversing to the next available tick, we instead need to exactly replicate
+      // tickBitmap.nextInitializedTickWithinOneWord
+      [stepTickNext, stepTickNextInitialized] =
+        this.tickDataProvider.nextInitializedTickWithinOneWord(
+          stateTick,
+          zeroForOne,
+          this.tickSpacing,
+        );
+
+      stepTickNext = clamp(stepTickNext, TickMath.MIN_TICK, TickMath.MAX_TICK);
+      stepSqrtPriceNextX96 = TickMath.getSqrtRatioAtTick(stepTickNext);
+
+      //BEGIN of SwapMath.computeSwapStep
+      const swapStepSqrtPriceNextX96 = (
+        zeroForOne
+          ? stepSqrtPriceNextX96 < sqrtPriceLimitX96
+          : stepSqrtPriceNextX96 > sqrtPriceLimitX96
+      )
+        ? sqrtPriceLimitX96
+        : stepSqrtPriceNextX96;
+      const swapStepSqrtPriceX96 = stateSqrtPriceX96;
+      const swapStepLiquidity = stateLiquidity;
+      const swapStepAmountSpecifiedRemaining = stateAmountSpecifiedRemaining;
+
+      if (exactInput) {
+        const amountRemainingLessFee =
+          (swapStepAmountSpecifiedRemaining * (MAX_FEE - this.feeBigInt)) / MAX_FEE;
+        stepAmountIn = zeroForOne
+          ? SqrtPriceMath.getAmount0Delta(
+              swapStepSqrtPriceNextX96,
+              swapStepSqrtPriceX96,
+              swapStepLiquidity,
+              true,
+            )
+          : SqrtPriceMath.getAmount1Delta(
+              swapStepSqrtPriceX96,
+              swapStepSqrtPriceNextX96,
+              swapStepLiquidity,
+              true,
+            );
+        if (amountRemainingLessFee >= stepAmountIn!) {
+          stateSqrtPriceX96 = swapStepSqrtPriceNextX96;
+        } else {
+          stateSqrtPriceX96 = SqrtPriceMath.getNextSqrtPriceFromInput(
+            swapStepSqrtPriceX96,
+            swapStepLiquidity,
+            amountRemainingLessFee,
+            zeroForOne,
+          );
+        }
+      } else {
+        stepAmountOut = zeroForOne
+          ? SqrtPriceMath.getAmount1Delta(
+              swapStepSqrtPriceNextX96,
+              swapStepSqrtPriceX96,
+              swapStepLiquidity,
+              false,
+            )
+          : SqrtPriceMath.getAmount0Delta(
+              swapStepSqrtPriceX96,
+              swapStepSqrtPriceNextX96,
+              swapStepLiquidity,
+              false,
+            );
+        if (swapStepAmountSpecifiedRemaining * -1n >= stepAmountOut) {
+          stateSqrtPriceX96 = swapStepSqrtPriceNextX96;
+        } else {
+          stateSqrtPriceX96 = SqrtPriceMath.getNextSqrtPriceFromOutput(
+            swapStepSqrtPriceX96,
+            swapStepLiquidity,
+            swapStepAmountSpecifiedRemaining * -1n,
+            zeroForOne,
+          );
+        }
+      }
+
+      const max = swapStepSqrtPriceNextX96 === stateSqrtPriceX96;
+
+      if (zeroForOne) {
+        stepAmountIn =
+          max && exactInput
+            ? stepAmountIn!
+            : SqrtPriceMath.getAmount0Delta(
+                stateSqrtPriceX96,
+                swapStepSqrtPriceX96,
+                swapStepLiquidity,
+                true,
+              );
+        stepAmountOut =
+          max && !exactInput
+            ? stepAmountOut!
+            : SqrtPriceMath.getAmount1Delta(
+                stateSqrtPriceX96,
+                swapStepSqrtPriceX96,
+                swapStepLiquidity,
+                false,
+              );
+      } else {
+        stepAmountIn =
+          max && exactInput
+            ? stepAmountIn!
+            : SqrtPriceMath.getAmount1Delta(
+                swapStepSqrtPriceX96,
+                stateSqrtPriceX96,
+                swapStepLiquidity,
+                true,
+              );
+        stepAmountOut =
+          max && !exactInput
+            ? stepAmountOut!
+            : SqrtPriceMath.getAmount0Delta(
+                swapStepSqrtPriceX96,
+                stateSqrtPriceX96,
+                swapStepLiquidity,
+                false,
+              );
+      }
+
+      if (!exactInput && stepAmountOut! > swapStepAmountSpecifiedRemaining * -1n) {
+        stepAmountOut = swapStepAmountSpecifiedRemaining * -1n;
+      }
+
+      if (exactInput && stateSqrtPriceX96 !== swapStepSqrtPriceNextX96) {
+        // we didn't reach the target, so take the remainder of the maximum input as fee
+        stepFeeAmount = swapStepAmountSpecifiedRemaining - stepAmountIn!;
+      } else {
+        stepFeeAmount = FullMath.mulDivRoundingUp(
+          stepAmountIn!,
+          this.feeBigInt,
+          MAX_FEE - this.feeBigInt,
+        );
+      }
+      //END of SwapMath.computeSwapStep
+
+      if (exactInput) {
+        stateAmountSpecifiedRemaining -= stepAmountIn! + stepFeeAmount;
+        stateAmountCalculated -= stepAmountOut!;
+      } else {
+        stateAmountSpecifiedRemaining += stepAmountOut!;
+        stateAmountCalculated += stepAmountIn! + stepFeeAmount;
+      }
+
+      // TODO
+      if (stateSqrtPriceX96 === stepSqrtPriceNextX96) {
+        // if the tick is initialized, run the tick transition
+        if (stepTickNextInitialized) {
+          let liquidityNet = stepTickNextInitialized.liquidityNet;
+          // if we're moving leftward, we interpret liquidityNet as the opposite sign
+          // safe because liquidityNet cannot be type(int128).min
+          if (zeroForOne) {
+            liquidityNet *= -1n;
+          }
+
+          stateLiquidity = LiquidityMath.addDelta(stateLiquidity, liquidityNet);
+          invariant(exactInput || stateLiquidity !== 0n, 'LIQUIDITY_ZERO');
+        }
+
+        stateTick = zeroForOne ? stepTickNext - 1 : stepTickNext;
+      } else if (stateSqrtPriceX96 !== stepSqrtPriceStartX96) {
+        // recompute unless we're on a lower tick boundary (i.e. already transitioned ticks), and haven't moved
+        stateTick = TickMath.getTickAtSqrtRatio(stateSqrtPriceX96);
+      }
+    }
+
+    return stateAmountCalculated;
   }
 
   public swapSteps(zeroForOne: boolean): NativeSwapStep[] {

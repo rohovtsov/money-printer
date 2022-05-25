@@ -8,7 +8,7 @@ import {
   UNISWAP_QUERY_ABI,
 } from '../entities';
 import { defer, from, last, lastValueFrom, mergeMap, reduce, tap } from 'rxjs';
-import { retry } from 'rxjs/operators';
+import { catchError, retry } from 'rxjs/operators';
 
 export class UniswapV2ReservesSyncer {
   private queryContract: Contract;
@@ -35,7 +35,18 @@ export class UniswapV2ReservesSyncer {
 
     const request$ = from(this.splitMarketsIntoBatches(markets)).pipe(
       mergeMap((marketsBatch) => {
-        return defer(() => this.syncReservesBatch(marketsBatch)).pipe(retry(5));
+        return defer(() => this.syncReservesBatch(marketsBatch)).pipe(
+          retry(5),
+          catchError((err) => {
+            console.log(`Request v2 error: ${marketsBatch.length}`);
+            console.log(
+              `Request v2 error addresses:${JSON.stringify(
+                marketsBatch.map((m) => m.marketAddress),
+              )}`,
+            );
+            throw err;
+          }),
+        );
       }, this.parallelCount),
       reduce((acc, changedMarkets) => {
         acc.push(...changedMarkets);

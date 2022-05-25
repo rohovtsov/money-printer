@@ -10,6 +10,7 @@ import {
   endTime,
   ERC20_ABI,
   createFlashbotsBundleProvider,
+  getLastBlockNumber,
 } from '../src/entities';
 import { UniswapV3Market } from '../src/uniswap/uniswap-v3-market';
 import { UniswapV3PoolStateSyncer } from '../src/uniswap/uniswap-v3-pool-state-syncer';
@@ -29,7 +30,7 @@ function filterResult(amount: bigint, result: any) {
     const output = res?.[0]?.toSignificant(100);
     const isLiquidityZero = JSBI.lessThanOrEqual(JSBI.BigInt(liquidity ?? '0'), JSBI.BigInt(0));
 
-    console.log(
+    /*console.log(
       index,
       isInput ? 'input' : 'output',
       res?.[0]?.currency?.address,
@@ -37,7 +38,7 @@ function filterResult(amount: bigint, result: any) {
       'liquidity',
       liquidity,
       isLiquidityZero,
-    );
+    );*/
     if (isInput && isLiquidityZero) {
       return null;
     }
@@ -237,7 +238,11 @@ describe('UniswapV3PriceCalculator', function () {
         ? 'https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3'
         : 'https://api.thegraph.com/subgraphs/name/ln-e/uniswap-v3-goerli';
     const provider = new providers.InfuraProvider(network, '8ac04e84ff9e4fd19db5bfa857b90a92');
-    const factory = new UniswapV3MarketFactory(provider, UNISWAP_V3_FACTORY_ADDRESS, 12380000);
+    const factory = new UniswapV3MarketFactory(
+      provider,
+      UNISWAP_V3_FACTORY_ADDRESS,
+      await getLastBlockNumber(provider),
+    );
     const syncer = new UniswapV3PoolStateSyncer(10, endpoint);
     const markets = await factory.getEthMarkets();
     const market = markets.find(
@@ -294,10 +299,8 @@ describe('UniswapV3PriceCalculator', function () {
     const syncPrices = calcPricesWithSyncSdkPool(syncSdkPool, amount);
     const nativePrices = calcPricesWithNativePool(nativePool, amount);
     const sdkPrices = await calcPricesWithSdkPool(sdkPool, amount);
-    /*
     performanceTest(nativePool, syncSdkPool, amount);
     testOutputs(nativePool, syncSdkPool, amount);
-*/
 
     console.log(contractPrices.slice(0, 4).map((b) => b?.toString()));
     console.log(sdkPrices.map((b: any) => b?.toString()));
