@@ -218,7 +218,7 @@ export class ArbitrageExecutor {
   ): Promise<SimulatedArbitrageOpportunity> {
     const transactionData = await this.createOpportunityTransactionData(
       opportunity,
-      0n,
+      1n,
       gasPrice,
       1000000n,
     );
