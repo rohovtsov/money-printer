@@ -83,13 +83,11 @@ async function main() {
   const executor = new ArbitrageExecutor(flashbots, senders, provider, PRIVATE_KEY);
   const allowedMarkets = blacklist.filterMarkets(markets);
 
-  //for (let i = 0; i < 100; i++) {
   await new UniswapV3PreSyncer(
     new UniswapV3PoolStateSyncer(3),
     markets.filter((market) => market.protocol === 'uniswapV3') as UniswapV3Market[],
-    true,
+    false,
   ).presync();
-  //}
 
   const runner = new ArbitrageRunner(
     allowedMarkets,
@@ -125,9 +123,9 @@ async function main() {
       );
       console.log(`Since block was received: ${Date.now() - event.blockReceivedAt}ms\n`);
 
-      for (const op of opportunities) {
+      /*for (const op of opportunities) {
         printOpportunity(op);
-      }
+      }*/
 
       return from(
         opportunities.map((op) => [op, event.baseFeePerGas] as [ArbitrageOpportunity, bigint]),
@@ -174,6 +172,11 @@ async function main() {
     }, concurrentSimulationCount),
     bufferTime(100),
     concatMap((simulatedOpportunities) => {
+      if (simulatedOpportunities.length > 1) {
+        console.log(
+          `Sort before execution: ${simulatedOpportunities.length} simulated opportunities`,
+        );
+      }
       return from(sortOpportunitiesByProfit<SimulatedArbitrageOpportunity>(simulatedOpportunities));
     }),
   );
@@ -214,7 +217,7 @@ async function main() {
     }),
   );
 
-  opportunities$.subscribe();
+  executedOpportunities$.subscribe();
 }
 
 main();

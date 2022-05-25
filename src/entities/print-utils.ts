@@ -36,7 +36,7 @@ export function printOpportunity(opp: ArbitrageOpportunity): void {
     .join('\n')}`;
 
   console.log(
-    `Opportunity of type: "${opp.strategyName}" at ${opp.blockNumber}\n` +
+    `Opportunity of type "${opp.strategyName}" in ${opp.operations.length}-angle at ${opp.blockNumber}\n` +
       `Profit: ${bigIntToDecimal(opp.profit, 18).toFixed(20)} of ${tokenShortName(
         opp.startToken,
       )}\n` +
