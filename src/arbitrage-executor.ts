@@ -242,7 +242,11 @@ export class ArbitrageExecutor {
       } else if (error?.body?.startsWith('Too many requests')) {
         throw { queue: true };
       } else {
-        console.log(`Simulation ${revert ? 'reverted' : 'error'}.`, revert, error);
+        console.log(
+          `Simulation ${revert ? 'reverted' : 'error'}.`,
+          revert,
+          error?.toString() ?? error,
+        );
       }
 
       if (error?.message?.startsWith('err: max fee per gas less')) {
