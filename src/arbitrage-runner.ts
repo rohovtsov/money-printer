@@ -291,8 +291,7 @@ export function fromNewBlockEvent(
         const baseFeePerGas = BigInt(rawBlock.baseFeePerGas);
         const gasUsed = BigInt(rawBlock.gasUsed);
         const gasLimit = BigInt(rawBlock.gasLimit);
-        const nextBaseFeePerGas =
-          (calcBaseFeePerGas(baseFeePerGas, gasUsed, gasLimit) * 120n) / 100n;
+        const nextBaseFeePerGas = calcBaseFeePerGas(baseFeePerGas, gasUsed, gasLimit);
         console.log(`${logMessage}, next gas price: ${nextBaseFeePerGas.toString()}`);
         observer.next({ blockReceivedAt, blockNumber, nextBaseFeePerGas });
       } else {
