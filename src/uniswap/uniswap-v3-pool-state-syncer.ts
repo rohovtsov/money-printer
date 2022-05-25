@@ -3,9 +3,10 @@ import { UniswapV3Market } from './uniswap-v3-market';
 const fetch = require('node-fetch');
 import gql from 'graphql-tag';
 import ApolloClient from 'apollo-boost';
-import { defer, from, lastValueFrom, mergeMap, reduce } from 'rxjs';
-import { retry } from 'rxjs/operators';
+import { defer, EMPTY, from, lastValueFrom, mergeMap, reduce, tap } from 'rxjs';
+import { catchError, retry } from 'rxjs/operators';
 import { NativeTick } from './native-pool/native-pool-utils';
+import { GraphQLError } from 'graphql';
 
 interface PoolData {
   id: string;
@@ -126,7 +127,14 @@ export class UniswapV3PoolStateSyncer {
   private async syncMarketsBulk(markets: UniswapV3Market[], minBlockNumber: number): Promise<void> {
     const bulkRecursive = async (poolsOffset = 0): Promise<PoolData[]> => {
       const bulk = await lastValueFrom(
-        defer(() => this.requestPoolsBulk(poolsOffset, minBlockNumber)).pipe(retry(5)),
+        defer(() => this.requestPoolsBulk(poolsOffset, minBlockNumber)).pipe(
+          catchError((err) => {
+            console.log('err');
+            console.log(err);
+            return EMPTY;
+          }),
+          retry(5),
+        ),
       );
 
       if (poolsOffset < 5) {
@@ -253,6 +261,11 @@ export class UniswapV3PoolStateSyncer {
     const request$ = from(splitIntoBatches<Address>(addresses, 100)).pipe(
       mergeMap((addressBatch) => {
         return defer(() => this.requestPoolsBatch(addressBatch, minBlockNumber, offset)).pipe(
+          catchError((err) => {
+            console.log('err');
+            console.log(err);
+            return EMPTY;
+          }),
           retry(5),
         );
       }, this.parallelCount),
@@ -270,7 +283,7 @@ export class UniswapV3PoolStateSyncer {
     minBlockNumber: number = 0,
     offset = 0,
   ): Promise<PoolsBatch> {
-    const { data }: { data: PoolsBatch } = await this.client.query({
+    const { data, errors } = await this.client.query<PoolsBatch>({
       query: this.query,
       variables: {
         pools: pools,
@@ -278,6 +291,8 @@ export class UniswapV3PoolStateSyncer {
       },
       fetchPolicy: 'no-cache',
     });
+
+    console.log('errors', errors);
 
     console.log(
       'Request v3:',
@@ -297,13 +312,15 @@ export class UniswapV3PoolStateSyncer {
     poolsOffset: number,
     minBlockNumber: number = 0,
   ): Promise<PoolsBatch> {
-    const { data }: { data: PoolsBatch } = await this.client.query({
+    const { data, errors } = await this.client.query<PoolsBatch>({
       query: this.bulkQuery,
       variables: {
         poolsOffset: poolsOffset * 1000,
       },
       fetchPolicy: 'no-cache',
     });
+
+    console.log('errors', errors);
 
     console.log(
       'Request v3 bulk:',

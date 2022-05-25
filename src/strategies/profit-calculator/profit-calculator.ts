@@ -1,5 +1,5 @@
 import { UniswapV3Market } from '../../uniswap/uniswap-v3-market';
-import { bigIntSqrt, bigIntSqrtFast, EthMarket, MarketAction } from '../../entities';
+import { bigIntSqrtFast, EthMarket, MarketAction } from '../../entities';
 import { NativeSwapStep } from '../../uniswap/native-pool/native-pool';
 import { UniswapV2Market } from '../../uniswap/uniswap-v2-market';
 import { MAX_FEE } from '../../uniswap/native-pool/native-pool-utils';
@@ -329,7 +329,7 @@ function extremumTriangleInternal(
     G1 * G2 * G3 * G3 * G3 * M2 * M2 * T1 * T1 * T1 * T2 * T3 +
     2n * G1 * G2 * G3 * G3 * M2 * M3 * T1 * T1 * T1 * T2 * T2 * T3 +
     G1 * G2 * G3 * M3 * M3 * T1 * T1 * T1 * T2 * T2 * T2 * T3;
-  const SQRT = bigIntSqrtFast(forSQRT, 2n);
+  const SQRT = bigIntSqrtFast(forSQRT);
   //Found opportunities: 210 in 80578ms at 14840712
   //Found opportunities: 256 in 53589ms at 14840727
 

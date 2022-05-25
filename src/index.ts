@@ -83,11 +83,13 @@ async function main() {
   const executor = new ArbitrageExecutor(flashbots, senders, provider, PRIVATE_KEY);
   const allowedMarkets = blacklist.filterMarkets(markets);
 
+  //for (let i = 0; i < 100; i++) {
   await new UniswapV3PreSyncer(
     new UniswapV3PoolStateSyncer(3),
     markets.filter((market) => market.protocol === 'uniswapV3') as UniswapV3Market[],
     true,
   ).presync();
+  //}
 
   const runner = new ArbitrageRunner(
     allowedMarkets,
