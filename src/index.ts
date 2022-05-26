@@ -97,7 +97,7 @@ async function main() {
     [
       new FixedAmountArbitrageStrategy(
         {
-          [WETH_ADDRESS]: [ETHER * 2n, 'extremum'], //, ETHER.mul(10), ETHER]
+          [WETH_ADDRESS]: ['extremum'], //, ETHER.mul(10), ETHER]
         },
         allowedMarkets,
       ),
