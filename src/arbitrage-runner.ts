@@ -4,11 +4,11 @@ import {
   ArbitrageOpportunity,
   ArbitrageStrategy,
   calcBaseFeePerGas,
+  calcViableFeePerGas,
   canCalcBaseFeePerGas,
   endTime,
   EthMarket,
   getBaseFeePerGas,
-  raceGetLogs,
   sortOpportunitiesByProfit,
   startTime,
   UNISWAP_POOL_EVENT_TOPICS,
@@ -35,21 +35,21 @@ import { UniswapV3PoolStateSyncerContractQuery } from './uniswap/uniswap-v3-pool
 
 interface SyncEvent {
   changedMarkets: EthMarket[];
-  baseFeePerGas: bigint;
+  feePerGas: bigint;
   blockNumber: number;
   blockReceivedAt: number;
   initial: boolean;
 }
 
 interface NewBlockEvent {
-  nextBaseFeePerGas: bigint;
+  nextFeePerGas: bigint;
   blockNumber: number;
   blockReceivedAt: number;
 }
 
 interface ArbitrageEvent {
   opportunities: ArbitrageOpportunity[];
-  baseFeePerGas: bigint;
+  feePerGas: bigint;
   blockNumber: number;
   blockReceivedAt: number;
 }
@@ -88,7 +88,7 @@ export class ArbitrageRunner {
         if (index === 0) {
           return of({
             changedMarkets: this.markets,
-            baseFeePerGas: event.nextBaseFeePerGas,
+            feePerGas: event.nextFeePerGas,
             blockReceivedAt: event.blockReceivedAt,
             blockNumber: event.blockNumber,
             initial: true,
@@ -118,7 +118,7 @@ export class ArbitrageRunner {
             );
             return {
               changedMarkets,
-              baseFeePerGas: event.nextBaseFeePerGas,
+              feePerGas: event.nextFeePerGas,
               blockReceivedAt: event.blockReceivedAt,
               blockNumber: event.blockNumber,
               initial: false,
@@ -184,7 +184,7 @@ export class ArbitrageRunner {
             event.blockNumber,
             event.blockReceivedAt,
           ),
-          baseFeePerGas: event.baseFeePerGas,
+          feePerGas: event.feePerGas,
           blockReceivedAt: event.blockReceivedAt,
           blockNumber: event.blockNumber,
         };
@@ -292,13 +292,19 @@ export function fromNewBlockEvent(
         const gasUsed = BigInt(rawBlock.gasUsed);
         const gasLimit = BigInt(rawBlock.gasLimit);
         const nextBaseFeePerGas = calcBaseFeePerGas(baseFeePerGas, gasUsed, gasLimit);
-        console.log(`${logMessage}, next gas price: ${nextBaseFeePerGas.toString()}`);
-        observer.next({ blockReceivedAt, blockNumber, nextBaseFeePerGas });
+        const nextFeePerGas = calcViableFeePerGas(nextBaseFeePerGas);
+        console.log(
+          `${logMessage}, next gas price: ${nextFeePerGas.toString()} (next base price is: ${nextBaseFeePerGas.toString()})`,
+        );
+        observer.next({ blockReceivedAt, blockNumber, nextFeePerGas });
       } else {
         console.log(logMessage);
         getBaseFeePerGas(provider, blockNumber).then((nextBaseFeePerGas) => {
-          console.log(`Next gas price: ${nextBaseFeePerGas}, for block ${blockNumber}`);
-          observer.next({ blockReceivedAt, blockNumber, nextBaseFeePerGas });
+          const nextFeePerGas = calcViableFeePerGas(nextBaseFeePerGas);
+          console.log(
+            `Next gas price: ${nextFeePerGas} (next base price is: ${nextBaseFeePerGas.toString()}), for block ${blockNumber}`,
+          );
+          observer.next({ blockReceivedAt, blockNumber, nextFeePerGas });
         });
       }
     });

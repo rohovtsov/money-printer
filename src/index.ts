@@ -61,7 +61,10 @@ async function main() {
     FLASHBOTS_RELAY_HACKED_SIGNING_KEY,
     FLASHBOTS_RELAY_SIGNING_KEY,
   );
-  const senders = [flashbots, await EthermineTransactionSender.create(provider)];
+  const senders =
+    NETWORK === 'mainnet'
+      ? [flashbots, await EthermineTransactionSender.create(provider)]
+      : [flashbots];
 
   const LAST_BLOCK = await getLastBlockNumber(providerForLogs);
   const factories: EthMarketFactory[] = [
@@ -106,7 +109,7 @@ async function main() {
   );
 
   const thisBlock$ = runner.currentBlockNumber$;
-  const concurrentSimulationCount = 20;
+  const concurrentSimulationCount = 50;
   const minGas = 200000n;
   const sync$ = runner.start();
   const opportunities$ = sync$.pipe(
@@ -114,7 +117,7 @@ async function main() {
     delay(1),
     switchMap((event) => {
       const opportunities = event.opportunities.filter(
-        (op) => op.profit - minGas * event.baseFeePerGas >= MIN_PROFIT_NET,
+        (op) => op.profit - minGas * event.feePerGas >= MIN_PROFIT_NET,
       );
       console.log(
         `Found opportunities: ${opportunities.length} in ${endTime('render')}ms at ${
@@ -128,13 +131,13 @@ async function main() {
       }*/
 
       return from(
-        opportunities.map((op) => [op, event.baseFeePerGas] as [ArbitrageOpportunity, bigint]),
+        opportunities.map((op) => [op, event.feePerGas] as [ArbitrageOpportunity, bigint]),
       );
     }),
   );
 
   const simulatedOpportunities$ = opportunities$.pipe(
-    mergeMap(([opportunity, baseFeePerGas]) => {
+    mergeMap(([opportunity, feePerGas]) => {
       return thisBlock$.pipe(
         concatMap((blockNumber) => {
           if (blockNumber > opportunity.blockNumber) {
@@ -148,7 +151,7 @@ async function main() {
 
           console.log(`Simulation started. On ${blockNumber}`);
 
-          return defer(() => executor.simulateOpportunity(opportunity, baseFeePerGas)).pipe(
+          return defer(() => executor.simulateOpportunity(opportunity, feePerGas)).pipe(
             catchError((err: any) => {
               //если отвалилось иза-за неправильного газа, проверим на след. блоке
               if (err?.queue) {

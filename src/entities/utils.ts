@@ -238,6 +238,14 @@ export function canCalcBaseFeePerGas(blockNumber: number): boolean {
   );
 }
 
+export function calcViableFeePerGas(baseFeePerGas: bigint): bigint {
+  if (NETWORK === 'mainnet') {
+    return baseFeePerGas + 1n * GWEI;
+  } else {
+    return (baseFeePerGas * 120n) / 100n;
+  }
+}
+
 export function calcBaseFeePerGas(
   baseFeePerGas: bigint,
   gasUsed: bigint,
